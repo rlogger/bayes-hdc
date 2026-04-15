@@ -31,16 +31,6 @@ For running examples (matplotlib, scikit-learn):
 
    pip install -e ".[examples]"
 
-Using Nix
----------
-
-For reproducible development environments:
-
-.. code-block:: bash
-
-   nix develop        # Enter development shell (flakes)
-   nix-shell          # Traditional nix-shell
-
 GPU/TPU
 -------
 

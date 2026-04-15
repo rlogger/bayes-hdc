@@ -71,13 +71,6 @@ For development:
 pip install -e ".[dev]"
 ```
 
-### Nix
-
-```bash
-nix develop   # flakes
-nix-shell     # traditional
-```
-
 ## Quick Start
 
 ```python

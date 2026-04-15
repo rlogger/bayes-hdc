@@ -50,11 +50,5 @@ docs/_build/
 # Profiling
 *.prof
 
-# Nix
-result
-result-*
-.direnv/
-.envrc.cache
-
 # Benchmarks
 benchmarks/benchmark_results.json
