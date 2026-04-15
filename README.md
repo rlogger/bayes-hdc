@@ -10,54 +10,42 @@
 
 JAX-HDC provides efficient implementations of Hyperdimensional Computing (HDC) and Vector Symbolic Architectures (VSA) using JAX. The library leverages XLA compilation, automatic vectorization, and hardware acceleration with a functional programming interface.
 
-## Roadmap: Beyond TorchHD
+## Roadmap
 
-> **We're not porting TorchHD to JAX. We're building the HDC library researchers actually publish with.**
-
-Six things no HDC library offers today. Ship them, then submit to JMLR MLOSS.
-
-### 1. Learnable codebooks, not random
-Random codebooks are an 80s convenience, not a law. Every encoder in JAX-HDC learns its codebook end-to-end through the full VSA pipeline — bind, bundle, permute, cleanup — all differentiable.
+### v0.2 — Differentiable VSA primitives
+- [ ] Backprop through `bind`, `bundle`, `permute`, and `cleanup` for all eight VSA models
 - [ ] Straight-through estimators for BSC, BSBC, and CGR
-- [ ] Backprop through every VSA primitive in `jax_hdc/vsa.py`
-- [ ] First-class Flax, Equinox, and Optax interop
-- [ ] Joint training with downstream neural layers (hybrid neuro-symbolic loops)
+- [ ] Learnable codebooks, level tables, and projection matrices
+- [ ] Flax, Equinox, and Optax interop
 
-### 2. Probabilistic by default
-Every hypervector carries a distribution, not a point. Calibrated uncertainty for classification and retrieval — a first in the HDC field.
-- [ ] Bayesian hypervectors with posterior sampling
+### v0.3 — Probabilistic hypervectors
+- [ ] Posterior sampling over hypervector distributions
 - [ ] Variational codebooks via reparameterization
 - [ ] Conformal prediction for VSA classifiers
-- [ ] Temperature-calibrated similarity for retrieval
+- [ ] Temperature calibration for similarity-based retrieval
 
-### 3. TPU-scale hypervectors
-JAX's distribution story, applied to HDC end-to-end. Million-dimensional vectors across pods, streaming ingest, memory-mapped billion-symbol codebooks.
-- [ ] `pmap` and `shard_map` kernels for every VSA operation
-- [ ] Zero-copy sharded codebooks across accelerators
-- [ ] Online and streaming classifiers with concept-drift handling
+### v0.4 — Distributed and streaming
+- [ ] `pmap` and `shard_map` kernels for all VSA operations
+- [ ] Sharded codebooks across accelerators
+- [ ] Online classifiers with concept-drift handling
 - [ ] Memory-mapped codebooks for >1B-symbol vocabularies
 
-### 4. Reasoning, not classification
-HDC is a cognitive architecture — use it as one. First-class analogical mapping and knowledge-graph primitives, not just `CentroidClassifier.fit`.
-- [ ] Structure-mapping engine (SME) on VSAs
+### v0.5 — Reasoning primitives
+- [ ] Structure-mapping engine on VSAs
 - [ ] Knowledge-graph embeddings and link prediction
-- [ ] Rule induction and program synthesis on hypervectors
-- [ ] Compositional generalization benchmarks (SCAN, COGS, CLEVR-CoGenT)
+- [ ] Rule induction on hypervectors
+- [ ] Compositional generalization benchmarks (SCAN, COGS)
 
-### 5. Capacity, measured
-Every HDC paper re-derives the same noise bounds. Ship them as a library.
+### v0.6 — Capacity and robustness analysis
 - [ ] Capacity, crosstalk, and binding-noise probes per VSA model
 - [ ] Analytic and empirical noise budgets
-- [ ] Robustness and adversarial audits
-- [ ] Interpretable bundle decomposition and cleanup tracing
+- [ ] Adversarial robustness audits
+- [ ] Bundle decomposition and cleanup tracing
 
-### 6. A published benchmark
-- [ ] Reproducible head-to-head vs. TorchHD on 15+ datasets
-- [ ] Standardized accuracy, throughput, memory, and energy-per-inference reports
-- [ ] Public leaderboard with seeded, containerized runs
-- [ ] Paper draft targeting JMLR MLOSS
-
----
+### v1.0 — Benchmark suite
+- [ ] Reproducible head-to-head comparisons against TorchHD on 15+ datasets
+- [ ] Accuracy, throughput, memory, and energy-per-inference metrics
+- [ ] Seeded, containerized runs with fixed hardware profiles
 
 ## Features
 
