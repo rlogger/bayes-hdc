@@ -1,4 +1,4 @@
-# JAX-HDC Performance Benchmarks
+# Bayes-HDC Performance Benchmarks
 
 Reproducible performance benchmarks for core HDC operations and comparison with [TorchHD](https://github.com/hyperdimensional-computing/torchhd).
 
@@ -12,13 +12,13 @@ Reproducible performance benchmarks for core HDC operations and comparison with 
 
 ## Running Benchmarks
 
-### JAX-HDC only
+### Bayes-HDC only
 
 ```bash
 python benchmarks/benchmark_operations.py
 ```
 
-### JAX-HDC vs TorchHD comparison
+### Bayes-HDC vs TorchHD comparison
 
 ```bash
 pip install -e ".[benchmark]"

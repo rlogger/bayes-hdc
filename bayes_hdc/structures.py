@@ -12,8 +12,8 @@ from dataclasses import dataclass, field
 import jax
 import jax.numpy as jnp
 
-from jax_hdc import functional as F
-from jax_hdc._compat import register_dataclass
+from bayes_hdc import functional as F
+from bayes_hdc._compat import register_dataclass
 
 
 @register_dataclass

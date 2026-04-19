@@ -1,8 +1,8 @@
 Utilities Module
 ================
 
-The ``jax_hdc.utils`` module provides utility functions.
+The ``bayes_hdc.utils`` module provides utility functions.
 
-.. autofunction:: jax_hdc.utils.normalize
+.. autofunction:: bayes_hdc.utils.normalize
 
-.. autofunction:: jax_hdc.utils.benchmark_function
+.. autofunction:: bayes_hdc.utils.benchmark_function

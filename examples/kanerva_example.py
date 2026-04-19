@@ -29,8 +29,8 @@ Concepts demonstrated:
 import jax
 import jax.numpy as jnp
 
-from jax_hdc import MAP
-from jax_hdc.functional import cosine_similarity
+from bayes_hdc import MAP
+from bayes_hdc.functional import cosine_similarity
 
 
 def main():

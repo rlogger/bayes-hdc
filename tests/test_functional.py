@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from jax_hdc import functional as F
+from bayes_hdc import functional as F
 
 
 class TestBSCOperations:

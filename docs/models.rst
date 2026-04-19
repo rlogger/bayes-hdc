@@ -1,18 +1,18 @@
 Models Module
 =============
 
-The ``jax_hdc.models`` module provides classification and learning algorithms.
+The ``bayes_hdc.models`` module provides classification and learning algorithms.
 
 CentroidClassifier
 ------------------
 
-.. autoclass:: jax_hdc.models.CentroidClassifier
+.. autoclass:: bayes_hdc.models.CentroidClassifier
    :members:
    :undoc-members:
 
 Example::
 
-   from jax_hdc import MAP, CentroidClassifier
+   from bayes_hdc import MAP, CentroidClassifier
    import jax
    import jax.numpy as jnp
 
@@ -42,27 +42,27 @@ Example::
 LVQClassifier
 -------------
 
-.. autoclass:: jax_hdc.models.LVQClassifier
+.. autoclass:: bayes_hdc.models.LVQClassifier
    :members:
    :undoc-members:
 
 RegularizedLSClassifier
 ----------------------
 
-.. autoclass:: jax_hdc.models.RegularizedLSClassifier
+.. autoclass:: bayes_hdc.models.RegularizedLSClassifier
    :members:
    :undoc-members:
 
 AdaptiveHDC
 -----------
 
-.. autoclass:: jax_hdc.models.AdaptiveHDC
+.. autoclass:: bayes_hdc.models.AdaptiveHDC
    :members:
    :undoc-members:
 
 Example::
 
-   from jax_hdc import AdaptiveHDC
+   from bayes_hdc import AdaptiveHDC
 
    classifier = AdaptiveHDC.create(
        num_classes=10,

@@ -8,15 +8,15 @@ Requirements
 * JAX 0.4.20+
 * jaxlib 0.4.20+
 
-JAX-HDC is currently in **alpha** and is not yet published to PyPI.
+Bayes-HDC is currently in **alpha** and is not yet published to PyPI.
 
 Installing from Source
 ----------------------
 
 .. code-block:: bash
 
-   git clone https://github.com/rlogger/jax-hdc.git
-   cd jax-hdc
+   git clone https://github.com/rlogger/bayes-hdc.git
+   cd bayes-hdc
    pip install -e .
 
 For development (testing, linting, type checking):

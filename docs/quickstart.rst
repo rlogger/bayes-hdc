@@ -8,7 +8,7 @@ Basic Usage
 
    import jax
    import jax.numpy as jnp
-   from jax_hdc import MAP
+   from bayes_hdc import MAP
 
    model = MAP.create(dimensions=10000)
    key = jax.random.PRNGKey(42)
@@ -27,7 +27,7 @@ Classification Pipeline
 .. code-block:: python
 
    import jax
-   from jax_hdc import MAP, RandomEncoder, CentroidClassifier
+   from bayes_hdc import MAP, RandomEncoder, CentroidClassifier
 
    model = MAP.create(dimensions=10000)
    key = jax.random.PRNGKey(42)

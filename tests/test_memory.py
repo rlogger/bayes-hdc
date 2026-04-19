@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from jax_hdc.memory import AttentionMemory, HopfieldMemory, SparseDistributedMemory
+from bayes_hdc.memory import AttentionMemory, HopfieldMemory, SparseDistributedMemory
 
 
 class TestSparseDistributedMemory:
@@ -40,7 +40,7 @@ class TestSparseDistributedMemory:
 
         assert result.shape == (100,)
         assert jnp.isfinite(result).all()
-        from jax_hdc.functional import cosine_similarity
+        from bayes_hdc.functional import cosine_similarity
 
         sim = cosine_similarity(result, val)
         assert float(sim) > 0.5
@@ -83,7 +83,7 @@ class TestHopfieldMemory:
 
         assert result.shape == (100,)
         assert jnp.isfinite(result).all()
-        from jax_hdc.functional import cosine_similarity
+        from bayes_hdc.functional import cosine_similarity
 
         sim = cosine_similarity(result, p / jnp.linalg.norm(p))
         assert float(sim) > 0.9
@@ -168,7 +168,7 @@ class TestAttentionMemory:
             mem = mem.write(keys[i], values[i])
 
         result = mem.retrieve(keys[0])
-        from jax_hdc.functional import cosine_similarity
+        from bayes_hdc.functional import cosine_similarity
 
         sim = cosine_similarity(result, values[0])
         assert sim > 0.5

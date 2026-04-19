@@ -1,6 +1,6 @@
-# JAX-HDC Examples
+# Bayes-HDC Examples
 
-Runnable examples demonstrating JAX-HDC capabilities.
+Runnable examples demonstrating Bayes-HDC capabilities.
 
 ## Examples
 

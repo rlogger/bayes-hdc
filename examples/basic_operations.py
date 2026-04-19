@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Rajdeep Singh
 
-"""Basic operations example for JAX-HDC.
+"""Basic operations example for Bayes-HDC.
 
 Demonstrates fundamental operations of Hyperdimensional Computing:
 - Random hypervector generation
@@ -24,8 +24,8 @@ import time
 import jax
 import jax.numpy as jnp
 
-from jax_hdc import BSC, MAP
-from jax_hdc.utils import normalize
+from bayes_hdc import BSC, MAP
+from bayes_hdc.utils import normalize
 
 
 def demo_binding_and_unbinding():
@@ -146,7 +146,7 @@ def demo_sequence_encoding():
     print("Sequence Encoding Demo")
     print("=" * 60)
 
-    from jax_hdc.functional import permute
+    from bayes_hdc.functional import permute
 
     model = MAP.create(dimensions=10000)
     key = jax.random.PRNGKey(42)
@@ -286,7 +286,7 @@ def demo_bsc_vs_map():
 def main():
     """Run all demonstrations."""
     print("\n" + "=" * 60)
-    print("JAX-HDC: Basic Operations Examples")
+    print("Bayes-HDC: Basic Operations Examples")
     print("=" * 60)
 
     demo_binding_and_unbinding()

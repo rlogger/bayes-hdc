@@ -6,7 +6,7 @@
 import jax
 import jax.numpy as jnp
 
-from jax_hdc import utils
+from bayes_hdc import utils
 
 
 class TestNormalize:

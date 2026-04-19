@@ -5,9 +5,9 @@
 
 import jax
 
-from jax_hdc import BSC, MAP
-from jax_hdc.embeddings import LevelEncoder, ProjectionEncoder, RandomEncoder
-from jax_hdc.models import AdaptiveHDC, CentroidClassifier
+from bayes_hdc import BSC, MAP
+from bayes_hdc.embeddings import LevelEncoder, ProjectionEncoder, RandomEncoder
+from bayes_hdc.models import AdaptiveHDC, CentroidClassifier
 
 
 class TestIntegrationPipeline:

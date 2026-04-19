@@ -3,7 +3,7 @@
 # Copyright (c) 2026 Rajdeep Singh
 
 """
-Performance benchmarks for JAX-HDC core operations.
+Performance benchmarks for Bayes-HDC core operations.
 
 Reproducible methodology:
 - Warmup: 10 iterations before timing
@@ -20,10 +20,10 @@ Or with pytest (for CI):
 
 import jax
 
-from jax_hdc import MAP
-from jax_hdc import functional as F
-from jax_hdc.embeddings import RandomEncoder
-from jax_hdc.utils import benchmark_function
+from bayes_hdc import MAP
+from bayes_hdc import functional as F
+from bayes_hdc.embeddings import RandomEncoder
+from bayes_hdc.utils import benchmark_function
 
 
 def run_benchmarks():
@@ -32,7 +32,7 @@ def run_benchmarks():
     dim = 10000
 
     print("=" * 60)
-    print("JAX-HDC Performance Benchmarks")
+    print("Bayes-HDC Performance Benchmarks")
     print("Dimensions: 10,000 | Warmup: 10 | Trials: 100")
     print("=" * 60)
 

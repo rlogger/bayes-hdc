@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from jax_hdc.vsa import BSBC, BSC, CGR, FHRR, HRR, MAP, MCR, VTB, VSAModel, create_vsa_model
+from bayes_hdc.vsa import BSBC, BSC, CGR, FHRR, HRR, MAP, MCR, VTB, VSAModel, create_vsa_model
 
 
 class TestVSAModels:

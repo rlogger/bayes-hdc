@@ -1,7 +1,7 @@
-JAX-HDC Documentation
+Bayes-HDC Documentation
 =====================
 
-JAX-HDC is a high-performance library for Hyperdimensional Computing (HDC) and Vector Symbolic Architectures (VSA) built on JAX.
+Bayes-HDC is a high-performance library for Hyperdimensional Computing (HDC) and Vector Symbolic Architectures (VSA) built on JAX.
 
 Features
 --------
@@ -19,13 +19,13 @@ Quick Start
 
 Installation::
 
-   git clone https://github.com/rlogger/jax-hdc.git
-   cd jax-hdc && pip install -e .
+   git clone https://github.com/rlogger/bayes-hdc.git
+   cd bayes-hdc && pip install -e .
 
 Basic usage::
 
    import jax
-   from jax_hdc import MAP
+   from bayes_hdc import MAP
 
    model = MAP.create(dimensions=10000)
    key = jax.random.PRNGKey(42)

@@ -51,7 +51,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/ -v --cov=jax_hdc --cov-report=xml --cov-report=term-missing -k "not benchmark"
+          pytest tests/ -v --cov=bayes_hdc --cov-report=xml --cov-report=term-missing -k "not benchmark"
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -77,13 +77,13 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          ruff check jax_hdc/ tests/ examples/ benchmarks/
+          ruff check bayes_hdc/ tests/ examples/ benchmarks/
 
       - name: Check formatting with ruff
         run: |
-          ruff format --check jax_hdc/ tests/ examples/ benchmarks/
+          ruff format --check bayes_hdc/ tests/ examples/ benchmarks/
 
       - name: Type check with mypy
         run: |
-          mypy jax_hdc/ --ignore-missing-imports
+          mypy bayes_hdc/ --ignore-missing-imports
         continue-on-error: true

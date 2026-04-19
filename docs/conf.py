@@ -6,9 +6,9 @@ import sys
 
 sys.path.insert(0, os.path.abspath(".."))
 
-project = "JAX-HDC"
-copyright = "2026, JAX-HDC Contributors"
-author = "JAX-HDC Contributors"
+project = "Bayes-HDC"
+copyright = "2026, Bayes-HDC Contributors"
+author = "Bayes-HDC Contributors"
 release = "0.1.0"
 version = "0.1.0"
 

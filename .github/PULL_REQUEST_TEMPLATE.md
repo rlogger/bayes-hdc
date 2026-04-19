@@ -1,4 +1,4 @@
-<!-- Thanks for contributing to jax-hdc. Fill in the sections below. -->
+<!-- Thanks for contributing to bayes-hdc. Fill in the sections below. -->
 
 ## Summary
 
@@ -15,9 +15,9 @@
 ## Checklist
 
 - [ ] `pytest tests/` passes locally.
-- [ ] `ruff check jax_hdc/ tests/ examples/ benchmarks/` is clean.
+- [ ] `ruff check bayes_hdc/ tests/ examples/ benchmarks/` is clean.
 - [ ] `ruff format --check` is clean.
-- [ ] `mypy jax_hdc/` is clean.
+- [ ] `mypy bayes_hdc/` is clean.
 - [ ] New code has unit tests; coverage stays at >= 99%.
 - [ ] New public API has docstrings in Google style.
 - [ ] `CHANGELOG.md` updated under `[Unreleased]`.

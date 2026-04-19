@@ -6,8 +6,8 @@
 import jax
 import jax.numpy as jnp
 
-from jax_hdc import functional as F
-from jax_hdc.structures import Graph, HashTable, Multiset, Sequence
+from bayes_hdc import functional as F
+from bayes_hdc.structures import Graph, HashTable, Multiset, Sequence
 
 
 class TestMultiset:

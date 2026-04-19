@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-`jax-hdc` is in alpha. Only the latest commit on `main` and the most
+`bayes-hdc` is in alpha. Only the latest commit on `main` and the most
 recent tagged release receive security fixes.
 
 | Version | Supported |
@@ -18,9 +18,9 @@ Please **do not** open a public GitHub issue for security reports.
 Use one of the following private channels:
 
 1. **GitHub Security Advisories** — preferred. Open a draft advisory at
-   <https://github.com/rlogger/jax-hdc/security/advisories/new>.
+   <https://github.com/rlogger/bayes-hdc/security/advisories/new>.
 2. **Email** — send a description and minimal reproduction to
-   `rajdeeps@usc.edu` with subject line `[jax-hdc security]`.
+   `rajdeeps@usc.edu` with subject line `[bayes-hdc security]`.
 
 Please include:
 
@@ -41,7 +41,7 @@ Please include:
 
 In scope:
 
-- Code execution, sandbox escape, or privilege escalation in `jax_hdc/`.
+- Code execution, sandbox escape, or privilege escalation in `bayes_hdc/`.
 - Numerical correctness bugs that silently produce wrong hypervectors in
   published operations (these are prioritised as security issues when
   they affect capacity or retrieval guarantees).

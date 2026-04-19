@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from jax_hdc.embeddings import (
+from bayes_hdc.embeddings import (
     GraphEncoder,
     KernelEncoder,
     LevelEncoder,
@@ -116,7 +116,7 @@ class TestRandomEncoder:
 
     def test_creation_with_vsa_model_instance(self):
         """Test RandomEncoder creation with VSAModel instance."""
-        from jax_hdc.vsa import MAP
+        from bayes_hdc.vsa import MAP
 
         vsa = MAP.create(dimensions=100)
         encoder = RandomEncoder.create(
@@ -417,7 +417,7 @@ class TestKernelEncoder:
 
     def test_creation_with_vsa_model_instance(self):
         """Test KernelEncoder creation with VSAModel instance."""
-        from jax_hdc.vsa import MAP
+        from bayes_hdc.vsa import MAP
 
         vsa = MAP.create(dimensions=100)
         encoder = KernelEncoder.create(
@@ -453,7 +453,7 @@ class TestGraphEncoder:
 
     def test_creation_with_vsa_model_instance(self):
         """Test GraphEncoder creation with VSAModel instance."""
-        from jax_hdc.vsa import MAP
+        from bayes_hdc.vsa import MAP
 
         vsa = MAP.create(dimensions=100)
         encoder = GraphEncoder.create(

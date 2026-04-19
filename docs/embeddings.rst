@@ -1,18 +1,18 @@
 Embeddings Module
 =================
 
-The ``jax_hdc.embeddings`` module provides encoders for transforming data into hypervectors.
+The ``bayes_hdc.embeddings`` module provides encoders for transforming data into hypervectors.
 
 RandomEncoder
 -------------
 
-.. autoclass:: jax_hdc.embeddings.RandomEncoder
+.. autoclass:: bayes_hdc.embeddings.RandomEncoder
    :members:
    :undoc-members:
 
 Example::
 
-   from jax_hdc import MAP, RandomEncoder
+   from bayes_hdc import MAP, RandomEncoder
    import jax
 
    model = MAP.create(dimensions=10000)
@@ -33,13 +33,13 @@ Example::
 LevelEncoder
 ------------
 
-.. autoclass:: jax_hdc.embeddings.LevelEncoder
+.. autoclass:: bayes_hdc.embeddings.LevelEncoder
    :members:
    :undoc-members:
 
 Example::
 
-   from jax_hdc import LevelEncoder
+   from bayes_hdc import LevelEncoder
 
    encoder = LevelEncoder.create(
        num_levels=100,
@@ -56,13 +56,13 @@ Example::
 ProjectionEncoder
 -----------------
 
-.. autoclass:: jax_hdc.embeddings.ProjectionEncoder
+.. autoclass:: bayes_hdc.embeddings.ProjectionEncoder
    :members:
    :undoc-members:
 
 Example::
 
-   from jax_hdc import ProjectionEncoder
+   from bayes_hdc import ProjectionEncoder
 
    encoder = ProjectionEncoder.create(
        input_dim=784,
@@ -78,13 +78,13 @@ Example::
 KernelEncoder
 -------------
 
-.. autoclass:: jax_hdc.embeddings.KernelEncoder
+.. autoclass:: bayes_hdc.embeddings.KernelEncoder
    :members:
    :undoc-members:
 
 GraphEncoder
 ------------
 
-.. autoclass:: jax_hdc.embeddings.GraphEncoder
+.. autoclass:: bayes_hdc.embeddings.GraphEncoder
    :members:
    :undoc-members:

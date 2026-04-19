@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible bug in jax-hdc
+description: Report a reproducible bug in bayes-hdc
 labels: ["bug"]
 body:
   - type: textarea
@@ -17,7 +17,7 @@ body:
       description: Smallest Python snippet that reproduces the issue.
       render: python
       placeholder: |
-        import jax, jax_hdc as hd
+        import jax, bayes_hdc as hd
         model = hd.MAP.create(dimensions=10000)
         # ...
     validations:
@@ -41,7 +41,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: jax-hdc version
+      label: bayes-hdc version
       placeholder: e.g. 0.1.0a0 or commit SHA
     validations:
       required: true

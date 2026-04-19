@@ -12,7 +12,7 @@ failures, and tuning dimensionality in real-world deployments.
 import jax
 import jax.numpy as jnp
 
-from jax_hdc.constants import EPS
+from bayes_hdc.constants import EPS
 
 
 @jax.jit

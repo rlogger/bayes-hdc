@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Rajdeep Singh
 
-"""Performance regression tests for JAX-HDC models."""
+"""Performance regression tests for Bayes-HDC models."""
 
 import time
 
 import jax
 import pytest
 
-from jax_hdc import MAP, AdaptiveHDC, CentroidClassifier
+from bayes_hdc import MAP, AdaptiveHDC, CentroidClassifier
 
 
 @pytest.mark.benchmark

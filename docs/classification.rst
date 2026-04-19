@@ -13,9 +13,9 @@ Configuration and Imports
    import jax
    import jax.numpy as jnp
 
-   from jax_hdc import MAP
-   from jax_hdc.embeddings import RandomEncoder
-   from jax_hdc.models import CentroidClassifier
+   from bayes_hdc import MAP
+   from bayes_hdc.embeddings import RandomEncoder
+   from bayes_hdc.models import CentroidClassifier
 
    # Configuration
    DIMENSIONS = 10000
@@ -28,7 +28,7 @@ Configuration and Imports
 Datasets
 --------
 
-Generate or load your data. Here we use synthetic discrete features; for images (e.g. MNIST), you would use :class:`~jax_hdc.embeddings.LevelEncoder` or :class:`~jax_hdc.embeddings.ProjectionEncoder` instead of :class:`~jax_hdc.embeddings.RandomEncoder`.
+Generate or load your data. Here we use synthetic discrete features; for images (e.g. MNIST), you would use :class:`~bayes_hdc.embeddings.LevelEncoder` or :class:`~bayes_hdc.embeddings.ProjectionEncoder` instead of :class:`~bayes_hdc.embeddings.RandomEncoder`.
 
 .. code-block:: python
 
@@ -47,7 +47,7 @@ Generate or load your data. Here we use synthetic discrete features; for images 
 Encoding
 --------
 
-Define how to map raw data into hypervectors. For discrete features we use :class:`~jax_hdc.embeddings.RandomEncoder`; for continuous values use :class:`~jax_hdc.embeddings.LevelEncoder`, and for images use :class:`~jax_hdc.embeddings.ProjectionEncoder`.
+Define how to map raw data into hypervectors. For discrete features we use :class:`~bayes_hdc.embeddings.RandomEncoder`; for continuous values use :class:`~bayes_hdc.embeddings.LevelEncoder`, and for images use :class:`~bayes_hdc.embeddings.ProjectionEncoder`.
 
 .. code-block:: python
 
@@ -67,7 +67,7 @@ Define how to map raw data into hypervectors. For discrete features we use :clas
 Training
 --------
 
-Create the classifier and fit it on encoded hypervectors. The :class:`~jax_hdc.models.CentroidClassifier` performs single-pass learning by computing class centroids—no iterations or backpropagation.
+Create the classifier and fit it on encoded hypervectors. The :class:`~bayes_hdc.models.CentroidClassifier` performs single-pass learning by computing class centroids—no iterations or backpropagation.
 
 .. code-block:: python
 
@@ -101,4 +101,4 @@ A complete runnable script with synthetic data is in ``examples/classification_s
    pip install -e ".[examples]"
    python examples/classification_simple.py
 
-For MNIST-style image classification, use :class:`~jax_hdc.embeddings.LevelEncoder` to encode pixel values and :class:`~jax_hdc.embeddings.RandomEncoder` or position encodings for spatial structure—similar to the TorchHD encoder combining ``Random`` (position) and ``Level`` (value).
+For MNIST-style image classification, use :class:`~bayes_hdc.embeddings.LevelEncoder` to encode pixel values and :class:`~bayes_hdc.embeddings.RandomEncoder` or position encodings for spatial structure—similar to the TorchHD encoder combining ``Random`` (position) and ``Level`` (value).

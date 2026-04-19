@@ -3,7 +3,7 @@
 
 """Simple classification example with synthetic data.
 
-This example demonstrates an end-to-end classification pipeline using JAX-HDC:
+This example demonstrates an end-to-end classification pipeline using Bayes-HDC:
 1. Generate synthetic dataset with learnable patterns
 2. Encode discrete features into hypervectors using RandomEncoder
 3. Train a CentroidClassifier (single-pass, non-iterative)
@@ -21,9 +21,9 @@ import time
 import jax
 import jax.numpy as jnp
 
-from jax_hdc import MAP
-from jax_hdc.embeddings import RandomEncoder
-from jax_hdc.models import CentroidClassifier
+from bayes_hdc import MAP
+from bayes_hdc.embeddings import RandomEncoder
+from bayes_hdc.models import CentroidClassifier
 
 
 def generate_synthetic_data(key, n_samples=1000, n_features=20, n_classes=5):
@@ -58,7 +58,7 @@ def generate_synthetic_data(key, n_samples=1000, n_features=20, n_classes=5):
 def main():
     """Run classification example."""
     print("=" * 70)
-    print("JAX-HDC: Simple Classification Example")
+    print("Bayes-HDC: Simple Classification Example")
     print("=" * 70)
 
     # Configuration

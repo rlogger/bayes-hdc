@@ -7,14 +7,14 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from jax_hdc.models import (
+from bayes_hdc.models import (
     AdaptiveHDC,
     CentroidClassifier,
     ClusteringModel,
     LVQClassifier,
     RegularizedLSClassifier,
 )
-from jax_hdc.vsa import BSC, MAP
+from bayes_hdc.vsa import BSC, MAP
 
 
 class TestCentroidClassifier:

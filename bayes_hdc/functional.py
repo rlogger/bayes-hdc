@@ -17,7 +17,7 @@ from typing import Callable, Union
 import jax
 import jax.numpy as jnp
 
-from jax_hdc.constants import EPS
+from bayes_hdc.constants import EPS
 
 
 @jax.jit

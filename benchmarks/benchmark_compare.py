@@ -3,7 +3,7 @@
 # Copyright (c) 2026 Rajdeep Singh
 
 """
-Benchmark JAX-HDC vs TorchHD on equivalent operations.
+Benchmark Bayes-HDC vs TorchHD on equivalent operations.
 
 Methodology (reproducible):
 - Dimensions: 10,000
@@ -74,15 +74,15 @@ def benchmark_torch(
     return mean, std
 
 
-def run_jax_hdc_benchmarks(
+def run_bayes_hdc_benchmarks(
     dim: int = 10000, warmup: int = 20, trials: int = 200
 ) -> dict[str, float]:
-    """Run JAX-HDC benchmarks."""
+    """Run Bayes-HDC benchmarks."""
     import jax
 
-    from jax_hdc import MAP
-    from jax_hdc import functional as F
-    from jax_hdc.embeddings import RandomEncoder
+    from bayes_hdc import MAP
+    from bayes_hdc import functional as F
+    from bayes_hdc.embeddings import RandomEncoder
 
     key = jax.random.PRNGKey(42)
     model = MAP.create(dimensions=dim)
@@ -177,18 +177,18 @@ def main() -> int:
     trials = 200
 
     print("=" * 70)
-    print("JAX-HDC vs TorchHD Performance Comparison")
+    print("Bayes-HDC vs TorchHD Performance Comparison")
     print("=" * 70)
     print(f"Dimensions: {dim} | Warmup: {warmup} | Trials: {trials}")
     print("Device: CPU (both libraries)")
     print("=" * 70)
 
-    # JAX-HDC
-    print("\nRunning JAX-HDC benchmarks...")
+    # Bayes-HDC
+    print("\nRunning Bayes-HDC benchmarks...")
     try:
-        jax_results = run_jax_hdc_benchmarks(dim=dim, warmup=warmup, trials=trials)
+        jax_results = run_bayes_hdc_benchmarks(dim=dim, warmup=warmup, trials=trials)
     except Exception as e:
-        print(f"JAX-HDC benchmark failed: {e}")
+        print(f"Bayes-HDC benchmark failed: {e}")
         return 1
 
     # TorchHD
@@ -206,7 +206,7 @@ def main() -> int:
     # Comparison table
     ops = ["MAP bind (2 HVs)", "MAP bundle (10 HVs)", "Cosine similarity", "RandomEncoder (100×20)"]
     print("\n" + "-" * 70)
-    print(f"{'Operation':<30} {'JAX-HDC (ms)':<18} {'TorchHD (ms)':<18} {'Speedup':<10}")
+    print(f"{'Operation':<30} {'Bayes-HDC (ms)':<18} {'TorchHD (ms)':<18} {'Speedup':<10}")
     print("-" * 70)
 
     report: dict[str, dict] = {}
@@ -215,8 +215,8 @@ def main() -> int:
         torch_mean, torch_std = torch_results[op]
         speedup = torch_mean / jax_mean if jax_mean > 0 else 0
         report[op] = {
-            "jax_hdc_ms": round(jax_mean, 4),
-            "jax_hdc_std_ms": round(jax_std, 4),
+            "bayes_hdc_ms": round(jax_mean, 4),
+            "bayes_hdc_std_ms": round(jax_std, 4),
             "torchhd_ms": round(torch_mean, 4),
             "torchhd_std_ms": round(torch_std, 4),
             "speedup": round(speedup, 2),

@@ -1,7 +1,7 @@
 Examples
 ========
 
-JAX-HDC includes runnable examples in the ``examples/`` directory.
+Bayes-HDC includes runnable examples in the ``examples/`` directory.
 
 Basic Operations
 ----------------

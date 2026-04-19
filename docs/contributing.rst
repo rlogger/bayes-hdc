@@ -1,7 +1,7 @@
 Contributing
 ============
 
-We welcome contributions to JAX-HDC.
+We welcome contributions to Bayes-HDC.
 
 Development Setup
 -----------------
@@ -10,8 +10,8 @@ Development Setup
 
 .. code-block:: bash
 
-   git clone https://github.com/yourusername/jax-hdc.git
-   cd jax-hdc
+   git clone https://github.com/yourusername/bayes-hdc.git
+   cd bayes-hdc
 
 2. Create a virtual environment and install:
 
@@ -28,14 +28,14 @@ We use ``ruff`` for linting and formatting:
 
 .. code-block:: bash
 
-   ruff check jax_hdc/ tests/
-   ruff format jax_hdc/ tests/
+   ruff check bayes_hdc/ tests/
+   ruff format bayes_hdc/ tests/
 
 Type checking:
 
 .. code-block:: bash
 
-   mypy jax_hdc/
+   mypy bayes_hdc/
 
 Testing
 -------

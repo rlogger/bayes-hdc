@@ -1,7 +1,7 @@
-# jax-hdc self-quiz
+# bayes-hdc self-quiz
 
 58 questions to test your grasp of the library. Answers at the bottom.
-File references point to `jax_hdc/*.py` unless noted.
+File references point to `bayes_hdc/*.py` unless noted.
 
 Suggested use: read `SLIDES.md` first, then attempt each section without
 opening source. Anything you miss, read the file and try again.
@@ -106,7 +106,7 @@ opening source. Anything you miss, read the file and try again.
 
 ## I. Differentiation vs. TorchHD & roadmap (4)
 
-57. Name two modules or operations already in `jax-hdc` that are not standard in TorchHD.
+57. Name two modules or operations already in `bayes-hdc` that are not standard in TorchHD.
 58. What single feature in the v0.3 roadmap is genuinely novel relative to every public HDC library today?
 
 ---

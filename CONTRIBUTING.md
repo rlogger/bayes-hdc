@@ -1,12 +1,12 @@
-# Contributing to JAX-HDC
+# Contributing to Bayes-HDC
 
-Thank you for your interest in contributing to JAX-HDC.
+Thank you for your interest in contributing to Bayes-HDC.
 
 ## Development Setup
 
 ```bash
-git clone https://github.com/rlogger/jax-hdc.git
-cd jax-hdc
+git clone https://github.com/rlogger/bayes-hdc.git
+cd bayes-hdc
 python -m venv venv
 source venv/bin/activate
 pip install -e ".[dev]"
@@ -17,9 +17,9 @@ pip install -e ".[dev]"
 We use `ruff` for linting and formatting (line length: 100, target: Python 3.9+):
 
 ```bash
-ruff check jax_hdc/ tests/
-ruff format jax_hdc/ tests/
-mypy jax_hdc/
+ruff check bayes_hdc/ tests/
+ruff format bayes_hdc/ tests/
+mypy bayes_hdc/
 ```
 
 ### Docstrings
@@ -43,14 +43,14 @@ def function_name(arg1: type, arg2: type) -> return_type:
 
 ```bash
 pytest tests/ -v
-pytest tests/ --cov=jax_hdc --cov-report=term-missing
+pytest tests/ --cov=bayes_hdc --cov-report=term-missing
 ```
 
 Add tests for all new functionality in the `tests/` directory.
 
 ## Functional Programming Principles
 
-JAX-HDC follows functional programming principles:
+Bayes-HDC follows functional programming principles:
 
 1. **Pure functions**: No side effects
 2. **Immutability**: Use `.at[]` syntax for updates, return new instances
@@ -80,7 +80,7 @@ CI enforces the same checks across Ubuntu, macOS, and Windows on Python 3.9–3.
 Releases follow [Semantic Versioning](https://semver.org).
 
 1. Update `CHANGELOG.md`: move `[Unreleased]` entries under a new `[X.Y.Z] - YYYY-MM-DD` heading.
-2. Bump `__version__` in `jax_hdc/__init__.py` and `version` in `pyproject.toml`.
+2. Bump `__version__` in `bayes_hdc/__init__.py` and `version` in `pyproject.toml`.
 3. Bump `version` and `date-released` in `CITATION.cff`.
 4. Tag: `git tag -s vX.Y.Z -m "Release vX.Y.Z"`.
 5. Push: `git push origin main --tags`. The `publish.yml` workflow builds the wheel and uploads to TestPyPI, then PyPI.

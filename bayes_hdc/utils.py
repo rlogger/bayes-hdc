@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Rajdeep Singh
 
-"""Utility functions for JAX-HDC."""
+"""Utility functions for Bayes-HDC."""
 
 import time
 from typing import Any, Callable, Union

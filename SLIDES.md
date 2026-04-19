@@ -1,7 +1,7 @@
-# jax-hdc: library walkthrough
+# bayes-hdc: library walkthrough
 
-A deck for reading the `jax-hdc` codebase with confidence. All file
-references point to `jax_hdc/` unless noted. Slides are separated by `---`
+A deck for reading the `bayes-hdc` codebase with confidence. All file
+references point to `bayes_hdc/` unless noted. Slides are separated by `---`
 so the file renders as plain Markdown and as a Marp / Slidev deck.
 
 ---
@@ -33,7 +33,7 @@ Plus two derived operations:
 ## 2. The 10-000-ft view of this library
 
 ```
-jax_hdc/
+bayes_hdc/
 ├── functional.py     # low-level ops (bind_*, bundle_*, similarity, resonator, ...)
 ├── vsa.py            # 8 VSA model classes (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB)
 ├── embeddings.py     # 5 encoders (Random, Level, Projection, Kernel, Graph)
@@ -52,7 +52,7 @@ jax_hdc/
 
 ## 3. The public API surface
 
-`from jax_hdc import ...` exposes:
+`from bayes_hdc import ...` exposes:
 
 - **VSA models**: `BSC, BSBC, MAP, HRR, FHRR, CGR, MCR, VTB`
 - **Encoders**: `RandomEncoder, LevelEncoder, ProjectionEncoder, KernelEncoder, GraphEncoder`
@@ -291,10 +291,10 @@ for JAX < 0.4.25 and will never hit on current JAX.
 
 ```bash
 pytest tests/ -v                              # 297 tests in ~20 s
-pytest tests/ --cov=jax_hdc --cov-report=html # HTML coverage report
-ruff check jax_hdc/                           # lint (clean)
-ruff format jax_hdc/                          # format
-mypy jax_hdc/                                 # type check (clean)
+pytest tests/ --cov=bayes_hdc --cov-report=html # HTML coverage report
+ruff check bayes_hdc/                           # lint (clean)
+ruff format bayes_hdc/                          # format
+mypy bayes_hdc/                                 # type check (clean)
 python examples/basic_operations.py           # bind / bundle / permute demo
 python examples/kanerva_example.py            # analogy: king = queen · man · woman⁻¹
 python examples/classification_simple.py      # encoder → classifier pipeline
@@ -304,7 +304,7 @@ python examples/classification_simple.py      # encoder → classifier pipeline
 
 ## 18. Where this goes beyond TorchHD today
 
-Already shipping in jax-hdc, not in TorchHD:
+Already shipping in bayes-hdc, not in TorchHD:
 
 - **`metrics.py`** — capacity, SNR, participation ratio, retrieval confidence as first-class APIs.
 - **`resonator` skeleton** in `functional.py` — iterative factorisation; TorchHD does not ship one.
@@ -332,12 +332,12 @@ Everything else in the roadmap (differentiable primitives, factorisation toolkit
 
 Order to touch the files:
 
-1. `jax_hdc/functional.py` — top-to-bottom; this is the substrate.
-2. `jax_hdc/vsa.py` — how the 8 models wrap it; note the `@register_dataclass` pattern.
-3. `jax_hdc/embeddings.py` — `RandomEncoder` is the canonical example; the rest parallel it.
-4. `jax_hdc/models.py` — `CentroidClassifier` first; `ClusteringModel` if you want to see the iterative pattern.
-5. `jax_hdc/memory.py` + `jax_hdc/structures.py` — both short, same pytree pattern.
-6. `jax_hdc/metrics.py` — this is the paper-shaped differentiator; understand every function.
+1. `bayes_hdc/functional.py` — top-to-bottom; this is the substrate.
+2. `bayes_hdc/vsa.py` — how the 8 models wrap it; note the `@register_dataclass` pattern.
+3. `bayes_hdc/embeddings.py` — `RandomEncoder` is the canonical example; the rest parallel it.
+4. `bayes_hdc/models.py` — `CentroidClassifier` first; `ClusteringModel` if you want to see the iterative pattern.
+5. `bayes_hdc/memory.py` + `bayes_hdc/structures.py` — both short, same pytree pattern.
+6. `bayes_hdc/metrics.py` — this is the paper-shaped differentiator; understand every function.
 7. `examples/*.py` — read the three of them; they are your REPL.
 8. `tests/test_vsa.py` — read one test file end-to-end so you know the invariants the code maintains.
 
@@ -352,4 +352,4 @@ If you can answer `QUIZ.md` without opening the code, you are fluent.
 3. **v0.4** — distributed (`pmap`/`shard_map`) & streaming
 4. **v0.5** — probabilistic hypervectors
 5. **v0.6** — neuro-symbolic reasoning (SME, Raven's, SCAN, COGS)
-6. **v1.0** — `jax_hdc.datasets`, TorchHD head-to-head, JMLR MLOSS submission
+6. **v1.0** — `bayes_hdc.datasets`, TorchHD head-to-head, JMLR MLOSS submission

@@ -6,8 +6,8 @@
 import jax
 import jax.numpy as jnp
 
-from jax_hdc import functional as F
-from jax_hdc.metrics import (
+from bayes_hdc import functional as F
+from bayes_hdc.metrics import (
     bundle_capacity,
     bundle_snr,
     cosine_matrix,

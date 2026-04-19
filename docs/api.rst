@@ -3,7 +3,7 @@ API Reference
 
 Main package exports:
 
-.. automodule:: jax_hdc
+.. automodule:: bayes_hdc
    :members:
    :undoc-members:
    :show-inheritance:

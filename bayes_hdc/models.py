@@ -10,10 +10,10 @@ from typing import Any, Optional, Union
 import jax
 import jax.numpy as jnp
 
-from jax_hdc import functional as F
-from jax_hdc._compat import register_dataclass
-from jax_hdc.constants import EPS
-from jax_hdc.vsa import VSAModel, create_vsa_model
+from bayes_hdc import functional as F
+from bayes_hdc._compat import register_dataclass
+from bayes_hdc.constants import EPS
+from bayes_hdc.vsa import VSAModel, create_vsa_model
 
 
 @register_dataclass

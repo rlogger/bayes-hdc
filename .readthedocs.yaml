@@ -20,5 +20,5 @@ sphinx:
 python:
    install:
    - method: pip
-     path: .  # Install jax-hdc and its deps for autodoc
+     path: .  # Install bayes-hdc and its deps for autodoc
    - requirements: docs/requirements.txt
