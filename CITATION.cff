@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+title: "jax-hdc: A High-Performance JAX Library for Hyperdimensional Computing and Vector Symbolic Architectures"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: Singh
+    given-names: Rajdeep
+    email: rajdeeps@usc.edu
+    affiliation: University of Southern California
+repository-code: "https://github.com/rlogger/jax-hdc"
+url: "https://github.com/rlogger/jax-hdc"
+license: MIT
+version: 0.1.0a0
+date-released: "2026-04-17"
+keywords:
+  - hyperdimensional computing
+  - vector symbolic architectures
+  - HDC
+  - VSA
+  - JAX
+  - XLA
+  - machine learning

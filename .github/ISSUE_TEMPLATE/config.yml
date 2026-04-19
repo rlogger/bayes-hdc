@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussions
+    url: https://github.com/rlogger/jax-hdc/discussions
+    about: Questions, ideas, and general conversation that isn't a bug report.
+  - name: Security advisories
+    url: https://github.com/rlogger/jax-hdc/security/advisories/new
+    about: Report a security vulnerability privately. Please do not open a public issue.
