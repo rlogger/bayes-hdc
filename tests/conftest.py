@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Shared pytest fixtures for JAX-HDC tests."""
 
 import jax

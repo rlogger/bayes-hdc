@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Tests for symbolic data structures."""
 
 import jax

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Tests for statistical metrics and capacity analysis."""
 
 import jax

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Encoders for transforming data into hypervectors.
 
 This module provides various encoding strategies to transform different types

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Core functional operations for Hyperdimensional Computing.
 
 This module provides the fundamental operations for manipulating hypervectors:

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Memory modules for Hyperdimensional Computing.
 
 Sparse Distributed Memory (SDM), Hopfield networks, and attention-based retrieval.

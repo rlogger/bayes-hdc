@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Integration tests: end-to-end encode -> train -> predict pipeline."""
 
 import jax

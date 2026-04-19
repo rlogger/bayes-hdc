@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Simple classification example with synthetic data.
 
 This example demonstrates an end-to-end classification pipeline using JAX-HDC:

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Basic operations example for JAX-HDC.
 
 Demonstrates fundamental operations of Hyperdimensional Computing:

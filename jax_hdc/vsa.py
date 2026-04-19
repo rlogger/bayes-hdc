@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Vector Symbolic Architecture (VSA) model implementations.
 
 This module provides different VSA models, each with their own binding,

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Statistical metrics and capacity analysis for Hyperdimensional Computing.
 
 Provides tools for analysing the quality of hypervector representations:

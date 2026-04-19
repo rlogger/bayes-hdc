@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Kanerva's 'Dollar of Mexico' example.
 
 This example implements the classic HDC demonstration from:

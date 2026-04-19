@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Classification and learning models for Hyperdimensional Computing."""
 
 from dataclasses import dataclass, field

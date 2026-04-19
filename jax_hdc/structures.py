@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
 """Symbolic data structures built on hypervectors.
 
 Provides Multiset, HashTable, Sequence, and Graph structures that use
