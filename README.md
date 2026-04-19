@@ -14,38 +14,41 @@ JAX-HDC provides efficient implementations of Hyperdimensional Computing (HDC) a
 
 ### v0.2 — Differentiable VSA primitives
 - [ ] Backprop through `bind`, `bundle`, `permute`, and `cleanup` for all eight VSA models
-- [ ] Straight-through estimators for BSC, BSBC, and CGR
+- [ ] Straight-through estimators for BSC, BSBC, CGR, MCR
 - [ ] Learnable codebooks, level tables, and projection matrices
+- [ ] Higher-order derivatives (`jvp`, `vjp`) for meta-learned encoders
 - [ ] Flax, Equinox, and Optax interop
 
-### v0.3 — Probabilistic hypervectors
-- [ ] Posterior sampling over hypervector distributions
-- [ ] Variational codebooks via reparameterization
-- [ ] Conformal prediction for VSA classifiers
-- [ ] Temperature calibration for similarity-based retrieval
+### v0.3 — Factorization and resonator networks
+- [ ] Extend `functional.resonator` into a full factorization toolkit (accelerated, sparse, noise-tolerant variants)
+- [ ] Convergence diagnostics: trajectory logging and basin-of-attraction probes
+- [ ] Tree-structured factorizers for compositional generalization
+- [ ] Visual scene decomposition benchmarks (Frady et al., Kent et al.)
 
 ### v0.4 — Distributed and streaming
-- [ ] `pmap` and `shard_map` kernels for all VSA operations
-- [ ] Sharded codebooks across accelerators
-- [ ] Online classifiers with concept-drift handling
+- [ ] `pmap` and `shard_map` kernels for every VSA operation
+- [ ] Sharded codebooks across TPU pods with zero-copy transfer
+- [ ] Online classifiers with Hoeffding-bounded concept-drift handling
 - [ ] Memory-mapped codebooks for >1B-symbol vocabularies
 
-### v0.5 — Reasoning primitives
-- [ ] Structure-mapping engine on VSAs
+### v0.5 — Probabilistic hypervectors
+- [ ] Posterior sampling over hypervector distributions
+- [ ] Variational codebooks via reparameterization
+- [ ] Conformal prediction wrappers for VSA classifiers
+- [ ] Temperature calibration for similarity-based retrieval
+
+### v0.6 — Neuro-symbolic reasoning
+- [ ] Structure-mapping engine (SME) on VSAs
 - [ ] Knowledge-graph embeddings and link prediction
-- [ ] Rule induction on hypervectors
-- [ ] Compositional generalization benchmarks (SCAN, COGS)
+- [ ] Raven's Progressive Matrices benchmark
+- [ ] Compositional generalization tests (SCAN, COGS)
 
-### v0.6 — Capacity and robustness analysis
-- [ ] Capacity, crosstalk, and binding-noise probes per VSA model
-- [ ] Analytic and empirical noise budgets
-- [ ] Adversarial robustness audits
-- [ ] Bundle decomposition and cleanup tracing
-
-### v1.0 — Benchmark suite
-- [ ] Reproducible head-to-head comparisons against TorchHD on 15+ datasets
-- [ ] Accuracy, throughput, memory, and energy-per-inference metrics
+### v1.0 — Datasets, benchmarks, paper
+- [ ] `jax_hdc.datasets` module matching TorchHD's 14+ standard HDC benchmarks
+- [ ] Reproducible head-to-head comparisons against TorchHD
+- [ ] Accuracy, throughput, memory, and energy-per-inference reports via `jax_hdc.metrics`
 - [ ] Seeded, containerized runs with fixed hardware profiles
+- [ ] JMLR MLOSS submission
 
 ## Features
 
