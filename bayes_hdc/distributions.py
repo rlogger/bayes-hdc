@@ -273,11 +273,221 @@ def kl_gaussian(p: GaussianHV, q: GaussianHV) -> jax.Array:
     return 0.5 * jnp.sum(term)
 
 
+# ======================================================================
+# Dirichlet hypervectors — distributions on the probability simplex
+# ======================================================================
+
+
+@register_dataclass
+@dataclass
+class DirichletHV:
+    r"""A Dirichlet distribution over the probability simplex :math:`\Delta_K`.
+
+    Where :class:`GaussianHV` is the distributional analogue of a MAP
+    hypervector in :math:`\mathbb{R}^d`, :class:`DirichletHV` is the
+    distributional analogue of a categorical codebook: each "hypervector"
+    is a posterior over categorical distributions on :math:`K` symbols,
+    parameterised by a non-negative concentration vector
+    :math:`\boldsymbol{\alpha} \in \mathbb{R}^K_{>0}`.
+
+    Use cases:
+
+    - Probabilistic categorical codebooks: each symbol is a distribution
+      over :math:`K` token indices rather than a single index.
+    - Bayesian counting: the concentration updates additively as evidence
+      arrives (``from_counts`` implements add-:math:`\alpha` smoothing).
+    - Variational posteriors over categorical latents.
+
+    Attributes:
+        alpha: Concentration of shape ``(d,)`` (or ``(n, d)`` batched).
+            All entries must be strictly positive for a valid Dirichlet.
+        dimensions: Number of categories :math:`K`.
+    """
+
+    alpha: jax.Array
+    dimensions: int = field(metadata=dict(static=True))
+
+    # ------------------------------------------------------------------
+    # Constructors
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def create(dimensions: int, concentration: float = 1.0) -> DirichletHV:
+        """Symmetric Dirichlet with all concentrations equal.
+
+        ``concentration=1`` gives a uniform prior on the simplex;
+        ``concentration<1`` concentrates mass near vertices;
+        ``concentration>1`` concentrates mass near the centre.
+        """
+        return DirichletHV(
+            alpha=jnp.full((dimensions,), float(concentration)),
+            dimensions=dimensions,
+        )
+
+    @staticmethod
+    def uniform(dimensions: int) -> DirichletHV:
+        """Uniform distribution on the simplex (symmetric, alpha=1)."""
+        return DirichletHV.create(dimensions, concentration=1.0)
+
+    @staticmethod
+    def from_counts(counts: jax.Array, prior: float = 1.0) -> DirichletHV:
+        """Posterior Dirichlet from observation counts.
+
+        Implements add-:math:`\\alpha` smoothing with ``prior`` as the
+        Dirichlet prior concentration:
+
+        .. math::
+            \\boldsymbol{\\alpha}_{\\text{posterior}} = \\boldsymbol{\\alpha}_{\\text{prior}}
+            + \\boldsymbol{c}
+
+        where :math:`\\boldsymbol{c}` is the observation-count vector.
+        """
+        return DirichletHV(
+            alpha=counts.astype(jnp.float32) + float(prior),
+            dimensions=counts.shape[-1],
+        )
+
+    # ------------------------------------------------------------------
+    # Moments and sampling
+    # ------------------------------------------------------------------
+
+    def mean(self) -> jax.Array:
+        """Expected categorical distribution :math:`\\boldsymbol{\\alpha} / \\sum_k \\alpha_k`."""
+        return self.alpha / (jnp.sum(self.alpha, axis=-1, keepdims=True) + EPS)
+
+    def variance(self) -> jax.Array:
+        r"""Per-category variance under the Dirichlet posterior.
+
+        For component :math:`k`: :math:`\mathrm{Var}[p_k]
+        = \bar{p}_k (1 - \bar{p}_k) / (\alpha_0 + 1)` where
+        :math:`\bar{p}_k = \alpha_k / \alpha_0` and
+        :math:`\alpha_0 = \sum_k \alpha_k`.
+        """
+        alpha_sum = jnp.sum(self.alpha, axis=-1, keepdims=True) + EPS
+        mean = self.alpha / alpha_sum
+        return mean * (1.0 - mean) / (alpha_sum + 1.0)
+
+    def concentration(self) -> jax.Array:
+        """Total concentration :math:`\\alpha_0 = \\sum_k \\alpha_k`.
+
+        Larger :math:`\\alpha_0` means a tighter posterior; in the limit
+        the Dirichlet collapses to a Dirac on :math:`\\bar{\\boldsymbol{p}}`.
+        """
+        return jnp.sum(self.alpha, axis=-1)
+
+    def sample(self, key: jax.Array) -> jax.Array:
+        """Draw a single categorical distribution from this Dirichlet."""
+        return jax.random.dirichlet(key, jnp.maximum(self.alpha, EPS))
+
+    def sample_batch(self, key: jax.Array, n: int) -> jax.Array:
+        """Draw ``n`` categorical distributions from this Dirichlet."""
+        return jax.random.dirichlet(key, jnp.maximum(self.alpha, EPS), shape=(n,))
+
+
+# ----------------------------------------------------------------------
+# Dirichlet binding and bundling
+# ----------------------------------------------------------------------
+
+
+@jax.jit
+def bind_dirichlet(x: DirichletHV, y: DirichletHV) -> DirichletHV:
+    r"""Bind two Dirichlet HVs by element-wise mean product, re-normalised.
+
+    There is no canonical "binding" operation for Dirichlet posteriors in
+    the VSA literature; we adopt the moment-matched approximation
+
+    .. math::
+        \bar{p}_z \propto \bar{p}_x \odot \bar{p}_y, \qquad
+        \alpha_0^{(z)} = \alpha_0^{(x)} + \alpha_0^{(y)}
+
+    — the element-wise product of expected categoricals combined with
+    additive concentrations — so that binding two highly-concentrated
+    Dirichlets yields a highly-concentrated result and binding against a
+    flat prior leaves the other distribution approximately unchanged.
+    This is the direct analogue of MAP binding on the means with
+    uncertainty accumulation on the concentration.
+
+    Args:
+        x: First Dirichlet hypervector.
+        y: Second Dirichlet hypervector.
+
+    Returns:
+        Moment-matched Dirichlet hypervector for the composed posterior.
+    """
+    mean_x = x.mean()
+    mean_y = y.mean()
+    new_mean = mean_x * mean_y
+    new_mean = new_mean / (jnp.sum(new_mean, axis=-1, keepdims=True) + EPS)
+    new_concentration = x.concentration() + y.concentration()
+    new_alpha = new_mean * new_concentration[..., None] + EPS
+    return DirichletHV(alpha=new_alpha, dimensions=x.dimensions)
+
+
+@jax.jit
+def bundle_dirichlet(hvs: DirichletHV) -> DirichletHV:
+    r"""Bundle a batch of Dirichlet HVs by summing concentrations.
+
+    Summing concentrations is the exact posterior update for a Dirichlet
+    under independent observations: if each ``hvs[i]`` is a Dirichlet
+    posterior from :math:`c_i` observations, then the combined posterior
+    over the shared parameter is Dirichlet with
+    :math:`\boldsymbol{\alpha} = \sum_i \boldsymbol{\alpha}_i`.
+
+    Args:
+        hvs: Batched :class:`DirichletHV` with ``alpha`` of shape ``(n, d)``.
+
+    Returns:
+        Combined Dirichlet hypervector of dimension ``d``.
+    """
+    summed = jnp.sum(hvs.alpha, axis=0)
+    return DirichletHV(alpha=summed, dimensions=summed.shape[-1])
+
+
+# ----------------------------------------------------------------------
+# Dirichlet divergences
+# ----------------------------------------------------------------------
+
+
+@jax.jit
+def kl_dirichlet(p: DirichletHV, q: DirichletHV) -> jax.Array:
+    r"""Closed-form KL divergence :math:`\mathrm{KL}(p \| q)` for two Dirichlets.
+
+    .. math::
+        \mathrm{KL}(p \| q) &= \log \Gamma(\alpha_0^{(p)}) - \log \Gamma(\alpha_0^{(q)}) \\
+        &+ \sum_i \left[\log \Gamma(\alpha_i^{(q)}) - \log \Gamma(\alpha_i^{(p)})\right] \\
+        &+ \sum_i (\alpha_i^{(p)} - \alpha_i^{(q)}) \, [\psi(\alpha_i^{(p)}) - \psi(\alpha_0^{(p)})]
+
+    where :math:`\psi` is the digamma function. Used as the KL term in
+    variational bounds over categorical codebooks.
+    """
+    lgamma = jax.scipy.special.gammaln
+    digamma = jax.scipy.special.digamma
+
+    alpha_p = jnp.maximum(p.alpha, EPS)
+    alpha_q = jnp.maximum(q.alpha, EPS)
+    sum_p = jnp.sum(alpha_p, axis=-1)
+    sum_q = jnp.sum(alpha_q, axis=-1)
+
+    term1 = lgamma(sum_p) - lgamma(sum_q)
+    term2 = jnp.sum(lgamma(alpha_q) - lgamma(alpha_p), axis=-1)
+    term3 = jnp.sum(
+        (alpha_p - alpha_q) * (digamma(alpha_p) - digamma(sum_p)[..., None]),
+        axis=-1,
+    )
+    return term1 + term2 + term3
+
+
 __all__ = [
+    # Gaussian layer
     "GaussianHV",
     "bind_gaussian",
     "bundle_gaussian",
     "expected_cosine_similarity",
     "similarity_variance",
     "kl_gaussian",
+    # Dirichlet layer
+    "DirichletHV",
+    "bind_dirichlet",
+    "bundle_dirichlet",
+    "kl_dirichlet",
 ]

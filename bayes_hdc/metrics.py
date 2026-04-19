@@ -1,13 +1,27 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Rajdeep Singh
 
-"""Statistical metrics and capacity analysis for Hyperdimensional Computing.
+"""Statistical metrics, capacity analysis, and calibration diagnostics.
 
-Provides tools for analysing the quality of hypervector representations:
-signal-to-noise ratio, theoretical capacity bounds, effective dimensionality,
-and sparsity.  These are essential for sizing systems, diagnosing retrieval
-failures, and tuning dimensionality in real-world deployments.
+Two families of tools live here:
+
+1. **Capacity and representation diagnostics**:
+   :func:`bundle_snr`, :func:`bundle_capacity`, :func:`effective_dimensions`,
+   :func:`sparsity`, :func:`signal_energy`, :func:`saturation`,
+   :func:`cosine_matrix`, :func:`retrieval_confidence`.
+
+2. **Calibration metrics for the Bayesian layer**:
+   :func:`expected_calibration_error`, :func:`maximum_calibration_error`,
+   :func:`brier_score`, :func:`sharpness`, :func:`reliability_curve`,
+   :func:`negative_log_likelihood`.  These quantify how well a
+   classifier's reported probabilities match empirical accuracies.
+
+Calibration is the empirical back-end of the Bayesian contribution. A
+Bayesian hypervector that propagates variance but reports miscalibrated
+probabilities is no better than a deterministic softmax classifier.
 """
+
+import functools
 
 import jax
 import jax.numpy as jnp
@@ -160,7 +174,173 @@ def retrieval_confidence(query: jax.Array, codebook: jax.Array) -> jax.Array:
     return top2[0][0] - top2[0][1]
 
 
+# ----------------------------------------------------------------------
+# Calibration metrics
+# ----------------------------------------------------------------------
+
+
+@functools.partial(jax.jit, static_argnames=("n_bins",))
+def expected_calibration_error(
+    probs: jax.Array,
+    labels: jax.Array,
+    n_bins: int = 15,
+) -> jax.Array:
+    r"""Expected Calibration Error (ECE) over equal-width confidence bins.
+
+    ECE is the empirical gap between confidence and accuracy, averaged over
+    confidence bins:
+
+    .. math::
+        \mathrm{ECE} = \sum_{b=1}^{B} \frac{|B_b|}{n} \,
+        \big| \mathrm{acc}(B_b) - \mathrm{conf}(B_b) \big|
+
+    where :math:`B_b` is the set of samples whose top-1 probability falls in
+    bin :math:`b`. An ECE of 0 means the classifier is perfectly calibrated.
+
+    Args:
+        probs: Class probabilities of shape ``(n, k)``. Rows must sum to 1.
+        labels: Integer class labels of shape ``(n,)``.
+        n_bins: Number of equal-width bins on [0, 1].
+
+    Returns:
+        Scalar ECE in ``[0, 1]``.
+    """
+    confidences = jnp.max(probs, axis=-1)
+    predictions = jnp.argmax(probs, axis=-1)
+    correct = (predictions == labels).astype(jnp.float32)
+
+    bin_idx = jnp.clip(
+        jnp.floor(confidences * n_bins).astype(jnp.int32), 0, n_bins - 1
+    )
+
+    sums_correct = jax.ops.segment_sum(correct, bin_idx, num_segments=n_bins)
+    sums_conf = jax.ops.segment_sum(confidences, bin_idx, num_segments=n_bins)
+    counts = jax.ops.segment_sum(jnp.ones_like(confidences), bin_idx, num_segments=n_bins)
+
+    safe_counts = jnp.maximum(counts, 1.0)
+    mean_acc = sums_correct / safe_counts
+    mean_conf = sums_conf / safe_counts
+
+    n = confidences.shape[0]
+    weights = counts / n
+    return jnp.sum(weights * jnp.abs(mean_acc - mean_conf))
+
+
+@functools.partial(jax.jit, static_argnames=("n_bins",))
+def maximum_calibration_error(
+    probs: jax.Array,
+    labels: jax.Array,
+    n_bins: int = 15,
+) -> jax.Array:
+    """Maximum Calibration Error — the worst bin's accuracy-confidence gap.
+
+    Upper bound on the per-prediction miscalibration. Useful when the tail
+    of overconfident predictions matters more than the average.
+    """
+    confidences = jnp.max(probs, axis=-1)
+    predictions = jnp.argmax(probs, axis=-1)
+    correct = (predictions == labels).astype(jnp.float32)
+
+    bin_idx = jnp.clip(
+        jnp.floor(confidences * n_bins).astype(jnp.int32), 0, n_bins - 1
+    )
+
+    sums_correct = jax.ops.segment_sum(correct, bin_idx, num_segments=n_bins)
+    sums_conf = jax.ops.segment_sum(confidences, bin_idx, num_segments=n_bins)
+    counts = jax.ops.segment_sum(jnp.ones_like(confidences), bin_idx, num_segments=n_bins)
+
+    safe_counts = jnp.maximum(counts, 1.0)
+    gaps = jnp.abs(sums_correct / safe_counts - sums_conf / safe_counts)
+    # Ignore empty bins
+    gaps = jnp.where(counts > 0, gaps, 0.0)
+    return jnp.max(gaps)
+
+
+@functools.partial(jax.jit, static_argnames=("n_classes",))
+def brier_score(
+    probs: jax.Array,
+    labels: jax.Array,
+    n_classes: int,
+) -> jax.Array:
+    r"""Multi-class Brier score — mean squared error vs one-hot labels.
+
+    .. math::
+        \mathrm{Brier} = \frac{1}{n} \sum_{i=1}^n \sum_{k=1}^K (p_{i,k} - y_{i,k})^2
+
+    Lower is better; perfectly confident correct predictions score 0,
+    uniform predictions score :math:`1 - 1/K`.
+
+    Args:
+        probs: Class probabilities of shape ``(n, k)``.
+        labels: Integer class labels of shape ``(n,)``.
+        n_classes: Number of classes ``k``.
+
+    Returns:
+        Scalar Brier score in ``[0, 2]``.
+    """
+    one_hot = jax.nn.one_hot(labels, n_classes)
+    return jnp.mean(jnp.sum((probs - one_hot) ** 2, axis=-1))
+
+
+@jax.jit
+def sharpness(probs: jax.Array) -> jax.Array:
+    """Mean top-1 confidence.  High sharpness + low ECE is the goal.
+
+    A perfectly calibrated uniform classifier has sharpness :math:`1/K`;
+    a deterministic classifier has sharpness 1.
+    """
+    return jnp.mean(jnp.max(probs, axis=-1))
+
+
+@jax.jit
+def negative_log_likelihood(probs: jax.Array, labels: jax.Array) -> jax.Array:
+    r"""Mean negative log-likelihood (a proper scoring rule).
+
+    .. math::
+        \mathrm{NLL} = -\frac{1}{n} \sum_i \log p_{i, y_i}
+
+    Used as the objective for temperature scaling.
+    """
+    n = labels.shape[0]
+    picked = probs[jnp.arange(n), labels]
+    return -jnp.mean(jnp.log(jnp.maximum(picked, EPS)))
+
+
+@functools.partial(jax.jit, static_argnames=("n_bins",))
+def reliability_curve(
+    probs: jax.Array,
+    labels: jax.Array,
+    n_bins: int = 15,
+) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array]:
+    """Per-bin data for plotting a reliability diagram.
+
+    Returns ``(bin_centers, bin_accuracies, bin_confidences, bin_counts)``,
+    each of shape ``(n_bins,)``. Empty bins have zeros in the accuracy and
+    confidence slots.
+    """
+    confidences = jnp.max(probs, axis=-1)
+    predictions = jnp.argmax(probs, axis=-1)
+    correct = (predictions == labels).astype(jnp.float32)
+
+    bin_idx = jnp.clip(
+        jnp.floor(confidences * n_bins).astype(jnp.int32), 0, n_bins - 1
+    )
+
+    sums_correct = jax.ops.segment_sum(correct, bin_idx, num_segments=n_bins)
+    sums_conf = jax.ops.segment_sum(confidences, bin_idx, num_segments=n_bins)
+    counts = jax.ops.segment_sum(jnp.ones_like(confidences), bin_idx, num_segments=n_bins)
+
+    safe = jnp.maximum(counts, 1.0)
+    mean_acc = jnp.where(counts > 0, sums_correct / safe, 0.0)
+    mean_conf = jnp.where(counts > 0, sums_conf / safe, 0.0)
+
+    edges = jnp.linspace(0.0, 1.0, n_bins + 1)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    return centers, mean_acc, mean_conf, counts
+
+
 __all__ = [
+    # Capacity / representation diagnostics
     "bundle_snr",
     "bundle_capacity",
     "effective_dimensions",
@@ -169,4 +349,11 @@ __all__ = [
     "saturation",
     "cosine_matrix",
     "retrieval_confidence",
+    # Calibration metrics
+    "expected_calibration_error",
+    "maximum_calibration_error",
+    "brier_score",
+    "sharpness",
+    "negative_log_likelihood",
+    "reliability_curve",
 ]

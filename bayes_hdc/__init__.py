@@ -20,14 +20,19 @@ from bayes_hdc import (
     metrics,
     models,
     structures,
+    uncertainty,
     utils,
     vsa,
 )
 from bayes_hdc.distributions import (
+    DirichletHV,
     GaussianHV,
+    bind_dirichlet,
     bind_gaussian,
+    bundle_dirichlet,
     bundle_gaussian,
     expected_cosine_similarity,
+    kl_dirichlet,
     kl_gaussian,
     similarity_variance,
 )
@@ -75,12 +80,18 @@ from bayes_hdc.functional import (
 )
 from bayes_hdc.memory import AttentionMemory, HopfieldMemory, SparseDistributedMemory
 from bayes_hdc.metrics import (
+    brier_score,
     bundle_capacity,
     bundle_snr,
     cosine_matrix,
     effective_dimensions,
+    expected_calibration_error,
+    maximum_calibration_error,
+    negative_log_likelihood,
+    reliability_curve,
     retrieval_confidence,
     saturation,
+    sharpness,
     signal_energy,
     sparsity,
 )
@@ -92,6 +103,7 @@ from bayes_hdc.models import (
     RegularizedLSClassifier,
 )
 from bayes_hdc.structures import Graph, HashTable, Multiset, Sequence
+from bayes_hdc.uncertainty import ConformalClassifier, TemperatureCalibrator
 from bayes_hdc.vsa import BSBC, BSC, CGR, FHRR, HRR, MAP, MCR, VTB
 
 __all__ = [
@@ -105,13 +117,22 @@ __all__ = [
     "metrics",
     "structures",
     "distributions",
-    # Bayesian hypervectors
+    "uncertainty",
+    # Bayesian hypervectors — Gaussian
     "GaussianHV",
     "bind_gaussian",
     "bundle_gaussian",
     "expected_cosine_similarity",
     "similarity_variance",
     "kl_gaussian",
+    # Bayesian hypervectors — Dirichlet
+    "DirichletHV",
+    "bind_dirichlet",
+    "bundle_dirichlet",
+    "kl_dirichlet",
+    # Uncertainty quantification
+    "TemperatureCalibrator",
+    "ConformalClassifier",
     # Core operations
     "bind_bsc",
     "bundle_bsc",
@@ -177,7 +198,7 @@ __all__ = [
     "SparseDistributedMemory",
     "HopfieldMemory",
     "AttentionMemory",
-    # Metrics
+    # Metrics — capacity / diagnostics
     "bundle_snr",
     "bundle_capacity",
     "effective_dimensions",
@@ -186,6 +207,13 @@ __all__ = [
     "saturation",
     "cosine_matrix",
     "retrieval_confidence",
+    # Metrics — calibration
+    "expected_calibration_error",
+    "maximum_calibration_error",
+    "brier_score",
+    "sharpness",
+    "negative_log_likelihood",
+    "reliability_curve",
     # Structures
     "Multiset",
     "HashTable",

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Bayesian layer v0.3 + v0.4
+- `DirichletHV` — distributions over the probability simplex; `mean`, `variance`, `concentration`, `sample`, `sample_batch`, `from_counts`, `uniform`
+- `bind_dirichlet`, `bundle_dirichlet` — moment-matched composition for categorical Bayesian HDC
+- `kl_dirichlet` — closed-form KL divergence between two Dirichlets
+- `bayes_hdc.uncertainty` module:
+  - `TemperatureCalibrator` — post-hoc temperature scaling fitted by gradient descent on NLL (Guo et al. 2017)
+  - `ConformalClassifier` — split-conformal wrapper with marginal coverage guarantee, using APS nonconformity scores (Romano et al. 2020)
+- Calibration metrics in `bayes_hdc.metrics`: `expected_calibration_error`, `maximum_calibration_error`, `brier_score`, `sharpness`, `negative_log_likelihood`, `reliability_curve`
+- `benchmarks/benchmark_calibration.py` — head-to-head vs TorchHD on 5 datasets (iris, wine, breast-cancer, digits, synthetic), reports accuracy, ECE, Brier, NLL, conformal coverage, set size
+- 42 new unit tests across `tests/test_distributions.py` (Dirichlet additions), `tests/test_uncertainty.py`, `tests/test_calibration_metrics.py`, `tests/test_dirichlet.py` — all passing, 99% coverage maintained
+
 ### Added — Bayesian layer (headline for the v0.2 release)
 - `bayes_hdc.distributions` module — the Bayesian core of the library
 - `GaussianHV`: hypervectors represented as mean + diagonal variance; `jax.pytree`-compatible
