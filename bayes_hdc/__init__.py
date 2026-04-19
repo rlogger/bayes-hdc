@@ -1,19 +1,44 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Rajdeep Singh
 
-"""JAX-HDC: Hyperdimensional Computing with JAX."""
+"""Bayes-HDC: a Bayesian framework for Hyperdimensional Computing on JAX.
 
-__version__ = "0.1.0a0"
+Bayes-HDC represents hypervectors as distributions rather than points, so
+binding, bundling, and retrieval propagate calibrated uncertainty
+end-to-end. The library also ships a complete deterministic VSA
+foundation (eight classical models, encoders, classifiers, memory
+modules, capacity analysis), on top of which the Bayesian layer builds.
+"""
 
-from jax_hdc import embeddings, functional, memory, metrics, models, structures, utils, vsa
-from jax_hdc.embeddings import (
+__version__ = "0.2.0a0"
+
+from bayes_hdc import (
+    distributions,
+    embeddings,
+    functional,
+    memory,
+    metrics,
+    models,
+    structures,
+    utils,
+    vsa,
+)
+from bayes_hdc.distributions import (
+    GaussianHV,
+    bind_gaussian,
+    bundle_gaussian,
+    expected_cosine_similarity,
+    kl_gaussian,
+    similarity_variance,
+)
+from bayes_hdc.embeddings import (
     GraphEncoder,
     KernelEncoder,
     LevelEncoder,
     ProjectionEncoder,
     RandomEncoder,
 )
-from jax_hdc.functional import (
+from bayes_hdc.functional import (
     add_noise_map,
     bind_bsc,
     bind_map,
@@ -48,8 +73,8 @@ from jax_hdc.functional import (
     tversky_similarity,
     window,
 )
-from jax_hdc.memory import AttentionMemory, HopfieldMemory, SparseDistributedMemory
-from jax_hdc.metrics import (
+from bayes_hdc.memory import AttentionMemory, HopfieldMemory, SparseDistributedMemory
+from bayes_hdc.metrics import (
     bundle_capacity,
     bundle_snr,
     cosine_matrix,
@@ -59,15 +84,15 @@ from jax_hdc.metrics import (
     signal_energy,
     sparsity,
 )
-from jax_hdc.models import (
+from bayes_hdc.models import (
     AdaptiveHDC,
     CentroidClassifier,
     ClusteringModel,
     LVQClassifier,
     RegularizedLSClassifier,
 )
-from jax_hdc.structures import Graph, HashTable, Multiset, Sequence
-from jax_hdc.vsa import BSBC, BSC, CGR, FHRR, HRR, MAP, MCR, VTB
+from bayes_hdc.structures import Graph, HashTable, Multiset, Sequence
+from bayes_hdc.vsa import BSBC, BSC, CGR, FHRR, HRR, MAP, MCR, VTB
 
 __all__ = [
     # Modules
@@ -79,6 +104,14 @@ __all__ = [
     "memory",
     "metrics",
     "structures",
+    "distributions",
+    # Bayesian hypervectors
+    "GaussianHV",
+    "bind_gaussian",
+    "bundle_gaussian",
+    "expected_cosine_similarity",
+    "similarity_variance",
+    "kl_gaussian",
     # Core operations
     "bind_bsc",
     "bundle_bsc",

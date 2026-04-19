@@ -4,13 +4,13 @@
 
 ---
 
-**Subject:** MLOSS submission — jax-hdc
+**Subject:** MLOSS submission — bayes-hdc
 
 **Track:** Machine Learning Open Source Software (MLOSS)
 
 **Software version under review:** `vX.Y.Z` — commit `[SHA]`
-**Project website:** <https://github.com/rlogger/jax-hdc>
-**Documentation:** <https://jax-hdc.readthedocs.io>
+**Project website:** <https://github.com/rlogger/bayes-hdc>
+**Documentation:** <https://bayes-hdc.readthedocs.io>
 **License:** MIT (OSI-approved)
 **Submission archive:** `singh26a-code.tar.gz`
 
@@ -18,42 +18,58 @@
 
 ## Summary
 
-`jax-hdc` is an open-source Python library for hyperdimensional computing
-(HDC) and vector symbolic architectures (VSA), built on JAX. It is, to the
-best of our knowledge, the first HDC library that
+`bayes-hdc` is the first open-source HDC library in which **every
+hypervector can carry a distribution**. Existing HDC software represents
+symbols as single points in $\mathbb{R}^d$; `bayes-hdc` represents them
+as posteriors and propagates the posterior forward through the full
+Vector Symbolic Architecture (VSA) algebra — binding, bundling,
+similarity, retrieval — so that classification and retrieval inherit
+calibrated uncertainty.
 
-1. implements eight VSA models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB)
-   behind a single pytree-native API compatible with `jit`, `vmap`, and
-   `grad`;
-2. runs unchanged on CPUs, GPUs, and TPUs via XLA compilation;
-3. ships a first-class capacity / noise / retrieval-confidence analysis
-   module (`jax_hdc.metrics`);
-4. includes a resonator-network primitive for factorising composite
-   hypervectors.
+The release contains three layers:
 
-Beyond the eight VSA models, the library provides five data encoders, five
-learning models (including clustering), three associative-memory modules,
-four symbolic data structures, and an extensive functional layer. All
-code is unit-tested to 99% line coverage and exercised by continuous
-integration across Ubuntu, macOS, and Windows on Python 3.9 through 3.13.
+1. **Bayesian core.** A Gaussian hypervector type (`GaussianHV`) with
+   closed-form moment propagation under element-wise product (MAP-style
+   binding) and normalised sum (bundling); an uncertainty-aware
+   similarity API (expected cosine similarity and exact dot-product
+   variance); and a closed-form KL divergence for variational
+   objectives.
+2. **Deterministic VSA foundation.** Eight classical models (BSC, MAP,
+   HRR, FHRR, BSBC, CGR, MCR, VTB) behind a uniform pytree-native API,
+   five data encoders, five learning models (including k-means-style
+   clustering), three associative memory modules, four symbolic data
+   structures, a capacity-and-noise analysis toolkit, and a
+   resonator-network primitive for factorisation.
+3. **Portable implementation.** JAX + XLA throughout; runs unchanged on
+   CPU, GPU, and TPU; `jit` / `vmap` / `grad` / `pmap` compose with the
+   whole library.
+
+The codebase is unit-tested to 99% line coverage (321 tests) and
+exercised by continuous integration across Ubuntu, macOS, and Windows on
+Python 3.9 through 3.13.
 
 ## How this contribution differs from prior software
 
-- **Torchhd** (Heddes et al., JMLR MLOSS 2023) provides the most comparable
-  functionality on PyTorch. `jax-hdc` differs by targeting JAX/XLA (adding
-  native TPU support and transparent `jit`/`vmap`/`grad`) and by shipping
-  capacity analysis, resonator factorisation, fractional-power binding,
-  Tversky/Jaccard similarity, and a pytree-native functional design that
-  Torchhd does not provide out of the box.
+- **Torchhd** (Heddes et al., JMLR MLOSS 2023) — the most comparable
+  library — provides the deterministic functionality on PyTorch. It does
+  not expose hypervectors as distributions, has no notion of
+  expected-value or variance-of-similarity APIs, and does not ship KL
+  divergences or variational objectives for codebooks. `bayes-hdc`
+  provides all of these as first-class primitives, and matches Torchhd
+  on the deterministic baseline.
 - **hdlib** (Cumbo et al., JOSS 2023) focuses on bioinformatics and
-  clustering workflows on CPU. `jax-hdc` covers a superset of its core API
-  and adds hardware acceleration.
+  clustering workflows on CPU. `bayes-hdc` covers a superset of its
+  deterministic API and adds hardware acceleration and the Bayesian
+  layer.
 - **PyBHV** (Vandervorst, 2023) is a Boolean-hypervector research
-  framework with a rich threshold-logic layer. `jax-hdc` incorporates
+  framework with a rich threshold-logic layer. `bayes-hdc` incorporates
   several of its ideas (Tversky/Jaccard, threshold/window ops) as
-  first-class primitives.
+  deterministic primitives.
 
-A feature-level comparison table is in Section 3 of the paper.
+To the best of our knowledge, no public HDC library has previously
+offered hypervectors as distributions with closed-form moment propagation
+and calibrated retrieval. A feature-level comparison table is in
+Section 3 of the paper.
 
 ## Evidence of community adoption
 

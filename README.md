@@ -1,53 +1,89 @@
 <p align="center">
-    <a href="https://github.com/rlogger/jax-hdc/blob/main/LICENSE"><img alt="GitHub license" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat" /></a>
+    <a href="https://github.com/rlogger/bayes-hdc/blob/main/LICENSE"><img alt="GitHub license" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat" /></a>
     <img alt="Development Status" src="https://img.shields.io/badge/status-alpha-orange.svg?style=flat" />
     <img alt="Python" src="https://img.shields.io/badge/python-3.9%2B-blue.svg?style=flat" />
 </p>
 
-# JAX-HDC
+# Bayes-HDC
 
-**A high-performance JAX library for Hyperdimensional Computing and Vector Symbolic Architectures**
+**A Bayesian framework for Hyperdimensional Computing. Built on JAX.**
 
-JAX-HDC provides efficient implementations of Hyperdimensional Computing (HDC) and Vector Symbolic Architectures (VSA) using JAX. The library leverages XLA compilation, automatic vectorization, and hardware acceleration with a functional programming interface.
+Bayes-HDC is the first HDC library where every hypervector can carry a
+distribution. Classical VSAs represent symbols as single
+high-dimensional points; Bayes-HDC represents them as posteriors —
+Gaussian today, Dirichlet and mixture tomorrow — so that binding,
+bundling, and retrieval propagate calibrated uncertainty end-to-end.
+
+On top of that Bayesian core, the library ships a complete deterministic
+VSA foundation: eight classical models (BSC, MAP, HRR, FHRR, BSBC, CGR,
+MCR, VTB), five encoders, five classifiers, three memory modules, four
+symbolic data structures, and a capacity-and-noise analysis toolkit. The
+deterministic layer is the baseline; the Bayesian layer is the research
+contribution.
+
+All operations run unchanged on CPU, GPU, and TPU via JAX's XLA backend.
+Every type is a JAX pytree, so `jit`, `vmap`, `grad`, and `pmap` compose
+with the whole library out of the box.
+
+## The Bayesian core
+
+```python
+import jax
+from bayes_hdc import GaussianHV, bind_gaussian, expected_cosine_similarity
+
+key = jax.random.PRNGKey(0)
+x = GaussianHV.random(key, dimensions=10_000, var=0.01)
+y = GaussianHV.random(jax.random.fold_in(key, 1), dimensions=10_000, var=0.01)
+
+z = bind_gaussian(x, y)          # exact moment propagation
+sim = expected_cosine_similarity(x, z)  # uncertainty-aware similarity
+```
+
+Every distributional operation has closed-form moment propagation where
+possible and a Monte Carlo fallback otherwise. Deterministic pipelines
+compose by lifting: `GaussianHV.from_sample(hv)` wraps any existing
+hypervector in a zero-variance posterior that behaves identically to a
+classical VSA model until you start injecting uncertainty.
 
 ## Roadmap
 
-### v0.2 — Differentiable VSA primitives
-- [ ] Backprop through `bind`, `bundle`, `permute`, and `cleanup` for all eight VSA models
-- [ ] Straight-through estimators for BSC, BSBC, CGR, MCR
-- [ ] Learnable codebooks, level tables, and projection matrices
-- [ ] Higher-order derivatives (`jvp`, `vjp`) for meta-learned encoders
-- [ ] Flax, Equinox, and Optax interop
+### v0.2 — Bayesian hypervector foundation ✅ (this release)
+- [x] `GaussianHV` with mean and diagonal variance
+- [x] `bind_gaussian` — exact moment propagation under element-wise product
+- [x] `bundle_gaussian` — exact sum of independent Gaussians + normalisation
+- [x] `expected_cosine_similarity`, `similarity_variance`
+- [x] `kl_gaussian` — closed-form KL for variational objectives
+- [x] `sample` / `sample_batch` for Monte Carlo fallbacks
 
-### v0.3 — Factorization and resonator networks
-- [ ] Extend `functional.resonator` into a full factorization toolkit (accelerated, sparse, noise-tolerant variants)
-- [ ] Convergence diagnostics: trajectory logging and basin-of-attraction probes
-- [ ] Tree-structured factorizers for compositional generalization
-- [ ] Visual scene decomposition benchmarks (Frady et al., Kent et al.)
+### v0.3 — Probabilistic VSA operations
+- [ ] `DirichletHV` for probabilistic categorical codebooks
+- [ ] `MixtureHV` for multi-modal representations
+- [ ] `inverse_gaussian`, `permute_gaussian`, `cleanup_gaussian`
+- [ ] Reparameterisation gradients through every distributional op
+- [ ] Low-rank Gaussian parameterisation for richer posteriors
 
-### v0.4 — Distributed and streaming
-- [ ] `pmap` and `shard_map` kernels for every VSA operation
-- [ ] Sharded codebooks across TPU pods with zero-copy transfer
-- [ ] Online classifiers with Hoeffding-bounded concept-drift handling
-- [ ] Memory-mapped codebooks for >1B-symbol vocabularies
+### v0.4 — Bayesian learning models
+- [ ] `BayesianCentroidClassifier` — posterior per class, calibrated predictions
+- [ ] `BayesianAdaptiveHDC` with Kalman-style online updates
+- [ ] `ConformalClassifier` wrapper — coverage-guaranteed prediction sets
+- [ ] Temperature-scaled and Platt-scaled retrieval
 
-### v0.5 — Probabilistic hypervectors
-- [ ] Posterior sampling over hypervector distributions
-- [ ] Variational codebooks via reparameterization
-- [ ] Conformal prediction wrappers for VSA classifiers
-- [ ] Temperature calibration for similarity-based retrieval
+### v0.5 — Inference and diagnostics
+- [ ] ELBO optimisation for variational codebooks
+- [ ] Probabilistic resonator networks (MCMC / multi-restart)
+- [ ] Posterior predictive checks, coverage curves, reliability diagrams
+- [ ] Brier score, ECE, MCE, and sharpness metrics in `bayes_hdc.metrics`
 
-### v0.6 — Neuro-symbolic reasoning
-- [ ] Structure-mapping engine (SME) on VSAs
-- [ ] Knowledge-graph embeddings and link prediction
-- [ ] Raven's Progressive Matrices benchmark
-- [ ] Compositional generalization tests (SCAN, COGS)
+### v0.6 — Distribution and scale
+- [ ] `pmap` / `shard_map` kernels for every distributional op
+- [ ] Sharded posteriors across TPU pods with zero-copy transfer
+- [ ] Streaming Bayesian updates with bounded memory
 
 ### v1.0 — Datasets, benchmarks, paper
-- [ ] `jax_hdc.datasets` module matching TorchHD's 14+ standard HDC benchmarks
-- [ ] Reproducible head-to-head comparisons against TorchHD
-- [ ] Accuracy, throughput, memory, and energy-per-inference reports via `jax_hdc.metrics`
-- [ ] Seeded, containerized runs with fixed hardware profiles
+- [ ] `bayes_hdc.datasets` module matching TorchHD's 14+ standard HDC benchmarks
+- [ ] Head-to-head vs TorchHD on accuracy and throughput (deterministic parity)
+- [ ] Head-to-head vs TorchHD + temperature scaling on expected calibration error (Bayesian contribution)
+- [ ] Seeded, containerised runs with fixed hardware profiles
 - [ ] JMLR MLOSS submission
 
 ## Features
@@ -63,8 +99,8 @@ JAX-HDC provides efficient implementations of Hyperdimensional Computing (HDC) a
 ## Installation
 
 ```bash
-git clone https://github.com/rlogger/jax-hdc.git
-cd jax-hdc
+git clone https://github.com/rlogger/bayes-hdc.git
+cd bayes-hdc
 pip install -e .
 ```
 
@@ -78,7 +114,7 @@ pip install -e ".[dev]"
 
 ```python
 import jax
-from jax_hdc import MAP, RandomEncoder, CentroidClassifier
+from bayes_hdc import MAP, RandomEncoder, CentroidClassifier
 
 model = MAP.create(dimensions=10000)
 key = jax.random.PRNGKey(42)
@@ -145,10 +181,10 @@ All models share the same API: `bind`, `bundle`, `inverse`, `similarity`, `rando
 
 ```bash
 pytest tests/ -v                              # run tests
-pytest tests/ --cov=jax_hdc --cov-report=html # with coverage
-ruff check jax_hdc/                           # lint
-ruff format jax_hdc/                          # format
-mypy jax_hdc/                                 # type check
+pytest tests/ --cov=bayes_hdc --cov-report=html # with coverage
+ruff check bayes_hdc/                           # lint
+ruff format bayes_hdc/                          # format
+mypy bayes_hdc/                                 # type check
 ```
 
 ## Examples

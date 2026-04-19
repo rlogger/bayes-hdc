@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "jax-hdc"
-version = "0.1.0a0"
-description = "A high-performance JAX library for Hyperdimensional Computing and Vector Symbolic Architectures"
+name = "bayes-hdc"
+version = "0.2.0a0"
+description = "A Bayesian framework for Hyperdimensional Computing and Vector Symbolic Architectures, built on JAX"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
@@ -13,6 +13,10 @@ authors = [
     {name = "Rajdeep Singh"},
 ]
 keywords = [
+    "Bayesian hyperdimensional computing",
+    "probabilistic vector symbolic architectures",
+    "uncertainty quantification",
+    "calibrated retrieval",
     "hyperdimensional computing",
     "vector symbolic architectures",
     "HDC",
@@ -61,14 +65,14 @@ benchmark = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rlogger/jax-hdc"
-Documentation = "https://jax-hdc.readthedocs.io"
-Repository = "https://github.com/rlogger/jax-hdc"
-"Bug Tracker" = "https://github.com/rlogger/jax-hdc/issues"
+Homepage = "https://github.com/rlogger/bayes-hdc"
+Documentation = "https://bayes-hdc.readthedocs.io"
+Repository = "https://github.com/rlogger/bayes-hdc"
+"Bug Tracker" = "https://github.com/rlogger/bayes-hdc/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["jax_hdc*"]
+include = ["bayes_hdc*"]
 
 [tool.ruff]
 line-length = 100
@@ -78,14 +82,14 @@ target-version = "py39"
 select = ["E", "F", "I", "W", "UP"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["jax_hdc"]
+known-first-party = ["bayes_hdc"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=jax_hdc --cov-report=term-missing"
+addopts = "-v --cov=bayes_hdc --cov-report=term-missing"
 markers = [
     "benchmark: performance benchmark tests (run with -m benchmark to execute)",
 ]

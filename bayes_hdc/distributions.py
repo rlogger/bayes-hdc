@@ -1,0 +1,283 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Rajdeep Singh
+
+"""Bayesian hypervectors — distributions over hypervectors.
+
+A Bayesian hypervector represents uncertainty explicitly. Rather than a
+single point in :math:`\\mathbb{R}^d`, it carries a probability distribution.
+Binding and bundling propagate the distribution forward through the VSA
+algebra so that similarity, retrieval, and classification inherit
+calibrated uncertainty end-to-end.
+
+This module ships the foundational distribution types. The API mirrors the
+deterministic :mod:`bayes_hdc.vsa` models: every distributional type exposes
+``bind``, ``bundle``, ``similarity``, and ``sample``. Deterministic
+hypervectors are recovered as the zero-variance limit, so any existing
+pipeline composes cleanly.
+
+Distributions currently provided:
+
+- :class:`GaussianHV` — mean + diagonal variance; closed-form moment
+  propagation under element-wise multiplication (MAP binding) and
+  addition (bundling).
+
+Planned (see ``README.md`` roadmap):
+
+- ``DirichletHV`` — distributions over the probability simplex, for
+  probabilistic categorical codebooks.
+- ``MixtureHV`` — mixture-of-Gaussian hypervectors for multi-modal
+  representations.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+import jax
+import jax.numpy as jnp
+
+from bayes_hdc._compat import register_dataclass
+from bayes_hdc.constants import EPS
+
+
+@register_dataclass
+@dataclass
+class GaussianHV:
+    """A hypervector distributed as :math:`\\mathcal{N}(\\mu, \\mathrm{diag}(\\sigma^2))`.
+
+    Diagonal covariance keeps binding and bundling in closed form and
+    preserves the :math:`O(d)` memory footprint of deterministic MAP
+    hypervectors. For richer posteriors use a mixture or a low-rank
+    parameterisation (both roadmap).
+
+    Attributes:
+        mu: Mean of shape ``(d,)``.
+        var: Element-wise variance of shape ``(d,)``; must be non-negative.
+        dimensions: Dimensionality :math:`d`.
+    """
+
+    mu: jax.Array
+    var: jax.Array
+    dimensions: int = field(metadata=dict(static=True))
+
+    # ------------------------------------------------------------------
+    # Constructors
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def create(
+        dimensions: int,
+        mu: jax.Array | None = None,
+        var: jax.Array | None = None,
+    ) -> GaussianHV:
+        """Construct a Gaussian hypervector.
+
+        Defaults to a standard-normal prior :math:`\\mathcal{N}(0, I)`.
+        """
+        mu_arr = jnp.zeros(dimensions) if mu is None else mu
+        var_arr = jnp.ones(dimensions) if var is None else var
+        return GaussianHV(mu=mu_arr, var=var_arr, dimensions=dimensions)
+
+    @staticmethod
+    def from_sample(sample: jax.Array, var: float = 0.0) -> GaussianHV:
+        """Lift a deterministic hypervector to a Gaussian with chosen variance.
+
+        ``var=0`` gives a Dirac; ``var>0`` gives an isotropic posterior
+        centred on the sample. Useful for wrapping existing pipelines in
+        uncertainty without retraining.
+        """
+        d = sample.shape[-1]
+        return GaussianHV(
+            mu=sample,
+            var=jnp.full((d,), float(var)),
+            dimensions=d,
+        )
+
+    @staticmethod
+    def random(
+        key: jax.Array,
+        dimensions: int,
+        var: float = 1.0,
+    ) -> GaussianHV:
+        """Sample a random unit-norm mean with isotropic variance ``var``."""
+        mu = jax.random.normal(key, (dimensions,))
+        mu = mu / (jnp.linalg.norm(mu) + EPS)
+        return GaussianHV(
+            mu=mu,
+            var=jnp.full((dimensions,), float(var)),
+            dimensions=dimensions,
+        )
+
+    # ------------------------------------------------------------------
+    # Sampling
+    # ------------------------------------------------------------------
+
+    def sample(self, key: jax.Array) -> jax.Array:
+        """Draw a single sample from this distribution, shape ``(d,)``."""
+        eps = jax.random.normal(key, self.mu.shape)
+        return self.mu + jnp.sqrt(jnp.maximum(self.var, 0.0)) * eps
+
+    def sample_batch(self, key: jax.Array, n: int) -> jax.Array:
+        """Draw ``n`` samples from this distribution, shape ``(n, d)``."""
+        eps = jax.random.normal(key, (n, self.dimensions))
+        std = jnp.sqrt(jnp.maximum(self.var, 0.0))
+        return self.mu[None, :] + std[None, :] * eps
+
+
+# ----------------------------------------------------------------------
+# Distributional binding and bundling
+# ----------------------------------------------------------------------
+
+
+@jax.jit
+def bind_gaussian(x: GaussianHV, y: GaussianHV) -> GaussianHV:
+    """Bind two independent Gaussian HVs under element-wise multiplication.
+
+    For independent :math:`X \\sim \\mathcal{N}(\\mu_x, \\sigma_x^2)` and
+    :math:`Y \\sim \\mathcal{N}(\\mu_y, \\sigma_y^2)`, the exact first two
+    moments of ``Z = X * Y`` are:
+
+    .. math::
+        \\mathbb{E}[Z] &= \\mu_x \\mu_y \\\\
+        \\mathrm{Var}[Z] &= \\mu_x^2 \\sigma_y^2 + \\mu_y^2 \\sigma_x^2 + \\sigma_x^2 \\sigma_y^2
+
+    This is the standard moment calculation for products of independent
+    Gaussians and is applied element-wise here. The result is *not*
+    itself exactly Gaussian, but ``GaussianHV`` takes a moment-matched
+    view.
+
+    Args:
+        x: First Gaussian hypervector.
+        y: Second Gaussian hypervector.
+
+    Returns:
+        Moment-matched Gaussian hypervector for the element-wise product.
+    """
+    new_mu = x.mu * y.mu
+    new_var = (x.mu**2) * y.var + (y.mu**2) * x.var + x.var * y.var
+    return GaussianHV(mu=new_mu, var=new_var, dimensions=x.dimensions)
+
+
+@jax.jit
+def bundle_gaussian(hvs: GaussianHV) -> GaussianHV:
+    """Bundle a batch of independent Gaussian HVs by summation.
+
+    If each ``hvs[i]`` is independent, the sum is exactly Gaussian with
+
+    .. math::
+        \\mathbb{E}\\!\\left[\\sum_i X_i\\right] &= \\sum_i \\mu_i \\\\
+        \\mathrm{Var}\\!\\left[\\sum_i X_i\\right] &= \\sum_i \\sigma_i^2
+
+    The result is then normalised (mean divided by its L2 norm, variance
+    scaled by the squared inverse norm) to stay on the unit sphere, which
+    matches deterministic MAP bundling.
+
+    Args:
+        hvs: A batched :class:`GaussianHV` with ``mu`` of shape ``(n, d)``
+             and ``var`` of shape ``(n, d)``.
+
+    Returns:
+        Normalised Gaussian hypervector of dimension ``d``.
+    """
+    summed_mu = jnp.sum(hvs.mu, axis=0)
+    summed_var = jnp.sum(hvs.var, axis=0)
+    norm = jnp.linalg.norm(summed_mu) + EPS
+    return GaussianHV(
+        mu=summed_mu / norm,
+        var=summed_var / (norm**2),
+        dimensions=summed_mu.shape[-1],
+    )
+
+
+# ----------------------------------------------------------------------
+# Expected similarity
+# ----------------------------------------------------------------------
+
+
+@jax.jit
+def expected_cosine_similarity(x: GaussianHV, y: GaussianHV) -> jax.Array:
+    """Plug-in estimator of the expected cosine similarity under ``p(x) p(y)``.
+
+    Approximates :math:`\\mathbb{E}\\![\\langle X, Y \\rangle / (\\|X\\| \\|Y\\|)]`
+    by evaluating cosine similarity at the means. This is exact in the
+    zero-variance limit and is within :math:`O(\\sigma^2 / \\|\\mu\\|^2)` of
+    the true expectation for small variance.
+
+    For an unbiased Monte Carlo estimate, use :meth:`GaussianHV.sample_batch`
+    and average the resulting cosine similarities.
+
+    Args:
+        x: First Gaussian hypervector.
+        y: Second Gaussian hypervector.
+
+    Returns:
+        Scalar in ``[-1, 1]``.
+    """
+    x_norm = x.mu / (jnp.linalg.norm(x.mu) + EPS)
+    y_norm = y.mu / (jnp.linalg.norm(y.mu) + EPS)
+    return jnp.clip(jnp.sum(x_norm * y_norm), -1.0, 1.0)
+
+
+@jax.jit
+def similarity_variance(x: GaussianHV, y: GaussianHV) -> jax.Array:
+    """First-order variance of the dot product :math:`\\langle X, Y \\rangle`.
+
+    Under independence, :math:`\\mathrm{Var}[\\sum_i X_i Y_i]
+    = \\sum_i (\\mu_{x,i}^2 \\sigma_{y,i}^2 + \\mu_{y,i}^2 \\sigma_{x,i}^2
+    + \\sigma_{x,i}^2 \\sigma_{y,i}^2)`. This quantifies retrieval
+    uncertainty and is the ingredient used by calibrated VSA classifiers.
+
+    Args:
+        x: First Gaussian hypervector.
+        y: Second Gaussian hypervector.
+
+    Returns:
+        Non-negative scalar variance.
+    """
+    per_dim = (x.mu**2) * y.var + (y.mu**2) * x.var + x.var * y.var
+    return jnp.sum(per_dim)
+
+
+# ----------------------------------------------------------------------
+# KL divergence
+# ----------------------------------------------------------------------
+
+
+@jax.jit
+def kl_gaussian(p: GaussianHV, q: GaussianHV) -> jax.Array:
+    """KL divergence :math:`\\mathrm{KL}(p \\| q)` for two diagonal Gaussians.
+
+    Closed form:
+
+    .. math::
+        \\mathrm{KL}(p \\| q) = \\tfrac{1}{2} \\sum_i \\left[
+            \\log\\frac{\\sigma_{q,i}^2}{\\sigma_{p,i}^2}
+            + \\frac{\\sigma_{p,i}^2 + (\\mu_{p,i} - \\mu_{q,i})^2}{\\sigma_{q,i}^2}
+            - 1
+        \\right]
+
+    Used as a regulariser when learning variational codebooks.
+
+    Args:
+        p: First Gaussian hypervector (posterior).
+        q: Second Gaussian hypervector (prior).
+
+    Returns:
+        Non-negative scalar.
+    """
+    var_p = jnp.maximum(p.var, EPS)
+    var_q = jnp.maximum(q.var, EPS)
+    term = (
+        jnp.log(var_q / var_p) + (var_p + (p.mu - q.mu) ** 2) / var_q - 1.0
+    )
+    return 0.5 * jnp.sum(term)
+
+
+__all__ = [
+    "GaussianHV",
+    "bind_gaussian",
+    "bundle_gaussian",
+    "expected_cosine_similarity",
+    "similarity_variance",
+    "kl_gaussian",
+]

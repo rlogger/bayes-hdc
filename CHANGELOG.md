@@ -1,11 +1,28 @@
 # Changelog
 
-All notable changes to JAX-HDC will be documented in this file.
+All notable changes to Bayes-HDC will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added — Bayesian layer (headline for the v0.2 release)
+- `bayes_hdc.distributions` module — the Bayesian core of the library
+- `GaussianHV`: hypervectors represented as mean + diagonal variance; `jax.pytree`-compatible
+- `bind_gaussian`: exact moment propagation under element-wise product (MAP-style binding)
+- `bundle_gaussian`: exact moment propagation under summation + normalisation
+- `expected_cosine_similarity`: uncertainty-aware similarity at the moment-matched Gaussian
+- `similarity_variance`: exact first-order variance of the dot product
+- `kl_gaussian`: closed-form KL divergence suitable as a variational objective
+- `sample` / `sample_batch`: Monte Carlo fallbacks for richer posterior-predictive quantities
+- 24 unit tests for the Bayesian layer (test_distributions.py) — 100% line coverage
+
+### Changed
+- **Project pivot:** Bayes-HDC is now primarily a Bayesian / probabilistic framework for HDC. The eight deterministic VSA models, encoders, classifiers, memory modules, and structures remain as the foundation on which the Bayesian layer builds.
+- Repository renamed from `jax-hdc` to `bayes-hdc`; Python package renamed from `jax_hdc` to `bayes_hdc`.
+- Paper title, abstract, and introduction rewritten to lead with the Bayesian contribution.
+- Version bumped to 0.2.0a0 to mark the pivot.
 
 ### Added
 - BSBC (Binary Sparse Block Codes) VSA model
@@ -19,12 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ClusteringModel (HDC-style k-means)
 - SparseDistributedMemory, HopfieldMemory, and AttentionMemory modules
 - Integration tests (end-to-end encode/train/predict)
-- Performance benchmark suite, including `benchmarks/benchmark_compare.py` (jax-hdc vs TorchHD)
+- Performance benchmark suite, including `benchmarks/benchmark_compare.py` (bayes-hdc vs TorchHD)
 - `cleanup()` with `return_similarity` support
-- Metrics module (`jax_hdc/metrics.py`) with `bundle_snr`, `bundle_capacity`, `effective_dimensions`, `sparsity`, `signal_energy`, `saturation`, `cosine_matrix`, `retrieval_confidence`
+- Metrics module (`bayes_hdc/metrics.py`) with `bundle_snr`, `bundle_capacity`, `effective_dimensions`, `sparsity`, `signal_energy`, `saturation`, `cosine_matrix`, `retrieval_confidence`
 - Functional resonator-network skeleton (`functional.resonator`)
 - Functional primitives: `fractional_power`, `jaccard_similarity`, `tversky_similarity`, `soft_quantize`, `hard_quantize`, `flip_fraction`, `add_noise_map`, `select_bsc`, `select_map`, `threshold`, `window`
-- Symbolic data structures: `Multiset`, `HashTable`, `Sequence`, `Graph` (`jax_hdc/structures.py`)
+- Symbolic data structures: `Multiset`, `HashTable`, `Sequence`, `Graph` (`bayes_hdc/structures.py`)
 - `SLIDES.md` — full library walkthrough deck
 - `QUIZ.md` — 58-question self-quiz with answer key
 - `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1)
@@ -58,5 +75,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation structure (Sphinx/ReadTheDocs ready)
 - MIT License
 
-[Unreleased]: https://github.com/rlogger/jax-hdc/compare/v0.1.0-alpha...HEAD
-[0.1.0-alpha]: https://github.com/rlogger/jax-hdc/releases/tag/v0.1.0-alpha
+[Unreleased]: https://github.com/rlogger/bayes-hdc/compare/v0.1.0-alpha...HEAD
+[0.1.0-alpha]: https://github.com/rlogger/bayes-hdc/releases/tag/v0.1.0-alpha

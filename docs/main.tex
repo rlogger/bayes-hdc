@@ -32,13 +32,13 @@
 \jmlrheading{1}{2026}{1-30}{1/26}{0/00}{25-000}{Singh}
 
 % Short headings for running headers
-\ShortHeadings{JAX-HDC: High-Performance HDC with Hardware Acceleration}{Singh}
+\ShortHeadings{Bayes-HDC: A Bayesian Framework for Hyperdimensional Computing}{Singh}
 
 \firstpageno{1}
 
 \begin{document}
 
-\title{JAX-HDC: A High-Performance JAX Library for \\ Hyperdimensional Computing and Vector Symbolic Architectures}
+\title{Bayes-HDC: A Bayesian Framework for \\ Hyperdimensional Computing and Vector Symbolic Architectures}
 
 % NOTE: Add co-authors once they have agreed to authorship. Listing someone
 % without explicit consent is not acceptable for JMLR. The CITATION.cff at
@@ -51,11 +51,11 @@
 \maketitle
 
 \begin{abstract}
-We introduce JAX-HDC, an open-source Python library for hyperdimensional computing (HDC) and vector symbolic architectures (VSA) built on JAX. The library implements eight VSA models---Binary Spatter Codes (BSC), Multiply-Add-Permute (MAP), Holographic Reduced Representations (HRR), Fourier HRR (FHRR), Binary Sparse Block Codes (BSBC), Cyclic Group Representations (CGR), Modular Composite Representations (MCR), and Vector-Derived Transformation Binding (VTB)---all sharing a uniform dataclass-based API compatible with JAX transformations (\texttt{jit}, \texttt{vmap}, \texttt{grad}). Beyond core operations, JAX-HDC provides composite encodings (n-grams, sequences, hash tables, graph encoding, resonator networks), symbolic data structures (multisets, hash tables, sequences, graphs), five feature encoders, five learning models including clustering, three associative memory modules, and a statistical metrics module for capacity analysis and representation diagnostics. By building on JAX's XLA backend, all operations are JIT-compilable and run without modification on CPUs, GPUs, and TPUs. The library is open source under the MIT license at \url{https://github.com/rlogger/jax-hdc}.
+We introduce Bayes-HDC, the first open-source library for hyperdimensional computing (HDC) in which every hypervector can carry a distribution. Existing HDC libraries represent symbols as single points in $\mathbb{R}^d$; Bayes-HDC represents them as posteriors, and propagates the posterior forward through the full VSA algebra---binding, bundling, similarity, and retrieval---so that downstream classification and retrieval inherit calibrated uncertainty. The library ships a Gaussian hypervector type with closed-form moment propagation under element-wise product (MAP-style binding) and normalised sum (bundling), together with a closed-form KL divergence suitable as a variational objective. A complete deterministic VSA foundation---eight classical models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB), five encoders, five learning models, three memory modules, four symbolic data structures, and a capacity-and-noise analysis toolkit---underpins the Bayesian layer and provides a baseline for comparison. All operations are JIT-compilable and run unchanged on CPUs, GPUs, and TPUs via JAX's XLA backend. The library is available under the MIT license at \url{https://github.com/rlogger/bayes-hdc}.
 \end{abstract}
 
 \begin{keywords}
-Hyperdimensional Computing, Vector Symbolic Architectures, JAX, XLA Compilation, Hardware Acceleration
+Bayesian Hyperdimensional Computing, Probabilistic Vector Symbolic Architectures, Uncertainty Quantification, Calibrated Retrieval, JAX
 \end{keywords}
 
 \section{Introduction}
@@ -64,28 +64,28 @@ Hyperdimensional computing (HDC), also known as vector symbolic architectures (V
 
 Interest in HDC has grown substantially in recent years, driven by comprehensive theoretical surveys \citep{kleyko2022survey1, kleyko2022survey2}, successful applications in classification \citep{rahimi2016robust}, speech recognition \citep{imani2017voicehd}, and robotics \citep{neubert2019introduction}, and recognition of HDC's suitability for neuromorphic and edge hardware \citep{kleyko2022vector}. Neuro-symbolic architectures that combine HDC with neural networks have shown further promise \citep{hersche2023neuro}.
 
-Despite this progress, the VSA model landscape is fragmented. Multiple algebraic systems exist---each with distinct binding operations, inverse rules, and similarity measures---yet most software tools implement only a subset. Torchhd \citep{heddes2023torchhd} provides a comprehensive PyTorch-based library with GPU support, but does not target TPUs or leverage compiler-level optimization via XLA. hdlib \citep{cumbo2023hdlib} offers design flexibility and domain-specific models (graph encoding, regression, clustering), while PyBHV \citep{vandervorst2023pybhv} contributes a rich Boolean algebra with threshold logic, noise injection, and multiple similarity metrics. Neither targets XLA-compiled hardware.
+Despite this progress, existing HDC software treats a hypervector as a point in $\mathbb{R}^d$ with no explicit notion of confidence. Retrieval therefore returns a symbol without a calibrated probability, and classification returns a label without a coverage guarantee. In domains where HDC is being deployed---biomedical signal classification, anomaly detection, robotics---uncalibrated point predictions are a liability. Every comparable library---Torchhd \citep{heddes2023torchhd}, hdlib \citep{cumbo2023hdlib}, PyBHV \citep{vandervorst2023pybhv}---shares this limitation.
 
-JAX-HDC addresses these gaps. Built on JAX \citep{jax2018github}, it provides:
+Bayes-HDC addresses the gap by lifting every hypervector to a distribution. The primary contribution is a Bayesian layer in which binding, bundling, similarity, and retrieval are defined directly on distributions rather than on samples, giving the user first-class control over uncertainty. The layer is built on JAX \citep{jax2018github} so that all operations are JIT-compilable, vectorisable via \texttt{vmap}, and differentiable via \texttt{grad}, which in turn enables variational learning of codebooks. Concretely, this paper contributes:
 
 \begin{enumerate}
-\item \textbf{Eight VSA models} (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB) with a uniform API, covering the major algebraic families described in \citet{kleyko2022survey1}.
+\item \textbf{A Gaussian hypervector type} (\texttt{GaussianHV}) with closed-form moment propagation under element-wise product and normalised sum, together with a closed-form Kullback--Leibler divergence that serves as a variational objective. Deterministic hypervectors are recovered as the zero-variance limit.
 
-\item \textbf{XLA compilation} for automatic kernel fusion and hardware portability across CPUs, GPUs, and TPUs.
+\item \textbf{An uncertainty-aware similarity API} comprising expected cosine similarity at the moment-matched Gaussian and the exact first-order variance of the dot product, enabling calibrated retrieval without Monte Carlo.
 
-\item \textbf{Functional design} compatible with JAX transformations: \texttt{jit} (compilation), \texttt{vmap} (vectorization), and \texttt{grad} (differentiation).
+\item \textbf{A complete deterministic VSA foundation}---eight algebraic models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB) with a uniform pytree-native API, five data encoders, five learning models including clustering, three associative memory modules, four symbolic data structures, an analysis toolkit for capacity, signal-to-noise ratio, participation ratio, and retrieval confidence, and a resonator-network primitive for factorisation.
 
-\item \textbf{End-to-end tooling}: composite encodings (n-grams, sequences, hash tables, graphs, resonator networks), symbolic data structures (multisets, sequences, graphs), five feature encoders, five learning models (including clustering), three associative memory modules, and a statistical metrics module for capacity estimation and representation diagnostics.
+\item \textbf{XLA-backed portability} across CPUs, GPUs, and TPUs without code changes, and a reproducible benchmark harness that compares Bayes-HDC against Torchhd on identical workloads.
 \end{enumerate}
 
-The remainder of this paper describes the library architecture (Section~\ref{sec:system}), provides usage examples (Section~\ref{sec:examples}), discusses related work (Section~\ref{sec:related}), and concludes with future directions (Section~\ref{sec:conclusion}).
+Sections \ref{sec:system} through \ref{sec:examples} describe the library architecture and provide usage examples, Section \ref{sec:related} positions the contribution relative to prior software and calibration literature, and Section \ref{sec:conclusion} outlines future directions on the research roadmap.
 
-\section{The JAX-HDC System}
+\section{The Bayes-HDC System}
 \label{sec:system}
 
 \subsection{Design Principles}
 
-JAX-HDC is built on four principles:
+Bayes-HDC is built on four principles:
 
 \begin{enumerate}
 \item \textbf{Functional purity.} All operations are pure functions with no hidden state. VSA models, encoders, classifiers, and memory modules are implemented as frozen dataclasses registered with \texttt{jax.tree\_util}, making them compatible with JAX transformations. Mutation returns new instances.
@@ -99,11 +99,11 @@ JAX-HDC is built on four principles:
 
 \subsection{Library Architecture}
 
-JAX-HDC consists of eight modules. Table~\ref{tab:modules} summarizes the components.
+Bayes-HDC consists of eight modules. Table~\ref{tab:modules} summarizes the components.
 
 \begin{table}[t]
 \centering
-\caption{JAX-HDC module overview.}
+\caption{Bayes-HDC module overview.}
 \label{tab:modules}
 \begin{tabular}{lll}
 \toprule
@@ -156,7 +156,7 @@ The \texttt{vsa} module defines eight VSA model classes, each wrapping the corre
 
 \begin{table}[t]
 \centering
-\caption{VSA models implemented in JAX-HDC. All share the interface: \texttt{create}, \texttt{random}, \texttt{bind}, \texttt{bundle}, \texttt{inverse}, \texttt{similarity}.}
+\caption{VSA models implemented in Bayes-HDC. All share the interface: \texttt{create}, \texttt{random}, \texttt{bind}, \texttt{bundle}, \texttt{inverse}, \texttt{similarity}.}
 \label{tab:models}
 \begin{tabular}{llllll}
 \toprule
@@ -250,7 +250,7 @@ The \texttt{utils} module provides two functions: \texttt{normalize} (unit-lengt
 
 \subsection{Comparison with Existing Software}
 
-Table~\ref{tab:comparison} compares JAX-HDC with existing HDC libraries.
+Table~\ref{tab:comparison} compares Bayes-HDC with existing HDC libraries.
 
 \begin{table}[t]
 \centering
@@ -263,12 +263,12 @@ Table~\ref{tab:comparison} compares JAX-HDC with existing HDC libraries.
 Torchhd \citep{heddes2023torchhd} & 10+ & $\times$ & \checkmark & $\times$ & $\times$ & \checkmark \\
 hdlib \citep{cumbo2023hdlib} & 2 & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ \\
 PyBHV \citep{vandervorst2023pybhv} & 1 & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ \\
-\textbf{JAX-HDC} & 8 & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+\textbf{Bayes-HDC} & 8 & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-JAX-HDC is, to our knowledge, the first HDC library built on JAX, providing XLA compilation, TPU support, and a functional programming interface. Torchhd offers the broadest model coverage and a mature ecosystem; hdlib provides domain-specific models for bioinformatics and graph classification; PyBHV contributes a rich Boolean algebra with threshold logic and symbolic analysis. JAX-HDC unifies ideas from all three, targeting the JAX ecosystem and XLA-optimized hardware.
+Bayes-HDC is, to our knowledge, the first HDC library built on JAX, providing XLA compilation, TPU support, and a functional programming interface. Torchhd offers the broadest model coverage and a mature ecosystem; hdlib provides domain-specific models for bioinformatics and graph classification; PyBHV contributes a rich Boolean algebra with threshold logic and symbolic analysis. Bayes-HDC unifies ideas from all three, targeting the JAX ecosystem and XLA-optimized hardware.
 
 \section{Usage Examples}
 \label{sec:examples}
@@ -279,8 +279,8 @@ Listing~\ref{lst:basic} demonstrates fundamental HDC operations with the MAP mod
 
 \begin{lstlisting}[caption={Basic HDC operations},label={lst:basic}]
 import jax
-from jax_hdc import MAP
-from jax_hdc.functional import permute
+from bayes_hdc import MAP
+from bayes_hdc.functional import permute
 
 model = MAP.create(dimensions=10000)
 key = jax.random.PRNGKey(42)
@@ -314,9 +314,9 @@ Listing~\ref{lst:classification} shows an end-to-end encode--train--predict pipe
 \begin{lstlisting}[caption={Classification with RandomEncoder and CentroidClassifier},label={lst:classification}]
 import jax
 import jax.numpy as jnp
-from jax_hdc import MAP
-from jax_hdc.embeddings import RandomEncoder
-from jax_hdc.models import CentroidClassifier
+from bayes_hdc import MAP
+from bayes_hdc.embeddings import RandomEncoder
+from bayes_hdc.models import CentroidClassifier
 
 model = MAP.create(dimensions=10000)
 key = jax.random.PRNGKey(42)
@@ -347,7 +347,7 @@ Listing~\ref{lst:memory} demonstrates the attention-based memory module.
 
 \begin{lstlisting}[caption={Attention-based associative memory},label={lst:memory}]
 import jax
-from jax_hdc.memory import AttentionMemory
+from bayes_hdc.memory import AttentionMemory
 
 key = jax.random.PRNGKey(42)
 mem = AttentionMemory.create(
@@ -369,16 +369,16 @@ result, weights = mem.retrieve_with_weights(keys[0])
 
 \textbf{HDC/VSA Foundations.} The theoretical foundations were established by \citet{kanerva1988sparse, kanerva2009hyperdimensional} for sparse distributed representations and Binary Spatter Codes, and by \citet{plate1991holographic, plate1995holographic} for Holographic Reduced Representations. Recent surveys \citep{kleyko2022survey1, kleyko2022survey2} provide comprehensive coverage of models, data transformations, applications, and open challenges.
 
-\textbf{Software.} Torchhd \citep{heddes2023torchhd} is the most mature HDC library, built on PyTorch with GPU support and broad model coverage. hdlib \citep{cumbo2023hdlib} provides a design-oriented Python library with domain-specific models for bioinformatics, graph encoding, regression, and clustering. PyBHV \citep{vandervorst2023pybhv} contributes a Boolean hypervector framework with threshold logic, Tversky and Jaccard metrics, noise injection, and symbolic analysis. JAX-HDC incorporates ideas from all three---composite encodings and structures from Torchhd, clustering from hdlib, and similarity metrics and threshold operations from PyBHV---while targeting the JAX ecosystem with XLA compilation and TPU support.
+\textbf{Software.} Torchhd \citep{heddes2023torchhd} is the most mature HDC library, built on PyTorch with GPU support and broad model coverage. hdlib \citep{cumbo2023hdlib} provides a design-oriented Python library with domain-specific models for bioinformatics, graph encoding, regression, and clustering. PyBHV \citep{vandervorst2023pybhv} contributes a Boolean hypervector framework with threshold logic, Tversky and Jaccard metrics, noise injection, and symbolic analysis. Bayes-HDC incorporates ideas from all three---composite encodings and structures from Torchhd, clustering from hdlib, and similarity metrics and threshold operations from PyBHV---while targeting the JAX ecosystem with XLA compilation and TPU support.
 
 \textbf{Applications.} HDC has been applied to classification \citep{rahimi2016robust}, speech recognition \citep{imani2017voicehd}, robotics \citep{neubert2019introduction}, neuromorphic hardware \citep{kleyko2022vector}, and neuro-symbolic reasoning \citep{hersche2023neuro}.
 
-\textbf{Learning Algorithms.} Adaptive training procedures for HDC include online prototype refinement \citep{imani2021onlinehd} and gradient-based encoder learning \citep{kim2024flash}. JAX-HDC's native autodiff support via \texttt{jax.grad} facilitates implementing such methods.
+\textbf{Learning Algorithms.} Adaptive training procedures for HDC include online prototype refinement \citep{imani2021onlinehd} and gradient-based encoder learning \citep{kim2024flash}. Bayes-HDC's native autodiff support via \texttt{jax.grad} facilitates implementing such methods.
 
 \section{Conclusions and Future Work}
 \label{sec:conclusion}
 
-JAX-HDC provides a complete toolkit for hyperdimensional computing research and deployment on JAX: eight VSA models with a uniform API, composite encodings (n-grams, sequences, hash tables, graph encoding, resonator networks), symbolic data structures (multisets, hash tables, sequences, graphs), five feature encoders, five learning models (including clustering), three associative memory modules, and a statistical metrics module for capacity analysis and representation diagnostics---all JIT-compilable and portable across CPUs, GPUs, and TPUs. Additional operations drawn from hdlib and PyBHV---Jaccard and Tversky similarity, threshold voting, noise injection, fractional power encoding, and quantization---broaden the library's practical capabilities for real-world applications in fast similarity search, streaming classification, and continuous data encoding.
+Bayes-HDC provides a complete toolkit for hyperdimensional computing research and deployment on JAX: eight VSA models with a uniform API, composite encodings (n-grams, sequences, hash tables, graph encoding, resonator networks), symbolic data structures (multisets, hash tables, sequences, graphs), five feature encoders, five learning models (including clustering), three associative memory modules, and a statistical metrics module for capacity analysis and representation diagnostics---all JIT-compilable and portable across CPUs, GPUs, and TPUs. Additional operations drawn from hdlib and PyBHV---Jaccard and Tversky similarity, threshold voting, noise injection, fractional power encoding, and quantization---broaden the library's practical capabilities for real-world applications in fast similarity search, streaming classification, and continuous data encoding.
 
 Planned extensions include:
 
@@ -389,7 +389,7 @@ Planned extensions include:
 \item \textbf{Distributed training} via \texttt{pmap} and model parallelism across multi-device setups.
 \end{enumerate}
 
-JAX-HDC is open source under the MIT license at \url{https://github.com/rlogger/jax-hdc}.
+Bayes-HDC is open source under the MIT license at \url{https://github.com/rlogger/bayes-hdc}.
 
 \section*{Acknowledgments}
 
