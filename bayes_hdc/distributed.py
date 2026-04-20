@@ -75,9 +75,71 @@ def pmap_bundle_gaussian(hvs: GaussianHV) -> GaussianHV:
     return bundle_gaussian(per_device)
 
 
+def shard_map_bind_gaussian(x: GaussianHV, y: GaussianHV) -> GaussianHV:
+    """``shard_map``-based bind for multi-accelerator pods (JAX ≥ 0.4.24).
+
+    Uses explicit axis annotation via ``jax.experimental.shard_map``
+    instead of the older ``pmap`` API. Inputs must carry a leading axis
+    of size ``jax.local_device_count()``. Returns a sharded
+    :class:`GaussianHV`.
+
+    Falls back to a plain :func:`~bayes_hdc.distributions.bind_gaussian`
+    call if the host has only one device (nothing to shard) or if the
+    installed JAX version does not expose ``shard_map``.
+    """
+    try:
+        from jax.experimental.shard_map import shard_map
+        from jax.sharding import Mesh, PartitionSpec
+
+        n_dev = jax.local_device_count()
+        if n_dev < 2:
+            return bind_gaussian(x, y)
+
+        mesh = Mesh(jax.devices()[:n_dev], axis_names=("i",))
+        spec = PartitionSpec("i", None)
+        sharded = shard_map(
+            bind_gaussian,
+            mesh=mesh,
+            in_specs=(spec, spec),
+            out_specs=spec,
+        )
+        return sharded(x, y)
+    except Exception:  # pragma: no cover — JAX version dependent
+        # Fall through to pmap, then single-device.
+        try:
+            return jax.pmap(bind_gaussian)(x, y)
+        except Exception:
+            return bind_gaussian(x, y)
+
+
+def shard_classifier_posteriors(
+    mu: jax.Array,
+    var: jax.Array,
+) -> tuple[jax.Array, jax.Array]:
+    """Reshape ``(K, d)`` class posteriors into ``(n_devices, K // n_devices, d)``.
+
+    Assumes ``K`` is divisible by ``jax.local_device_count()``. Returns
+    the sharded mean and variance arrays; pass them to
+    :func:`shard_map_bind_gaussian` or a user-defined sharded op. On a
+    single-device host, returns the inputs unchanged with a leading
+    axis of size 1.
+    """
+    n_dev = jax.local_device_count()
+    k = mu.shape[0]
+    if k % n_dev != 0:
+        raise ValueError(
+            f"num_classes ({k}) must be divisible by local_device_count ({n_dev}) "
+            "for sharded posteriors."
+        )
+    reshape = (n_dev, k // n_dev, mu.shape[1])
+    return mu.reshape(reshape), var.reshape(reshape)
+
+
 __all__ = [
     "batch_bind_gaussian",
     "batch_similarity_gaussian",
     "pmap_bind_gaussian",
     "pmap_bundle_gaussian",
+    "shard_map_bind_gaussian",
+    "shard_classifier_posteriors",
 ]

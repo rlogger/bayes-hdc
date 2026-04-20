@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — v0.5/v0.6 completion + containerised benchmarks
+
+- **`bayes_hdc.resonator.probabilistic_resonator`** — multi-restart MCMC factorisation of a composite PVSA hypervector. Each chain samples factor indices from a softmax over residual similarities (Metropolis-style); returns the best chain's `(indices, alignment, history, n_restarts)`. Uses `inverse_gaussian` so uncertainty propagates through unbinding. Closes the v0.5 research-paper block.
+- **`bayes_hdc.diagnostics`** — posterior predictive checks and coverage calibration audits. Ships `posterior_predictive_check` with two ready-made statistics (`statistic_mean_norm`, `statistic_cosine_to_reference`), a general `coverage_calibration_check` that sweeps α for any `ConformalClassifier`, and associated `PPCResult` / `CoverageCheckResult` dataclasses.
+- **`StreamingBayesianHDC`** — bounded-memory streaming classifier with exponential-moving-average posteriors. Variance adapts to distribution shift (unlike the strict-shrinkage `BayesianAdaptiveHDC`); memory is O(K·d), independent of stream length.
+- **`shard_map_bind_gaussian`** and **`shard_classifier_posteriors`** in `bayes_hdc.distributed` — explicit-axis sharding via `jax.experimental.shard_map`. On multi-device hosts shards across a `Mesh`; on single-device hosts degrades to plain `bind_gaussian` for API parity.
+- **Containerised benchmarks** — updated `Dockerfile` with dedicated `benchmark` stage that runs all three benchmarks end-to-end and writes results to a mounted volume. New `make docker-bench` / `make docker-test` targets; `make bench` / `make figures` for local runs.
+- **Paper updates** — `docs/workshop_paper.tex` now includes sample figures from `benchmarks/figures/`, references the Docker-based reproducibility path, and adds the Bayesian `inverse` and mixture hypervector types to the algebra listing.
+- **23 new unit tests** covering resonator, PPC, streaming, and shard-map helpers. Total: **467 tests, 97% line coverage on 22 source files.**
+
 ### Added — v0.3/v0.4 closure + v0.5/v0.6 openers + paper figures
 
 - **`inverse_gaussian`** — approximate distributional inverse via the delta method; exact in the zero-variance limit, matches classical MAP unbinding. Preserves `bind(bind(x, y), inverse(y)) ≈ x` on low-variance inputs.

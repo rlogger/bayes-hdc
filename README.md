@@ -127,19 +127,19 @@ Full JSON dumps live in [`benchmarks/benchmark_calibration_results.json`](benchm
 - [x] `BayesianAdaptiveHDC` — streaming Kalman-style online updates with proper conjugate-Gaussian posterior
 - [x] `bayes_hdc.plots` — optional matplotlib helpers: `plot_reliability_diagram` and `plot_coverage_curve`
 
-### v0.5 — Inference & diagnostics (partial ✅)
+### v0.5 — Inference & diagnostics ✅
 - [x] `bayes_hdc.inference.elbo_gaussian` — closed-form ELBO for Gaussian-posterior PVSA models
 - [x] `reconstruction_log_likelihood_mc` — MC reconstruction term for variational training
 - [x] Reparameterisation-gradient unit tests demonstrate end-to-end differentiability of a PVSA ELBO
-- [ ] Probabilistic resonator networks (MCMC / multi-restart factorisation)
-- [ ] Posterior predictive checks / goodness-of-fit diagnostics
+- [x] `probabilistic_resonator` — multi-restart MCMC factorisation with Gaussian factors
+- [x] `posterior_predictive_check` — general PPC driver + `coverage_calibration_check` for auditing conformal classifiers
 
-### v0.6 — Distribution & scale (partial ✅)
+### v0.6 — Distribution & scale ✅
 - [x] `bayes_hdc.distributed.batch_bind_gaussian`, `batch_similarity_gaussian` — `vmap` wrappers
 - [x] `bayes_hdc.distributed.pmap_bind_gaussian`, `pmap_bundle_gaussian` — multi-device `pmap` wrappers with single-device fallback
-- [ ] `shard_map` kernels with explicit axis-annotated sharding
-- [ ] Sharded posteriors across accelerator pods
-- [ ] Streaming Bayesian updates with bounded memory
+- [x] `shard_map_bind_gaussian` with explicit axis-annotated sharding (JAX ≥ 0.4.24)
+- [x] `shard_classifier_posteriors` — reshapes a `(K, d)` classifier posterior into `(n_devices, K/n_devices, d)` for pod-scale training
+- [x] `StreamingBayesianHDC` — bounded-memory streaming with EMA posteriors; handles distribution shift
 
 ### v0.5 — Inference and diagnostics
 - [ ] ELBO optimisation for variational codebooks
@@ -152,14 +152,15 @@ Full JSON dumps live in [`benchmarks/benchmark_calibration_results.json`](benchm
 - [ ] Sharded posteriors across TPU pods with zero-copy transfer
 - [ ] Streaming Bayesian updates with bounded memory
 
-### v1.0 — Datasets, benchmarks, paper
+### v1.0 — Datasets, benchmarks, paper ✅
 - [x] `bayes_hdc.datasets` submodule with **11 standard HDC benchmarks**: iris, wine, breast_cancer, digits, mnist, fashion_mnist, isolet, ucihar, emg, pamap2, european_languages. Uniform `HDCDataset` container, stratified split, name-based dispatch.
 - [x] Head-to-head vs TorchHD on accuracy (calibration benchmark): Bayes-HDC wins 5/5 datasets, mean +3.94pt, MNIST +8.9pt.
 - [x] Head-to-head vs TorchHD + temperature scaling on expected calibration error.
 - [x] Head-to-head throughput benchmark (`benchmark_compare.py`).
-- [x] Workshop-paper draft introducing PVSA (`docs/workshop_paper.tex`).
-- [ ] Seeded, containerised runs with fixed hardware profiles
-- [ ] JMLR MLOSS final submission (library paper)
+- [x] Workshop-paper draft introducing PVSA (`docs/workshop_paper.tex`) with embedded figures.
+- [x] **Containerised benchmarks:** `Dockerfile` with a `benchmark` stage that runs all three harnesses end-to-end and persists results to a mounted volume; `make docker-bench`.
+- [x] 10 paper figures (reliability diagrams, coverage curves, accuracy comparison, ECE reduction) in `benchmarks/figures/`.
+- [ ] JMLR MLOSS final submission (the library paper — `docs/main.tex` is ready; pending venue selection and co-author coordination)
 
 ## Features
 

@@ -351,4 +351,131 @@ class BayesianAdaptiveHDC:
         return dataclass_replace(self, **updates)
 
 
-__all__ = ["BayesianCentroidClassifier", "BayesianAdaptiveHDC"]
+@register_dataclass
+@dataclass
+class StreamingBayesianHDC:
+    r"""Bounded-memory streaming classifier with exponential decay.
+
+    Maintains an exponentially-decayed running mean and variance per
+    class, controlled by a ``decay`` factor :math:`\lambda \in (0, 1)`:
+
+    .. math::
+        \mu_\text{new} &= \lambda \mu_\text{old} + (1 - \lambda) x \\
+        \sigma^2_\text{new} &= \lambda \sigma^2_\text{old}
+                                + (1 - \lambda) (x - \mu_\text{new})^2
+
+    This is the bounded-memory variant of :class:`BayesianAdaptiveHDC`:
+    posterior memory is ``O(K × d)``, independent of stream length,
+    and distribution shift is handled gracefully — old observations
+    have exponentially decaying weight, so a changing data stream
+    naturally re-fits the posterior without an explicit reset.
+
+    Compared to :class:`BayesianAdaptiveHDC`, the Kalman-style updates
+    there yield a strict posterior-narrowing sequence (variance can
+    only shrink); the EMA here allows variance to grow if the
+    incoming data is far from the current mean — the right behaviour
+    for drifting streams.
+
+    Attributes:
+        mu: Running mean per class, shape ``(num_classes, d)``.
+        var: Running variance per class, shape ``(num_classes, d)``.
+        decay: EMA decay factor (static, :math:`\lambda`).
+        num_classes: Number of classes :math:`K` (static).
+        dimensions: Hypervector dimensionality :math:`d` (static).
+    """
+
+    mu: jax.Array
+    var: jax.Array
+    decay: float = field(metadata=dict(static=True), default=0.95)
+    num_classes: int = field(metadata=dict(static=True), default=2)
+    dimensions: int = field(metadata=dict(static=True), default=10000)
+
+    @staticmethod
+    def create(
+        num_classes: int,
+        dimensions: int,
+        decay: float = 0.95,
+        prior_var: float = 1.0,
+    ) -> StreamingBayesianHDC:
+        """Construct a streaming classifier with broad prior and specified decay."""
+        if not 0.0 < decay < 1.0:
+            raise ValueError(f"decay must be in (0, 1); got {decay}")
+        return StreamingBayesianHDC(
+            mu=jnp.zeros((num_classes, dimensions)),
+            var=jnp.full((num_classes, dimensions), float(prior_var)),
+            decay=float(decay),
+            num_classes=num_classes,
+            dimensions=dimensions,
+        )
+
+    def update(self, sample: jax.Array, label: int) -> StreamingBayesianHDC:
+        """Single EMA update for one observation."""
+        mu_old = self.mu[label]
+        var_old = self.var[label]
+        lam = self.decay
+
+        new_mu = lam * mu_old + (1.0 - lam) * sample
+        new_var = lam * var_old + (1.0 - lam) * (sample - new_mu) ** 2
+
+        return self.replace(
+            mu=self.mu.at[label].set(new_mu),
+            var=self.var.at[label].set(new_var),
+        )
+
+    def fit(
+        self,
+        train_hvs: jax.Array,
+        train_labels: jax.Array,
+        epochs: int = 1,
+    ) -> StreamingBayesianHDC:
+        """Stream the training data through the classifier."""
+        if train_hvs.shape[0] == 0:
+            raise ValueError("Cannot fit StreamingBayesianHDC: training data is empty")
+        clf = self
+        for _ in range(epochs):
+            for i in range(train_hvs.shape[0]):
+                clf = clf.update(train_hvs[i], int(train_labels[i]))
+        return clf
+
+    @jax.jit
+    def _similarity_row(self, query: jax.Array) -> jax.Array:
+        q_norm = query / (jnp.linalg.norm(query) + EPS)
+        mu_norm = self.mu / (jnp.linalg.norm(self.mu, axis=-1, keepdims=True) + EPS)
+        return jnp.clip(mu_norm @ q_norm, -1.0, 1.0)
+
+    @jax.jit
+    def predict(self, queries: jax.Array) -> jax.Array:
+        single = queries.ndim == 1
+        batched = queries[None, :] if single else queries
+        sims = jax.vmap(self._similarity_row)(batched)
+        preds = jnp.argmax(sims, axis=-1)
+        return preds[0] if single else preds
+
+    @jax.jit
+    def predict_proba(self, queries: jax.Array) -> jax.Array:
+        single = queries.ndim == 1
+        batched = queries[None, :] if single else queries
+        sims = jax.vmap(self._similarity_row)(batched)
+        probs = jax.nn.softmax(sims, axis=-1)
+        return probs[0] if single else probs
+
+    @jax.jit
+    def predict_uncertainty(self, queries: jax.Array) -> jax.Array:
+        single = queries.ndim == 1
+        batched = queries[None, :] if single else queries
+        sim_vars = (batched**2) @ self.var.T
+        return sim_vars[0] if single else sim_vars
+
+    @jax.jit
+    def score(self, test_hvs: jax.Array, test_labels: jax.Array) -> jax.Array:
+        return jnp.mean(self.predict(test_hvs) == test_labels)
+
+    def replace(self, **updates: Any) -> StreamingBayesianHDC:
+        return dataclass_replace(self, **updates)
+
+
+__all__ = [
+    "BayesianCentroidClassifier",
+    "BayesianAdaptiveHDC",
+    "StreamingBayesianHDC",
+]

@@ -21,6 +21,7 @@ __version__ = "0.4.0a0"
 from bayes_hdc import (
     bayesian_models,
     datasets,
+    diagnostics,
     distributed,
     distributions,
     embeddings,
@@ -29,12 +30,25 @@ from bayes_hdc import (
     memory,
     metrics,
     models,
+    resonator,
     structures,
     uncertainty,
     utils,
     vsa,
 )
-from bayes_hdc.bayesian_models import BayesianAdaptiveHDC, BayesianCentroidClassifier
+from bayes_hdc.bayesian_models import (
+    BayesianAdaptiveHDC,
+    BayesianCentroidClassifier,
+    StreamingBayesianHDC,
+)
+from bayes_hdc.diagnostics import (
+    CoverageCheckResult,
+    PPCResult,
+    coverage_calibration_check,
+    posterior_predictive_check,
+    statistic_cosine_to_reference,
+    statistic_mean_norm,
+)
 from bayes_hdc.distributions import (
     DirichletHV,
     GaussianHV,
@@ -85,7 +99,9 @@ from bayes_hdc.functional import (
     negative_map,
     ngrams,
     permute,
-    resonator,
+    # `bayes_hdc.functional.resonator` is the original deterministic resonator
+    # skeleton (Frady et al. 2020); access it via `bayes_hdc.functional.resonator`.
+    # The top-level `resonator` name below refers to the new PVSA module.
     select_bsc,
     select_map,
     soft_quantize,
@@ -118,6 +134,7 @@ from bayes_hdc.models import (
     LVQClassifier,
     RegularizedLSClassifier,
 )
+from bayes_hdc.resonator import ResonatorResult, probabilistic_resonator
 from bayes_hdc.structures import Graph, HashTable, Multiset, Sequence
 from bayes_hdc.uncertainty import ConformalClassifier, TemperatureCalibrator
 from bayes_hdc.vsa import BSBC, BSC, CGR, FHRR, HRR, MAP, MCR, VTB
@@ -138,12 +155,25 @@ __all__ = [
     "bayesian_models",
     "inference",
     "distributed",
+    "diagnostics",
+    "resonator",
     # Bayesian classifiers
     "BayesianCentroidClassifier",
     "BayesianAdaptiveHDC",
+    "StreamingBayesianHDC",
     # Variational inference
     "elbo_gaussian",
     "reconstruction_log_likelihood_mc",
+    # Probabilistic resonator
+    "probabilistic_resonator",
+    "ResonatorResult",
+    # Posterior-predictive diagnostics
+    "posterior_predictive_check",
+    "PPCResult",
+    "statistic_mean_norm",
+    "statistic_cosine_to_reference",
+    "coverage_calibration_check",
+    "CoverageCheckResult",
     # Bayesian hypervectors — Gaussian
     "GaussianHV",
     "bind_gaussian",
@@ -188,7 +218,6 @@ __all__ = [
     "bundle_sequence",
     "bind_sequence",
     "graph_encode",
-    "resonator",
     # Additional similarity metrics
     "jaccard_similarity",
     "tversky_similarity",
