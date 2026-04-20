@@ -219,8 +219,7 @@ All structures are functional (return a new instance on modification) and compat
 
 ## 11. Metrics & analysis — `metrics.py` ⭐
 
-This module is a differentiator from TorchHD — capacity and noise tooling
-that practitioners normally re-derive per paper:
+First-class capacity-and-noise tooling that practitioners normally re-derive per paper — implemented from the theory (Kanerva 2009; Kleyko et al. 2022 surveys), not from another library:
 
 | Function | What it measures |
 |----------|------------------|
@@ -421,7 +420,7 @@ Already shipping in bayes-hdc, not in any other public HDC library:
 - **Fractional-power binding**, Tversky / Jaccard similarities.
 - **Stateless, pytree-native design** — every classifier / memory / structure is a pytree and works through `jit` / `vmap` / `pmap` / `grad` without wrappers.
 
-Matched with TorchHD: 8 VSA models, core encoders / classifiers / memory / structures. Still missing from this library: `datasets` submodule with the 14 HDC-standard datasets (v1.0 roadmap).
+Covers the same deterministic VSA layer the HDC literature defines — eight algebraic models, encoders, classifiers, memory, structures — implemented directly from the primary papers (Kanerva, Plate, Gayler, Rahimi, Ramsauer) rather than ported from another library. See `ORIGINALITY.md` for the per-component attribution. Still missing: a `datasets` submodule with the 14 HDC-standard benchmarks (v1.0 roadmap).
 
 ---
 

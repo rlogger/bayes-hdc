@@ -192,7 +192,7 @@ RandomEncoder, LevelEncoder, ProjectionEncoder, and KernelEncoder provide \textt
 
 \subsubsection{Module 4: \texttt{jax\_hdc.structures}}
 
-Four symbolic data structures are built on top of the functional operations, inspired by the structures module in Torchhd \citep{heddes2023torchhd}:
+Four symbolic data structures are implemented directly on top of the core VSA primitives, following the constructions in the HDC literature \citep{kanerva2009hyperdimensional,kanerva2010dollar,plate1995holographic}:
 
 \begin{itemize}
 \item \textbf{Multiset}: Maintains a running sum of added hypervectors. Supports \texttt{add}, \texttt{remove}, and \texttt{contains} (cosine similarity query).
@@ -268,7 +268,7 @@ PyBHV \citep{vandervorst2023pybhv} & 1 & $\times$ & $\times$ & $\times$ & $\time
 \end{tabular}
 \end{table}
 
-Bayes-HDC is, to our knowledge, the first HDC library built on JAX, providing XLA compilation, TPU support, and a functional programming interface. Torchhd offers the broadest model coverage and a mature ecosystem; hdlib provides domain-specific models for bioinformatics and graph classification; PyBHV contributes a rich Boolean algebra with threshold logic and symbolic analysis. Bayes-HDC unifies ideas from all three, targeting the JAX ecosystem and XLA-optimized hardware.
+Bayes-HDC introduces Probabilistic Vector Symbolic Architectures, an algebra in which every hypervector is a posterior distribution and every VSA primitive propagates the posterior's moments in closed form. No prior HDC library offers this framework, nor its constituent pieces: closed-form distributional binding and bundling (\texttt{GaussianHV}, \texttt{DirichletHV}), L-BFGS-in-log-space temperature calibration fit on held-out data, split-conformal prediction with the APS nonconformity score for marginal-coverage guarantees, or calibration-metric primitives (ECE, MCE, Brier, reliability curves) as JIT-compilable operations. The deterministic VSA layer is implemented from primary research---Kanerva (1997, 2009), Plate (1995), Gayler (2003), and the related-model surveys of \citet{kleyko2022survey1,kleyko2022survey2}---rather than derived from other library implementations; Torchhd \citep{heddes2023torchhd}, hdlib \citep{cumbo2023hdlib}, and PyBHV \citep{vandervorst2023pybhv} are included as empirical baselines for head-to-head comparison.
 
 \section{Usage Examples}
 \label{sec:examples}
@@ -393,7 +393,7 @@ Bayes-HDC is open source under the MIT license at \url{https://github.com/rlogge
 
 \section*{Acknowledgments}
 
-We thank the JAX development team at Google, the Torchhd authors, the hdlib authors, and Adam Vandervorst (PyBHV) for their foundational work that informed and inspired aspects of this library.
+We thank the authors of the foundational HDC research papers whose work this project builds on---P. Kanerva, T.~A. Plate, R.~W. Gayler, D. Kleyko, A. Rahimi, M. Imani, and F.~T. Sommer among many others---and the JAX development team at Google for the underlying numerical-computing substrate. Torchhd, hdlib, and PyBHV are cited for head-to-head empirical comparison and for their prior framing of the HDC software-engineering problem; no code in this library is derived from them.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{99}

@@ -8,15 +8,17 @@
 
 **Probabilistic Vector Symbolic Architectures (PVSA) — an algebra of uncertainty for Hyperdimensional Computing.**
 
-Bayes-HDC introduces **Probabilistic Vector Symbolic Architectures (PVSA)**: the first HDC framework in which uncertainty is a first-class citizen of the algebra. Where classical VSA represents a symbol as a single hypervector in $\mathbb{R}^d$ (or $\mathbb{F}_2^d$, $\mathbb{C}^d$, $\mathbb{Z}_q^d$), PVSA represents it as a **posterior distribution** over hypervectors — Gaussian, Dirichlet, or mixture — and propagates that posterior's moments in closed form through bind, bundle, permute, similarity, and retrieval.
+Bayes-HDC introduces **Probabilistic Vector Symbolic Architectures (PVSA)**: an HDC framework in which every hypervector is a posterior distribution and every VSA primitive propagates that distribution's moments in closed form. This is the first such framework in the HDC literature; see [`ORIGINALITY.md`](ORIGINALITY.md) for an explicit independence statement and primary-source attribution for every component of the library.
 
-That extra structure unlocks three things that no prior HDC library ships:
+Where classical VSA represents a symbol as a single hypervector in $\mathbb{R}^d$ (or $\mathbb{F}_2^d$, $\mathbb{C}^d$, $\mathbb{Z}_q^d$), PVSA represents it as a **posterior distribution** over hypervectors — Gaussian, Dirichlet, or mixture — with bind, bundle, permute, similarity, retrieval, and divergence all defined on distributions directly.
+
+That extra structure unlocks three capabilities, none of which appear in prior HDC libraries:
 
 1. **Moment-propagating algebra** — every core operation (`bind_gaussian`, `bundle_gaussian`, `bind_dirichlet`, `bundle_dirichlet`, `kl_*`) has closed-form moments, with a Monte Carlo fallback for anything else.
-2. **Calibrated predictive distributions** — post-hoc temperature scaling (Guo et al., 2017) fit via L-BFGS in log-space, reducing ECE by **5–25×** on real datasets.
-3. **Coverage-guaranteed prediction sets** — split-conformal with APS scores (Romano et al., 2020), returning a prediction set whose true label coverage is ≥ 1 − α on exchangeable data.
+2. **Calibrated predictive distributions** — post-hoc temperature scaling (Guo et al. 2017) fit via L-BFGS in log-space, reducing ECE by **5–25×** on real datasets.
+3. **Coverage-guaranteed prediction sets** — split-conformal with APS scores (Romano et al. 2020), returning a prediction set whose true-label coverage is ≥ 1 − α on exchangeable data.
 
-On top of the PVSA layer, Bayes-HDC ships a complete deterministic VSA foundation: eight classical models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB), five encoders, five classifiers (including a `ClusteringModel`), three associative memory modules, four symbolic data structures, and a capacity-and-noise analysis toolkit. The deterministic layer is the baseline; PVSA is the research contribution.
+On top of the PVSA layer, Bayes-HDC ships a complete deterministic VSA foundation — eight classical models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB), five encoders, five classifiers (including a `ClusteringModel`), three associative memory modules, four symbolic data structures, and a capacity-and-noise analysis toolkit — each implemented directly from the primary research papers (Kanerva 1988 / 1997 / 2009; Plate 1995, 2003; Gayler 2003; Rahimi & Recht 2007; Ramsauer et al. 2020; and the Kleyko et al. 2022 VSA surveys). **No component is ported from another HDC library.**
 
 All operations run unchanged on CPU, GPU, and TPU via JAX's XLA backend. Every type is a JAX pytree, so `jit`, `vmap`, `grad`, and `pmap` compose with the whole library out of the box.
 

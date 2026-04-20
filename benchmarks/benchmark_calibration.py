@@ -2,27 +2,30 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Rajdeep Singh
 
-"""Calibration benchmarks: Bayes-HDC vs TorchHD on real datasets.
+"""Calibration benchmarks: Bayes-HDC vs a PyTorch-based HDC baseline.
 
 Pipeline (both libraries, identical):
 
-1. Standardise features, then discretise into ``n_levels`` bins
-   (VoiceHD-style preprocessing; Imani et al., 2017).
+1. Standardise features, then discretise into ``n_levels`` bins — the
+   standard HDC preprocessing for continuous features (Kanerva 2009;
+   also used by Imani et al. 2017 for speech-recognition HDC).
 2. Encode with a random codebook of shape
-   ``(n_features, n_levels, D)`` and bundle per sample.
-3. Train ``AdaptiveHDC`` (Bayes-HDC) or TorchHD's ``Centroid`` with
-   iterative refinement — two epochs of misclassification-driven
-   prototype updates after the initial centroid pass.
-4. Hold out 20% of the training set as a calibration set for
+   ``(n_features, n_levels, D)`` and bundle per sample (the standard
+   HDC bag-of-features representation).
+3. Train a centroid classifier with iterative prototype refinement
+   (two epochs of LVQ updates after the centroid init) on each side.
+4. Hold out 30% of the training set as a calibration set for
    temperature scaling and conformal prediction.
 5. Report accuracy, ECE, MCE, Brier, NLL, and sharpness on the test
    half before and after calibration; report Bayes-HDC conformal
    coverage and mean set size.
 
-MNIST is loaded via OpenML and encoded through a random projection
-(images are 784-dim raw).
+MNIST is loaded via OpenML and encoded through a random projection.
 
-Results are written to ``benchmarks/benchmark_calibration_results.json``.
+Bayes-HDC's implementation of the pipeline is original to this project;
+the baseline library is included only to run the same workload for a
+fair empirical comparison. Results are written to
+``benchmarks/benchmark_calibration_results.json``.
 """
 
 from __future__ import annotations
