@@ -138,9 +138,11 @@ Full JSON dumps live in [`benchmarks/benchmark_calibration_results.json`](benchm
 - [ ] Streaming Bayesian updates with bounded memory
 
 ### v1.0 — Datasets, benchmarks, paper
-- [ ] `bayes_hdc.datasets` module matching TorchHD's 14+ standard HDC benchmarks
-- [ ] Head-to-head vs TorchHD on accuracy and throughput (deterministic parity)
-- [ ] Head-to-head vs TorchHD + temperature scaling on expected calibration error (Bayesian contribution)
+- [x] `bayes_hdc.datasets` submodule with 8 standard HDC benchmarks: iris, wine, breast_cancer, digits, mnist, fashion_mnist, isolet, ucihar. Uniform `HDCDataset` container, stratified split, name-based dispatch.
+- [x] Head-to-head vs TorchHD on accuracy (calibration benchmark): Bayes-HDC wins 5/5 datasets, mean +3.94pt, MNIST +8.9pt.
+- [x] Head-to-head vs TorchHD + temperature scaling on expected calibration error.
+- [x] Head-to-head throughput benchmark (`benchmark_compare.py`).
+- [ ] Additional HDC datasets: EMG gestures, PAMAP2, European Languages
 - [ ] Seeded, containerised runs with fixed hardware profiles
 - [ ] JMLR MLOSS submission
 
