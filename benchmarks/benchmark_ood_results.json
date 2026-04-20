@@ -1,0 +1,145 @@
+[
+  {
+    "dataset": "digits",
+    "ood_class": 0,
+    "n_id_train": 793,
+    "n_id_test": 486,
+    "n_ood_test": 178,
+    "auroc_msp": 0.9041591529107135,
+    "auroc_msp_calibrated": 0.8611573496092847,
+    "auroc_conformal_set_size": 0.8822594442132519,
+    "fit_ms": 682.1433749864809
+  },
+  {
+    "dataset": "digits",
+    "ood_class": 1,
+    "n_id_train": 791,
+    "n_id_test": 485,
+    "n_ood_test": 182,
+    "auroc_msp": 0.83038404894075,
+    "auroc_msp_calibrated": 0.8149654469242098,
+    "auroc_conformal_set_size": 0.7992239719043843,
+    "fit_ms": 365.5317089869641
+  },
+  {
+    "dataset": "digits",
+    "ood_class": 2,
+    "n_id_train": 793,
+    "n_id_test": 486,
+    "n_ood_test": 177,
+    "auroc_msp": 0.7875194717630374,
+    "auroc_msp_calibrated": 0.7957266745716212,
+    "auroc_conformal_set_size": 0.7073190579154169,
+    "fit_ms": 386.9715000037104
+  },
+  {
+    "dataset": "digits",
+    "ood_class": 3,
+    "n_id_train": 790,
+    "n_id_test": 485,
+    "n_ood_test": 183,
+    "auroc_msp": 0.825711227536477,
+    "auroc_msp_calibrated": 0.84894372148048,
+    "auroc_conformal_set_size": 0.7062137344374965,
+    "fit_ms": 365.1932500069961
+  },
+  {
+    "dataset": "digits",
+    "ood_class": 4,
+    "n_id_train": 791,
+    "n_id_test": 485,
+    "n_ood_test": 181,
+    "auroc_msp": 0.7944409637181751,
+    "auroc_msp_calibrated": 0.6900609443526798,
+    "auroc_conformal_set_size": 0.8420345161474057,
+    "fit_ms": 326.57566701527685
+  },
+  {
+    "dataset": "digits",
+    "ood_class": 5,
+    "n_id_train": 791,
+    "n_id_test": 485,
+    "n_ood_test": 182,
+    "auroc_msp": 0.8898040104225671,
+    "auroc_msp_calibrated": 0.8427438540840603,
+    "auroc_conformal_set_size": 0.8516710094029682,
+    "fit_ms": 382.9815409844741
+  },
+  {
+    "dataset": "digits",
+    "ood_class": 6,
+    "n_id_train": 791,
+    "n_id_test": 485,
+    "n_ood_test": 181,
+    "auroc_msp": 0.9250099675343167,
+    "auroc_msp_calibrated": 0.8515122173492055,
+    "auroc_conformal_set_size": 0.913783676026656,
+    "fit_ms": 387.31633400311694
+  },
+  {
+    "dataset": "digits",
+    "ood_class": 7,
+    "n_id_train": 792,
+    "n_id_test": 486,
+    "n_ood_test": 179,
+    "auroc_msp": 0.9143504149711474,
+    "auroc_msp_calibrated": 0.8522771685403591,
+    "auroc_conformal_set_size": 0.8495528427247856,
+    "fit_ms": 356.2152910162695
+  },
+  {
+    "dataset": "digits",
+    "ood_class": 8,
+    "n_id_train": 795,
+    "n_id_test": 487,
+    "n_ood_test": 174,
+    "auroc_msp": 0.9625669711345559,
+    "auroc_msp_calibrated": 0.9171800136892538,
+    "auroc_conformal_set_size": 0.9098692440227524,
+    "fit_ms": 1370.9375000325963
+  },
+  {
+    "dataset": "digits",
+    "ood_class": 9,
+    "n_id_train": 791,
+    "n_id_test": 486,
+    "n_ood_test": 180,
+    "auroc_msp": 0.8900205761316873,
+    "auroc_msp_calibrated": 0.8115454961133973,
+    "auroc_conformal_set_size": 0.8868312757201646,
+    "fit_ms": 494.95254195062444
+  },
+  {
+    "dataset": "wine",
+    "ood_class": 0,
+    "n_id_train": 58,
+    "n_id_test": 36,
+    "n_ood_test": 59,
+    "auroc_msp": 0.4774011299435028,
+    "auroc_msp_calibrated": 0.4774011299435028,
+    "auroc_conformal_set_size": 0.507768361581921,
+    "fit_ms": 311.3409170182422
+  },
+  {
+    "dataset": "wine",
+    "ood_class": 1,
+    "n_id_train": 51,
+    "n_id_test": 33,
+    "n_ood_test": 71,
+    "auroc_msp": 0.8309859154929577,
+    "auroc_msp_calibrated": 0.8309859154929577,
+    "auroc_conformal_set_size": 0.5,
+    "fit_ms": 120.60733401449397
+  },
+  {
+    "dataset": "wine",
+    "ood_class": 2,
+    "n_id_train": 63,
+    "n_id_test": 39,
+    "n_ood_test": 48,
+    "auroc_msp": 0.5395299145299146,
+    "auroc_msp_calibrated": 0.5395299145299146,
+    "auroc_conformal_set_size": 0.5328525641025641,
+    "fit_ms": 110.51079095341265
+  }
+]

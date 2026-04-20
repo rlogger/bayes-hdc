@@ -1,10 +1,13 @@
 # bayes-hdc self-quiz
 
-58 questions to test your grasp of the library. Answers at the bottom.
+80 questions to test your grasp of the library. Answers at the bottom.
 File references point to `bayes_hdc/*.py` unless noted.
 
 Suggested use: read `SLIDES.md` first, then attempt each section without
 opening source. Anything you miss, read the file and try again.
+
+Sections A–I cover the deterministic VSA foundation. Sections J–L cover
+PVSA — the Bayesian / probabilistic layer that is unique to this library.
 
 ---
 
@@ -111,6 +114,41 @@ opening source. Anything you miss, read the file and try again.
 
 ---
 
+## J. PVSA — Bayesian hypervectors (`distributions.py`) (10)
+
+59. What is the key claim that defines PVSA relative to classical VSA?
+60. What are the two state fields of `GaussianHV`, and what shapes do they have?
+61. Write the closed-form variance of the bind of two independent Gaussians `X ~ N(μ_x, σ_x²)` and `Y ~ N(μ_y, σ_y²)` (element-wise product).
+62. Under `bundle_gaussian`, which two quantities get summed, and what normalisation happens at the end?
+63. What is the zero-variance limit of a `GaussianHV`, and what classical VSA object does it correspond to?
+64. What does `similarity_variance(x, y)` return, and why is it useful?
+65. In `DirichletHV`, what does the `alpha` field represent, and what constraint must its entries satisfy?
+66. What does `DirichletHV.from_counts(counts, prior=1.0)` compute?
+67. Why is `bundle_dirichlet` called "exact" while `bind_dirichlet` is called "approximate" in the docstring?
+68. What is the posterior concentration after bundling two Dirichlets with concentrations α₀_p and α₀_q?
+
+## K. PVSA — calibration metrics (`metrics.py`) (6)
+
+69. What does ECE measure, in one sentence?
+70. Write the formula for Expected Calibration Error in terms of per-bin accuracy, per-bin confidence, and per-bin fraction.
+71. What does `brier_score` compute, and what range does it take for `k` classes?
+72. What is `sharpness(probs)` — and what value does it take on a uniform classifier?
+73. Why is `negative_log_likelihood` the right objective for temperature scaling?
+74. What four arrays does `reliability_curve` return?
+
+## L. PVSA — uncertainty (`uncertainty.py`) + empirical results (8)
+
+75. Why does `TemperatureCalibrator.fit` optimise in log-space (`log T`) rather than directly over `T`?
+76. What optimiser does `TemperatureCalibrator.fit` use by default, and what is the fallback?
+77. Is temperature scaling accuracy-preserving? Explain in one line.
+78. What nonconformity score does `ConformalClassifier` use, and what does it cite?
+79. Give the finite-sample quantile `ConformalClassifier.fit` takes on a calibration set of size `n` at miscoverage `α`.
+80. On exchangeable data, what does `ConformalClassifier.coverage` empirically satisfy? What is the one-line mathematical guarantee?
+81. On this library's MNIST benchmark (D=10 000, 2 epochs of `AdaptiveHDC`), what is the ECE reduction under temperature scaling, approximately?
+82. On the calibration benchmark, what is the mean conformal set size on digits vs breast-cancer at α = 0.1, and why does it differ?
+
+---
+
 ## Answer key
 
 **A. Fundamentals**
@@ -195,5 +233,38 @@ opening source. Anything you miss, read the file and try again.
 
 **I. Differentiation & roadmap**
 
-57. `metrics.py` (capacity, SNR, participation ratio, retrieval-confidence APIs) and the `resonator` skeleton in `functional.py` — neither ships with TorchHD. Tversky / Jaccard similarities and fractional-power binding are also library-level primitives we expose that TorchHD does not.
-58. The full factorisation / resonator-network toolkit in v0.3 — no public HDC library ships accelerated, sparse, noise-tolerant factorisers with convergence diagnostics as a first-class API. TorchHD has none of this; even `hd-computing.com/software` lists zero libraries where it is the headline feature.
+57. `metrics.py` (capacity, SNR, participation ratio, retrieval-confidence APIs) and the `resonator` skeleton in `functional.py` — neither ships with TorchHD. Tversky / Jaccard similarities and fractional-power binding are also library-level primitives we expose that TorchHD does not. The PVSA layer (`distributions.py`, `uncertainty.py`) ships capabilities no HDC library has.
+58. The PVSA framework as a whole — a Bayesian algebra in which every hypervector carries a distribution, together with `ConformalClassifier` giving coverage-guaranteed prediction sets. No other HDC library ships either piece.
+
+**J. PVSA — Bayesian hypervectors**
+
+59. In classical VSA a symbol is a *point* in the representation space; in PVSA a symbol is a *distribution*, and every VSA primitive propagates the distribution's moments in closed form.
+60. `mu` and `var`, each of shape `(d,)` (or `(n, d)` batched). `var` is the diagonal variance, entry-wise non-negative.
+61. `Var[X*Y] = μ_x² σ_y² + μ_y² σ_x² + σ_x² σ_y²` — all element-wise. (Mean is `μ_x μ_y`.)
+62. The mean fields and the variance fields are summed independently; then `mu` is divided by its L2 norm and `var` is divided by the squared norm to keep the result on the unit sphere.
+63. The zero-variance limit is `GaussianHV(mu, var=0)` — a Dirac distribution — which is exactly a classical MAP hypervector.
+64. It returns the exact first-order variance of the dot product under independence: `Var[Σ X_i Y_i]`. It is the ingredient for calibrated similarity-based retrieval and for Bayesian classifier confidence.
+65. `alpha` is the Dirichlet concentration vector. Every entry must be strictly positive.
+66. Posterior Dirichlet under add-α smoothing: `alpha_posterior = counts + prior`. Used to form a Bayesian posterior after observing count vector `counts` with a symmetric Dirichlet prior.
+67. `bundle_dirichlet` is the exact Bayesian posterior update when observations are independent (concentrations add). `bind_dirichlet` has no canonical definition in the VSA literature — we take a moment-matched approximation (elementwise-mean product + summed concentrations).
+68. α₀_p + α₀_q.
+
+**K. PVSA — calibration metrics**
+
+69. ECE is the empirical gap between a classifier's reported confidence and its actual accuracy, weighted by how many samples fall in each confidence bin.
+70. `ECE = Σ_b (|B_b|/n) · |acc(B_b) − conf(B_b)|`.
+71. Multi-class Brier is `mean(||p - one_hot(y)||²)` — mean squared error between probability vector and one-hot label. Range is `[0, 2]`; perfect classifier scores 0, uniform scores `1 − 1/k`.
+72. Mean top-1 confidence: `mean(max_c p(c | x))`. On a uniform classifier it equals `1/k`.
+73. Under a calibrated classifier, NLL is a strictly proper scoring rule with a unique minimum at the true probabilities — so reducing NLL is the right objective for a post-hoc probability rescaling.
+74. `(bin_centers, bin_accuracies, bin_confidences, bin_counts)`, each of shape `(n_bins,)`.
+
+**L. PVSA — uncertainty + empirical results**
+
+75. The NLL objective is extremely flat when raw logits have small range (e.g., cosine similarities in [−0.1, 0.3]). Optimising `T` directly with gradient descent can lead to arbitrarily large `T` values before the gradient signals a minimum. Log-space optimisation avoids this: `T = exp(log_T)` keeps `T > 0` and the objective becomes well-conditioned.
+76. L-BFGS via `jax.scipy.optimize.minimize` is the primary; a gradient-descent fallback with gradient clipping is used if BFGS is unavailable. Final `T` is clipped to `[0.01, 100]` for safety.
+77. Yes — `argmax(softmax(z / T))` equals `argmax(z)` for any `T > 0`, so the predicted class never changes.
+78. Adaptive Prediction Sets (APS): `s(x, y) = Σ_{k: p_k(x) ≥ p_y(x)} p_k(x)` — the cumulative probability of classes at least as confident as the true class. Cites Romano, Sesia, Candès (2020).
+79. `q = ceil((n + 1)(1 − α)) / n` — the finite-sample corrected quantile. We take `quantile(scores, q)` as the threshold.
+80. Marginal coverage: `P(Y ∈ Ĉ(X)) ≥ 1 − α` on exchangeable test data. This is split-conformal's guarantee and is shown empirically on the library's benchmark for all five datasets at α = 0.1.
+81. ECE drops from 0.683 → 0.027, i.e. about **25×**. Raw cosine similarities produce a near-uniform softmax (poorly calibrated); temperature scaling (T ≈ 0.05) sharpens it into a well-calibrated distribution.
+82. Digits: mean set size ≈ 4.6 (10-class, many similar digit pairs → the conformal procedure admits more classes to reach 90% coverage). Breast-cancer: mean set size ≈ 1.0 (binary, easy decision boundary → the set collapses to the top class). Set size naturally tracks task difficulty and the class count.

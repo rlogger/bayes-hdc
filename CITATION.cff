@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "Bayes-HDC: A Bayesian Framework for Hyperdimensional Computing and Vector Symbolic Architectures"
+title: "Bayes-HDC: Probabilistic Vector Symbolic Architectures for Hyperdimensional Computing"
 message: "If you use this software, please cite it as below."
 type: software
 authors:
@@ -10,7 +10,7 @@ authors:
 repository-code: "https://github.com/rlogger/bayes-hdc"
 url: "https://github.com/rlogger/bayes-hdc"
 license: MIT
-version: 0.2.0a0
+version: 0.4.0a0
 date-released: "2026-04-19"
 keywords:
   - Bayesian hyperdimensional computing

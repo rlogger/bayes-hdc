@@ -209,9 +209,7 @@ def expected_calibration_error(
     predictions = jnp.argmax(probs, axis=-1)
     correct = (predictions == labels).astype(jnp.float32)
 
-    bin_idx = jnp.clip(
-        jnp.floor(confidences * n_bins).astype(jnp.int32), 0, n_bins - 1
-    )
+    bin_idx = jnp.clip(jnp.floor(confidences * n_bins).astype(jnp.int32), 0, n_bins - 1)
 
     sums_correct = jax.ops.segment_sum(correct, bin_idx, num_segments=n_bins)
     sums_conf = jax.ops.segment_sum(confidences, bin_idx, num_segments=n_bins)
@@ -241,9 +239,7 @@ def maximum_calibration_error(
     predictions = jnp.argmax(probs, axis=-1)
     correct = (predictions == labels).astype(jnp.float32)
 
-    bin_idx = jnp.clip(
-        jnp.floor(confidences * n_bins).astype(jnp.int32), 0, n_bins - 1
-    )
+    bin_idx = jnp.clip(jnp.floor(confidences * n_bins).astype(jnp.int32), 0, n_bins - 1)
 
     sums_correct = jax.ops.segment_sum(correct, bin_idx, num_segments=n_bins)
     sums_conf = jax.ops.segment_sum(confidences, bin_idx, num_segments=n_bins)
@@ -322,9 +318,7 @@ def reliability_curve(
     predictions = jnp.argmax(probs, axis=-1)
     correct = (predictions == labels).astype(jnp.float32)
 
-    bin_idx = jnp.clip(
-        jnp.floor(confidences * n_bins).astype(jnp.int32), 0, n_bins - 1
-    )
+    bin_idx = jnp.clip(jnp.floor(confidences * n_bins).astype(jnp.int32), 0, n_bins - 1)
 
     sums_correct = jax.ops.segment_sum(correct, bin_idx, num_segments=n_bins)
     sums_conf = jax.ops.segment_sum(confidences, bin_idx, num_segments=n_bins)

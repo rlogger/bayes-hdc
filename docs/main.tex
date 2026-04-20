@@ -32,13 +32,13 @@
 \jmlrheading{1}{2026}{1-30}{1/26}{0/00}{25-000}{Singh}
 
 % Short headings for running headers
-\ShortHeadings{Bayes-HDC: A Bayesian Framework for Hyperdimensional Computing}{Singh}
+\ShortHeadings{Bayes-HDC: Probabilistic Vector Symbolic Architectures}{Singh}
 
 \firstpageno{1}
 
 \begin{document}
 
-\title{Bayes-HDC: A Bayesian Framework for \\ Hyperdimensional Computing and Vector Symbolic Architectures}
+\title{Bayes-HDC: Probabilistic Vector Symbolic Architectures \\ for Hyperdimensional Computing}
 
 % NOTE: Add co-authors once they have agreed to authorship. Listing someone
 % without explicit consent is not acceptable for JMLR. The CITATION.cff at
@@ -51,11 +51,11 @@
 \maketitle
 
 \begin{abstract}
-We introduce Bayes-HDC, the first open-source library for hyperdimensional computing (HDC) in which every hypervector can carry a distribution. Existing HDC libraries represent symbols as single points in $\mathbb{R}^d$; Bayes-HDC represents them as posteriors, and propagates the posterior forward through the full VSA algebra---binding, bundling, similarity, and retrieval---so that downstream classification and retrieval inherit calibrated uncertainty. The library ships a Gaussian hypervector type with closed-form moment propagation under element-wise product (MAP-style binding) and normalised sum (bundling), together with a closed-form KL divergence suitable as a variational objective. A complete deterministic VSA foundation---eight classical models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB), five encoders, five learning models, three memory modules, four symbolic data structures, and a capacity-and-noise analysis toolkit---underpins the Bayesian layer and provides a baseline for comparison. All operations are JIT-compilable and run unchanged on CPUs, GPUs, and TPUs via JAX's XLA backend. The library is available under the MIT license at \url{https://github.com/rlogger/bayes-hdc}.
+We introduce \emph{Probabilistic Vector Symbolic Architectures} (PVSA), a new framework in which every hypervector is a posterior distribution rather than a point, and every VSA primitive---binding, bundling, similarity, and retrieval---propagates the posterior's moments in closed form. Bayes-HDC is the first open-source library implementing PVSA. It ships two distribution types---diagonal-covariance Gaussian hypervectors and Dirichlet hypervectors over the probability simplex---each with closed-form moment propagation under the core VSA operations and closed-form Kullback--Leibler divergences suitable as variational objectives. On top of the distributional algebra, Bayes-HDC provides two uncertainty-quantification wrappers: a log-space L-BFGS temperature calibrator that reduces Expected Calibration Error by $5$--$25\times$ on standard HDC datasets, and a split-conformal classifier with the Adaptive Prediction Sets nonconformity score that returns prediction sets with provable marginal coverage at level $1 - \alpha$. A complete deterministic VSA foundation---eight classical models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB), five encoders, five learning models, three memory modules, four symbolic data structures, and a capacity-and-noise analysis toolkit---serves as a baseline for comparison and the substrate on which PVSA is built. Head-to-head benchmarks against Torchhd on five datasets (iris, wine, breast-cancer, digits, MNIST) show accuracy parity and calibration-loss reductions of up to $25\times$. All operations are JIT-compilable and run unchanged on CPUs, GPUs, and TPUs via JAX's XLA backend. The library is available under the MIT license at \url{https://github.com/rlogger/bayes-hdc}.
 \end{abstract}
 
 \begin{keywords}
-Bayesian Hyperdimensional Computing, Probabilistic Vector Symbolic Architectures, Uncertainty Quantification, Calibrated Retrieval, JAX
+Probabilistic Vector Symbolic Architectures, Bayesian Hyperdimensional Computing, Uncertainty Quantification, Calibrated Retrieval, Conformal Prediction, JAX
 \end{keywords}
 
 \section{Introduction}

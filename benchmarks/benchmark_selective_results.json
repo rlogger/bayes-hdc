@@ -1,0 +1,50 @@
+[
+  {
+    "dataset": "iris",
+    "n_classes": 3,
+    "accuracy_full": 0.9111111111111111,
+    "coverage_pvsa": 0.0,
+    "accuracy_confident_pvsa": NaN,
+    "coverage_msp": 0.5555555555555556,
+    "accuracy_confident_msp": 0.96,
+    "threshold_msp": 1.0,
+    "alpha": 0.1,
+    "fit_ms": 432.6242500101216
+  },
+  {
+    "dataset": "wine",
+    "n_classes": 3,
+    "accuracy_full": 0.8518518518518519,
+    "coverage_pvsa": 0.37037037037037035,
+    "accuracy_confident_pvsa": 0.95,
+    "coverage_msp": 0.46296296296296297,
+    "accuracy_confident_msp": 0.96,
+    "threshold_msp": 0.9863027334213257,
+    "alpha": 0.1,
+    "fit_ms": 116.4654580061324
+  },
+  {
+    "dataset": "breast_cancer",
+    "n_classes": 2,
+    "accuracy_full": 0.9473684210526315,
+    "coverage_pvsa": 1.0,
+    "accuracy_confident_pvsa": 0.9473684210526315,
+    "coverage_msp": 0.9766081871345029,
+    "accuracy_confident_msp": 0.9580838323353293,
+    "threshold_msp": 0.5014790296554565,
+    "alpha": 0.1,
+    "fit_ms": 328.0915420036763
+  },
+  {
+    "dataset": "digits",
+    "n_classes": 10,
+    "accuracy_full": 0.9,
+    "coverage_pvsa": 0.1648148148148148,
+    "accuracy_confident_pvsa": 1.0,
+    "coverage_msp": 0.1685185185185185,
+    "accuracy_confident_msp": 1.0,
+    "threshold_msp": 0.998645007610321,
+    "alpha": 0.1,
+    "fit_ms": 1279.3841669918038
+  }
+]

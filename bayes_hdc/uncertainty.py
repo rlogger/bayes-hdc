@@ -74,30 +74,59 @@ class TemperatureCalibrator:
         labels: jax.Array,
         max_iters: int = 300,
         lr: float = 0.01,
+        t_min: float = 0.01,
+        t_max: float = 100.0,
     ) -> TemperatureCalibrator:
-        """Fit the temperature by gradient descent on NLL.
+        """Fit the temperature by minimising NLL.
+
+        Uses L-BFGS in log-space (:math:`T = e^{\\theta}`) with a safety
+        clip to ``[t_min, t_max]``. This matches the Guo et al. (2017)
+        reference implementation and is robust to the flat NLL landscape
+        that arises when raw cosine-similarity logits have small range.
 
         Args:
             logits: Validation logits of shape ``(n, k)``.
             labels: Validation integer labels of shape ``(n,)``.
-            max_iters: Gradient-descent steps (default 300).
-            lr: Learning rate (default 0.01).
+            max_iters: BFGS iteration cap (default 300).
+            lr: Fallback gradient-descent step size if BFGS is unavailable.
+            t_min: Hard lower bound on the fitted temperature.
+            t_max: Hard upper bound on the fitted temperature.
 
         Returns:
             A new :class:`TemperatureCalibrator` with the fitted temperature.
         """
-        def nll(t: jax.Array) -> jax.Array:
-            scaled = logits / jnp.maximum(t, EPS)
+        labels_idx = jnp.asarray(labels, dtype=jnp.int32)
+        n = labels_idx.shape[0]
+
+        def nll_log_t(log_t: jax.Array) -> jax.Array:
+            t = jnp.exp(log_t[0])
+            scaled = logits / t
             log_probs = jax.nn.log_softmax(scaled, axis=-1)
-            n = labels.shape[0]
-            return -jnp.mean(log_probs[jnp.arange(n), labels])
+            return -jnp.mean(log_probs[jnp.arange(n), labels_idx])
 
-        grad_fn = jax.jit(jax.value_and_grad(nll))
+        init_log_t = jnp.log(jnp.maximum(self.temperature, EPS))
+        init = jnp.asarray([init_log_t])
 
-        t = self.temperature
-        for _ in range(max_iters):
-            _, g = grad_fn(t)
-            t = jnp.maximum(t - lr * g, EPS)
+        try:
+            from jax.scipy.optimize import minimize
+
+            result = minimize(
+                nll_log_t,
+                init,
+                method="BFGS",
+                options={"maxiter": max_iters},
+            )
+            log_t = result.x[0]
+        except Exception:  # pragma: no cover — JAX version without minimize
+            log_t = init_log_t
+            grad_fn = jax.jit(jax.value_and_grad(lambda lt: nll_log_t(jnp.asarray([lt]))))
+            for _ in range(max_iters):
+                _, g = grad_fn(log_t)
+                g = jnp.clip(g, -1.0, 1.0)
+                log_t = log_t - lr * g
+
+        log_t = jnp.clip(log_t, jnp.log(t_min), jnp.log(t_max))
+        t = jnp.exp(log_t)
         return TemperatureCalibrator(temperature=t)
 
     @jax.jit

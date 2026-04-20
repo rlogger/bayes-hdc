@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bayes-hdc"
-version = "0.2.0a0"
-description = "A Bayesian framework for Hyperdimensional Computing and Vector Symbolic Architectures, built on JAX"
+version = "0.4.0a0"
+description = "Probabilistic Vector Symbolic Architectures (PVSA) — an algebra of uncertainty for Hyperdimensional Computing, built on JAX"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"

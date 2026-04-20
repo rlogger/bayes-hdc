@@ -267,9 +267,7 @@ def kl_gaussian(p: GaussianHV, q: GaussianHV) -> jax.Array:
     """
     var_p = jnp.maximum(p.var, EPS)
     var_q = jnp.maximum(q.var, EPS)
-    term = (
-        jnp.log(var_q / var_p) + (var_p + (p.mu - q.mu) ** 2) / var_q - 1.0
-    )
+    term = jnp.log(var_q / var_p) + (var_p + (p.mu - q.mu) ** 2) / var_q - 1.0
     return 0.5 * jnp.sum(term)
 
 

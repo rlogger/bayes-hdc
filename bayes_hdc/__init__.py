@@ -1,16 +1,22 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Rajdeep Singh
 
-"""Bayes-HDC: a Bayesian framework for Hyperdimensional Computing on JAX.
+"""Bayes-HDC: Probabilistic Vector Symbolic Architectures (PVSA) on JAX.
 
-Bayes-HDC represents hypervectors as distributions rather than points, so
-binding, bundling, and retrieval propagate calibrated uncertainty
-end-to-end. The library also ships a complete deterministic VSA
-foundation (eight classical models, encoders, classifiers, memory
-modules, capacity analysis), on top of which the Bayesian layer builds.
+PVSA is an HDC algebra in which every hypervector is a posterior
+distribution, and every VSA primitive propagates that posterior's
+moments in closed form. Bayes-HDC is the first library implementing
+PVSA: it ships Gaussian and Dirichlet hypervector types, a
+temperature calibrator, a conformal classifier with coverage
+guarantees, and calibration metrics (ECE / MCE / Brier / reliability).
+
+On top of PVSA, the library provides a complete deterministic VSA
+foundation (eight classical models, five encoders, five classifiers,
+three memory modules, four symbolic data structures, capacity analysis)
+as a baseline and substrate.
 """
 
-__version__ = "0.2.0a0"
+__version__ = "0.4.0a0"
 
 from bayes_hdc import (
     distributions,

@@ -18,13 +18,15 @@
 
 ## Summary
 
-`bayes-hdc` is the first open-source HDC library in which **every
-hypervector can carry a distribution**. Existing HDC software represents
-symbols as single points in $\mathbb{R}^d$; `bayes-hdc` represents them
-as posteriors and propagates the posterior forward through the full
-Vector Symbolic Architecture (VSA) algebra — binding, bundling,
-similarity, retrieval — so that classification and retrieval inherit
-calibrated uncertainty.
+`bayes-hdc` is the first open-source HDC library to implement
+**Probabilistic Vector Symbolic Architectures (PVSA)** — a new research
+framework in which every hypervector is a *posterior distribution* over
+hypervectors rather than a single point, and every VSA primitive
+propagates that posterior's moments in closed form. Existing HDC
+software represents symbols as single points in $\mathbb{R}^d$;
+`bayes-hdc` represents them as posteriors and derives closed-form
+algebraic operations for binding, bundling, similarity, retrieval, and
+divergence.
 
 The release contains three layers:
 

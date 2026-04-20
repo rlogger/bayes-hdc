@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Reframed — Probabilistic VSA (PVSA)
+
+The project now defines and implements **Probabilistic Vector Symbolic Architectures (PVSA)** as a named research framework: an HDC algebra in which every hypervector is a posterior distribution, and every VSA primitive propagates moments in closed form. The README, paper, slide deck, quiz, and cover letter are rewritten to lead with this contribution.
+
+### Fixed — `TemperatureCalibrator` optimisation
+- Switched from naive gradient descent on `T` to L-BFGS in log-space (`log T`), with a gradient-descent fallback and a safety clip to `T ∈ [0.01, 100]`. The previous implementation could drift to `T ≈ 10¹¹` on tiny-logit inputs, collapsing softmax to uniform. Matches the Guo et al. (2017) reference implementation.
+
+### Added — standard-HDC-pipeline benchmark
+- `benchmarks/benchmark_calibration.py` rewritten to use the standard HDC pipeline: `KBinsDiscretizer` → `RandomEncoder` (codebook lookup) for tabular, `ProjectionEncoder` for MNIST, plus `AdaptiveHDC` with iterative refinement at `D = 10 000`. Added MNIST as a fifth benchmark dataset.
+- Empirical results over {iris, wine, breast-cancer, digits, MNIST}:
+  - Accuracy parity with Torchhd (both libraries at 82–95%).
+  - **ECE reduction from temperature scaling:** iris 6.5×, wine 4.5×, digits **20×**, MNIST **25×**.
+  - **Conformal coverage at α = 0.1:** 94.7% – 100% on every dataset, empirically validating the guarantee.
+- `benchmarks/benchmark_selective.py` — selective classification via conformal sets of size 1, matched by empirical coverage to an MSP-threshold baseline.
+- `benchmarks/benchmark_ood.py` — out-of-distribution detection comparing MSP, MSP+T, and conformal-set-size scores on digits and wine via leave-one-class-out AUROC.
+- All three benchmarks output machine-readable JSON (`benchmark_calibration_results.json`, etc.) under `benchmarks/`.
+
 ### Added — Bayesian layer v0.3 + v0.4
 - `DirichletHV` — distributions over the probability simplex; `mean`, `variance`, `concentration`, `sample`, `sample_batch`, `from_counts`, `uniform`
 - `bind_dirichlet`, `bundle_dirichlet` — moment-matched composition for categorical Bayesian HDC

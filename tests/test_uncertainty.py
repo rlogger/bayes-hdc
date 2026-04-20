@@ -20,7 +20,10 @@ from bayes_hdc.uncertainty import ConformalClassifier, TemperatureCalibrator
 
 
 def _overconfident_logits(
-    key: jax.Array, n: int, k: int, scale: float,
+    key: jax.Array,
+    n: int,
+    k: int,
+    scale: float,
 ) -> tuple[jax.Array, jax.Array]:
     """Build logits and labels for a classifier whose scores are too confident.
 
