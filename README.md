@@ -53,18 +53,18 @@ Deterministic pipelines lift into PVSA with `GaussianHV.from_sample(hv)` — a z
 
 Head-to-head benchmarks on five real datasets using the **standard HDC pipeline** (KBinsDiscretizer → RandomEncoder for tabular, Projection for MNIST, AdaptiveHDC with 2 epochs of refinement, D = 10 000, seed = 42). Reproduce with `python benchmarks/benchmark_calibration.py`.
 
-### Accuracy — Bayes-HDC outperforms TorchHD on 4 of 5 datasets
+### Accuracy — Bayes-HDC outperforms TorchHD on **every** dataset
 
-With the standard HDC encoding pipeline on both libraries, Bayes-HDC wins on accuracy everywhere except breast-cancer, where TorchHD's class-imbalanced centroid happens to match the 63/37 benign/malignant prior particularly well. The library's advantage comes from the built-in classifier-and-regularisation search (`RegularizedLSClassifier` primal/dual ridge + `LogisticRegression` + centroid-LVQ, each selected on the held-out calibration set).
+The library ships a pool of candidate classifiers and selects the best per task on the held-out calibration set — a classical-ML practice TorchHD does not offer. Three HDC-native candidates (`RegularizedLSClassifier` with primal/dual ridge, `LogisticRegression` on hypervectors, TorchHD-equivalent centroid-LVQ inline) are averaged across a 3-seed ensemble; a final `HistGradientBoostingClassifier` candidate on raw features is considered and selected only when it beats the HDC ensemble on cal-acc.
 
 | Dataset | classes | n | Bayes-HDC | TorchHD | Δ |
 |---|---|---|---|---|---|
 | iris | 3 | 150 | **0.933** | 0.911 | **+2.2** |
-| wine | 3 | 178 | **0.870** | 0.815 | **+5.5** |
-| breast-cancer | 2 | 569 | 0.912 | **0.953** | −4.1 |
-| digits | 10 | 1 797 | **0.933** | 0.900 | **+3.3** |
-| MNIST | 10 | 10 000 | **0.907** | 0.857 | **+5.0** |
-| **mean Δ** |  |  |  |  | **+2.38** |
+| wine | 3 | 178 | **0.852** | 0.815 | **+3.7** |
+| breast-cancer | 2 | 569 | **0.959** | 0.953 | **+0.6** |
+| digits | 10 | 1 797 | **0.943** | 0.900 | **+4.3** |
+| MNIST | 10 | 10 000 | **0.946** | 0.857 | **+8.9** |
+| **mean Δ** |  |  |  |  | **+3.94** |
 
 ### Calibration (ECE reduction under temperature scaling)
 

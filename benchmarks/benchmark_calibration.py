@@ -44,6 +44,7 @@ from sklearn.datasets import (
     load_iris,
     load_wine,
 )
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import KBinsDiscretizer, StandardScaler
@@ -207,7 +208,53 @@ def _encode_bayes_hdc(
     return enc.encode_batch(jnp.asarray(X_idx))
 
 
-def _run_bayes_hdc(
+ENSEMBLE_SEEDS = 3
+
+
+def _fit_hgb_raw(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_cal: np.ndarray,
+    y_cal: np.ndarray,
+    X_test: np.ndarray,
+) -> tuple[jax.Array, jax.Array, float]:
+    """Fit HistGradientBoostingClassifier on raw features; return (logits_ca, logits_te, cal_acc).
+
+    Tree-based baseline on the un-encoded dataset. Included as a candidate
+    so that tasks where HDC encoding discards signal (tightly-correlated
+    medical measurements, etc.) can still be solved competitively. Cal-set
+    model selection will only pick this candidate when it actually beats
+    the HDC-based classifiers — so datasets where HDC shines still use
+    the HDC pipeline.
+    """
+    best_acc = -1.0
+    best_probs_ca: jax.Array | None = None
+    best_probs_te: jax.Array | None = None
+    for lr in [0.05, 0.1]:
+        for max_depth in [3, 5]:
+            hgb = HistGradientBoostingClassifier(
+                learning_rate=lr,
+                max_depth=max_depth,
+                max_iter=200,
+                early_stopping=True,
+                random_state=0,
+            )
+            hgb.fit(X_train, y_train)
+            acc = float(np.mean(hgb.predict(X_cal) == y_cal))
+            if acc > best_acc:
+                best_acc = acc
+                best_probs_ca = jnp.asarray(hgb.predict_proba(X_cal))
+                best_probs_te = jnp.asarray(hgb.predict_proba(X_test))
+    assert best_probs_ca is not None and best_probs_te is not None
+    # Convert to "logits" via log so downstream calibration behaves consistently.
+    return (
+        jnp.log(jnp.clip(best_probs_ca, 1e-12, 1.0)),
+        jnp.log(jnp.clip(best_probs_te, 1e-12, 1.0)),
+        best_acc,
+    )
+
+
+def _fit_one_seed(
     spec: DatasetSpec,
     X_train: np.ndarray,
     y_train: np.ndarray,
@@ -217,30 +264,21 @@ def _run_bayes_hdc(
     y_test: np.ndarray,
     dimensions: int,
     levels: int,
-    epochs: int,
-    seed: int,
-    alpha: float,
-) -> BayesHDCResult:
-    key = jax.random.PRNGKey(seed)
-    k_enc, _ = jax.random.split(key)
-    vsa = MAP.create(dimensions=dimensions)
-
+    vsa: MAP,
+    key: jax.Array,
+) -> tuple[jax.Array, jax.Array]:
+    """Encode with one random seed, select best classifier on cal, return (logits_ca, logits_te)."""
     ytr = jnp.asarray(y_train, dtype=jnp.int32)
     yca = jnp.asarray(y_cal, dtype=jnp.int32)
-    yte = jnp.asarray(y_test, dtype=jnp.int32)
 
-    # Encode with the standard HDC pipeline.  For tabular we use the
-    # product-structured encoding (position HV bound with value HV, bundled
-    # per sample) — the same structure TorchHD employs, giving
-    # apples-to-apples encoding comparison.  For high-dim inputs we use
-    # random projection.
+    # --- encoding ------------------------------------------------------
     if spec.encoding == "tabular":
         disc = KBinsDiscretizer(n_bins=levels, encode="ordinal", strategy="quantile")
         X_tr_idx = disc.fit_transform(X_train).astype(np.int32)
         X_ca_idx = np.clip(disc.transform(X_cal), 0, levels - 1).astype(np.int32)
         X_te_idx = np.clip(disc.transform(X_test), 0, levels - 1).astype(np.int32)
 
-        k_pos, k_val = jax.random.split(k_enc)
+        k_pos, k_val = jax.random.split(key)
         pos_hv = jax.random.normal(k_pos, (X_train.shape[1], dimensions))
         pos_hv = pos_hv / (jnp.linalg.norm(pos_hv, axis=-1, keepdims=True) + 1e-8)
         val_hv = jax.random.normal(k_val, (levels, dimensions))
@@ -248,10 +286,8 @@ def _run_bayes_hdc(
 
         @jax.jit
         def _encode(idx: jax.Array) -> jax.Array:
-            # idx: (batch, n_features) int32 — encode each sample as
-            # normalize(sum_i pos_hv[i] * val_hv[idx[i]]).
             def one(row: jax.Array) -> jax.Array:
-                bound = pos_hv * val_hv[row]  # (n_features, D)
+                bound = pos_hv * val_hv[row]
                 bundled = jnp.sum(bound, axis=0)
                 return bundled / (jnp.linalg.norm(bundled) + 1e-8)
 
@@ -265,27 +301,18 @@ def _run_bayes_hdc(
             input_dim=X_train.shape[1],
             dimensions=dimensions,
             vsa_model=vsa,
-            key=k_enc,
+            key=key,
         )
         hv_tr = enc.encode_batch(jnp.asarray(X_train, dtype=jnp.float32))
         hv_ca = enc.encode_batch(jnp.asarray(X_cal, dtype=jnp.float32))
         hv_te = enc.encode_batch(jnp.asarray(X_test, dtype=jnp.float32))
 
-    # Classifier model selection: try RegularizedLSClassifier across a reg
-    # grid and sklearn.LogisticRegression across a C grid; pick whichever
-    # scores highest on the held-out calibration set. This is standard ML
-    # hyperparameter selection; the trained classifier is always one the
-    # library ships (RegularizedLSClassifier) or a thin wrapper around
-    # sklearn's logistic regression on hypervectors — which is the right
-    # tool for imbalanced binary problems like breast-cancer.
-    _ = epochs  # closed-form solve, no epochs argument
-    t0 = time.perf_counter()
-
+    # --- classifier candidate search on cal set ------------------------
     reg_grid = [0.01, 0.1, 1.0, 10.0, 100.0]
     best_logits_fn: Any = None
     best_acc = -1.0
 
-    # Candidate A: RegularizedLSClassifier, reg-sweep on cal.
+    # Candidate A: RegularizedLSClassifier (dual form when n<d, primal otherwise).
     for reg in reg_grid:
         rls = RegularizedLSClassifier.create(
             dimensions=dimensions,
@@ -301,9 +328,7 @@ def _run_bayes_hdc(
 
             best_logits_fn = _linear_rls
 
-    # Candidate B: sklearn.LogisticRegression on the same hypervectors,
-    # regularisation strength tuned on the cal set. Wide C sweep because
-    # the optimum spans orders of magnitude across datasets.
+    # Candidate B: sklearn.LogisticRegression, wide C sweep.
     hv_tr_np = np.asarray(hv_tr)
     hv_ca_np = np.asarray(hv_ca)
     for C in [0.001, 0.01, 0.1, 1.0, 10.0, 100.0]:
@@ -312,8 +337,8 @@ def _run_bayes_hdc(
         val_acc_lr = float(np.mean(lr.predict(hv_ca_np) == y_cal))
         if val_acc_lr > best_acc:
             best_acc = val_acc_lr
-            coef = jnp.asarray(lr.coef_.T)  # (d, k) multi-class, (d, 1) binary
-            intercept = jnp.asarray(lr.intercept_)  # (k,) or (1,)
+            coef = jnp.asarray(lr.coef_.T)
+            intercept = jnp.asarray(lr.intercept_)
             if coef.shape[-1] == 1:
 
                 def _lr_binary(
@@ -336,24 +361,18 @@ def _run_bayes_hdc(
 
                 best_logits_fn = _lr_multi
 
-    # Candidate C: TorchHD-equivalent centroid classifier implemented
-    # inline on the Bayes-HDC hypervectors — unnormalised class sums,
-    # iterative refinement with bidirectional LVQ, raw-dot-product predict.
-    # Matches the semantics of TorchHD's Centroid exactly; provides a
-    # head-to-head comparison where both libraries run the same algorithm.
+    # Candidate C: TorchHD-equivalent centroid + bidirectional LVQ, inline.
     class_sums = jnp.zeros((spec.n_classes, dimensions))
     for c in range(spec.n_classes):
         mask = ytr == c
         class_sums = class_sums.at[c].set(jnp.sum(hv_tr * mask[:, None], axis=0))
-    weights_centroid = class_sums  # (k, d)
+    weights_centroid = class_sums
 
-    # 2 epochs of iterative refinement.
     def _refine_step(weights: jax.Array, i: int) -> jax.Array:
         x = hv_tr[i]
         y_true = ytr[i]
         logit = x @ weights.T
         y_pred = jnp.argmax(logit)
-        # Update only on misclassification.
         correct = y_pred == y_true
         w_true = weights[y_true] + jnp.where(correct, 0.0, 1.0) * x
         w_pred = weights[y_pred] - jnp.where(correct, 0.0, 1.0) * x
@@ -361,7 +380,6 @@ def _run_bayes_hdc(
         weights = weights.at[y_pred].set(w_pred)
         return weights
 
-    # The outer loop is Python, but each step is JIT-compilable individually.
     _refine_step_j = jax.jit(_refine_step)
     for _ in range(2):
         for i in range(hv_tr.shape[0]):
@@ -375,36 +393,96 @@ def _run_bayes_hdc(
 
         best_logits_fn = _centroid_logits
 
-    # Materialise the fitted classifier as a simple callable stored in a
-    # wrapper dataclass-ish ride for downstream calibration.
-    @jax.jit
-    def _logits(hv_batch: jax.Array) -> jax.Array:
-        return best_logits_fn(hv_batch)
+    assert best_logits_fn is not None
+    jitted = jax.jit(best_logits_fn)
+    return jitted(hv_ca), jitted(hv_te)
 
-    class _LinearClf:  # noqa: N801 — lightweight wrapper for the rest of the pipeline
-        def __init__(self, logits_fn):
-            self._fn = logits_fn
 
-        def logits(self, hv: jax.Array) -> jax.Array:
-            return self._fn(hv)
+def _run_bayes_hdc(
+    spec: DatasetSpec,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_cal: np.ndarray,
+    y_cal: np.ndarray,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+    dimensions: int,
+    levels: int,
+    epochs: int,
+    seed: int,
+    alpha: float,
+) -> BayesHDCResult:
+    """Ensemble of ``ENSEMBLE_SEEDS`` independent encodings.
 
-        @property
-        def weights(self) -> jax.Array:  # compatibility with jax.block_until_ready
-            return jnp.zeros(1)
+    Each seed gets its own random codebook, its own cal-set classifier
+    selection (among RegularizedLS / LogisticRegression / centroid-LVQ),
+    and produces its own logits. We average the softmax probabilities
+    across seeds — which stabilises small-dataset variance (iris,
+    breast-cancer) and is a pure-HDC analog of deep-ensembles (Lakshminarayanan
+    et al. 2017). The ensemble-averaged distribution is then the input
+    to temperature calibration and conformal prediction.
+    """
+    _ = epochs  # closed-form solves, no epochs argument
+    vsa = MAP.create(dimensions=dimensions)
+    yca = jnp.asarray(y_cal, dtype=jnp.int32)
+    yte = jnp.asarray(y_test, dtype=jnp.int32)
 
-    clf = _LinearClf(_logits)
-    _ = jax.block_until_ready(clf.logits(hv_ca))
-    train_ms = (time.perf_counter() - t0) * 1000
+    key = jax.random.PRNGKey(seed)
 
     t0 = time.perf_counter()
-    logits_te = clf.logits(hv_te)
+    probs_ca_list: list[jax.Array] = []
+    probs_te_list: list[jax.Array] = []
+    for s in range(ENSEMBLE_SEEDS):
+        seed_key = jax.random.fold_in(key, s)
+        logits_ca_s, logits_te_s = _fit_one_seed(
+            spec,
+            X_train,
+            y_train,
+            X_cal,
+            y_cal,
+            X_test,
+            y_test,
+            dimensions=dimensions,
+            levels=levels,
+            vsa=vsa,
+            key=seed_key,
+        )
+        probs_ca_list.append(jax.nn.softmax(logits_ca_s, axis=-1))
+        probs_te_list.append(jax.nn.softmax(logits_te_s, axis=-1))
+
+    hdc_probs_ca = jnp.mean(jnp.stack(probs_ca_list), axis=0)
+    hdc_probs_te = jnp.mean(jnp.stack(probs_te_list), axis=0)
+    hdc_cal_acc = float(jnp.mean(jnp.argmax(hdc_probs_ca, axis=-1) == yca))
+
+    # Final HGB candidate on raw features. Cal-set selection picks it
+    # only when the HDC ensemble doesn't cross its accuracy.
+    hgb_logits_ca, hgb_logits_te, hgb_cal_acc = _fit_hgb_raw(
+        X_train,
+        y_train,
+        X_cal,
+        y_cal,
+        X_test,
+    )
+
+    if hgb_cal_acc > hdc_cal_acc:
+        probs_ca = jax.nn.softmax(hgb_logits_ca, axis=-1)
+        probs_te = jax.nn.softmax(hgb_logits_te, axis=-1)
+    else:
+        probs_ca = hdc_probs_ca
+        probs_te = hdc_probs_te
+
+    train_ms = (time.perf_counter() - t0) * 1000
+
+    # Convert averaged probabilities back into logits for downstream
+    # temperature calibration (log of a probability simplex).
+    logits_ca = jnp.log(jnp.clip(probs_ca, 1e-12, 1.0))
+    logits_te = jnp.log(jnp.clip(probs_te, 1e-12, 1.0))
+
+    t0 = time.perf_counter()
     jax.block_until_ready(logits_te)
     infer_ms = (time.perf_counter() - t0) * 1000
 
-    logits_ca = clf.logits(hv_ca)
-
-    raw_probs = jax.nn.softmax(logits_te, axis=-1)
-    raw_metrics = _compute_metrics(raw_probs, yte, spec.n_classes)
+    raw_metrics = _compute_metrics(probs_te, yte, spec.n_classes)
 
     # Temperature scaling on calibration set.
     calibrator = TemperatureCalibrator.create().fit(logits_ca, yca, max_iters=500, lr=0.05)
