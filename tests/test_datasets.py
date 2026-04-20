@@ -117,8 +117,8 @@ def test_dispatch_unknown_name_raises() -> None:
 
 
 def test_all_datasets_registry_covers_every_exported_loader() -> None:
-    # Four sklearn-backed + four OpenML-backed = 8 entries.
-    assert len(ALL_DATASETS) == 8
+    # 4 sklearn-backed + 7 OpenML-backed = 11 registered datasets.
+    assert len(ALL_DATASETS) == 11
     for name in [
         "iris",
         "wine",
@@ -128,6 +128,9 @@ def test_all_datasets_registry_covers_every_exported_loader() -> None:
         "fashion_mnist",
         "isolet",
         "ucihar",
+        "emg",
+        "pamap2",
+        "european_languages",
     ]:
         assert name in ALL_DATASETS
 

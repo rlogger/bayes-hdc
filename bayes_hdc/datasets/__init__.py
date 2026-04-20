@@ -38,10 +38,13 @@ from bayes_hdc.datasets.base import HDCDataset
 from bayes_hdc.datasets.loaders import (
     load_breast_cancer,
     load_digits,
+    load_emg,
+    load_european_languages,
     load_fashion_mnist,
     load_iris,
     load_isolet,
     load_mnist,
+    load_pamap2,
     load_ucihar,
     load_wine,
 )
@@ -57,6 +60,9 @@ ALL_DATASETS: dict[str, object] = {
     "fashion_mnist": load_fashion_mnist,
     "isolet": load_isolet,
     "ucihar": load_ucihar,
+    "emg": load_emg,
+    "pamap2": load_pamap2,
+    "european_languages": load_european_languages,
 }
 
 
@@ -89,4 +95,7 @@ __all__ = [
     "load_fashion_mnist",
     "load_isolet",
     "load_ucihar",
+    "load_emg",
+    "load_pamap2",
+    "load_european_languages",
 ]

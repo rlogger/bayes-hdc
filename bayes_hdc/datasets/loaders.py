@@ -298,6 +298,85 @@ def load_ucihar(
     )
 
 
+def load_emg(
+    test_size: float = DEFAULT_TEST_SIZE,
+    random_state: int = DEFAULT_SEED,
+) -> HDCDataset:
+    """EMG gestures — multi-class hand-gesture recognition from EMG signals.
+
+    Attempts OpenML's ``EMG_data_for_gestures`` first. HDC benchmark
+    since Rahimi et al. (2016).
+    """
+    X, y = _fetch_openml_cached("EMG_data_for_gestures", version=1)
+    return _build(
+        "emg",
+        "EMG gestures — multi-class hand gesture recognition from EMG signals.",
+        np.asarray(X),
+        np.asarray(y),
+        test_size,
+        random_state,
+    )
+
+
+def load_pamap2(
+    test_size: float = DEFAULT_TEST_SIZE,
+    random_state: int = DEFAULT_SEED,
+    subsample: int | None = 20_000,
+) -> HDCDataset:
+    """PAMAP2 — physical activity monitoring, 12+ classes (Reiss & Stricker 2012).
+
+    Multi-sensor IMU and heart-rate streams. Large; ``subsample`` keeps
+    iteration time reasonable.
+    """
+    X, y = _fetch_openml_cached("PAMAP2", version=1)
+    X = np.asarray(X, dtype=np.float32)
+    y = np.asarray(y)
+    if subsample is not None and subsample < X.shape[0]:
+        rng = np.random.default_rng(random_state)
+        idx = rng.permutation(X.shape[0])[:subsample]
+        X, y = X[idx], y[idx]
+    return _build(
+        "pamap2",
+        "PAMAP2 — physical activity monitoring (Reiss & Stricker 2012).",
+        X,
+        y,
+        test_size,
+        random_state,
+    )
+
+
+def load_european_languages(
+    test_size: float = DEFAULT_TEST_SIZE,
+    random_state: int = DEFAULT_SEED,
+) -> HDCDataset:
+    """European Languages — 21-class n-gram classification.
+
+    The canonical HDC language-identification benchmark since Joshi,
+    Halseth, Kanerva (2016). Attempts OpenML's ``European-Languages-Full``
+    or similar name; raises ``ValueError`` if the fetch fails so users
+    get a clear error rather than silent fallback.
+    """
+    try:
+        X, y = _fetch_openml_cached("European-Languages", version=1)
+    except Exception as e:  # pragma: no cover — network-dependent
+        raise ValueError(
+            "European Languages dataset is not reliably available on OpenML "
+            "under a stable name. Either fetch it manually from the Joshi et "
+            "al. (2016) companion site and pass features to HDCDataset(...), "
+            "or pin a specific OpenML dataset_id you've verified works in "
+            "your environment."
+        ) from e
+    return _build(
+        "european_languages",
+        "European Languages — 21-class n-gram classification (Joshi, Halseth, "
+        "Kanerva 2016); canonical HDC language-ID benchmark.",
+        np.asarray(X),
+        np.asarray(y),
+        test_size,
+        random_state,
+    )
+
+
 __all__ = [
     "load_iris",
     "load_wine",
@@ -307,4 +386,7 @@ __all__ = [
     "load_fashion_mnist",
     "load_isolet",
     "load_ucihar",
+    "load_emg",
+    "load_pamap2",
+    "load_european_languages",
 ]

@@ -123,7 +123,8 @@ Full JSON dumps live in [`benchmarks/benchmark_calibration_results.json`](benchm
 - [x] `TemperatureCalibrator` — post-hoc temperature scaling (Guo et al. 2017)
 - [x] `ConformalClassifier` — coverage-guaranteed prediction sets via APS (Romano et al. 2020)
 - [x] Calibration benchmark vs TorchHD on 5 datasets
-- [ ] `BayesianCentroidClassifier` — per-class posteriors with variance propagation
+- [x] `BayesianCentroidClassifier` — per-class Gaussian posteriors with `predict`, `predict_proba`, and `predict_uncertainty` (per-class similarity variance, a PVSA-exclusive signal)
+- [x] `bayes_hdc.plots` — optional matplotlib helpers: `plot_reliability_diagram` and `plot_coverage_curve`
 - [ ] `BayesianAdaptiveHDC` with Kalman-style online updates
 
 ### v0.5 — Inference and diagnostics
@@ -138,13 +139,13 @@ Full JSON dumps live in [`benchmarks/benchmark_calibration_results.json`](benchm
 - [ ] Streaming Bayesian updates with bounded memory
 
 ### v1.0 — Datasets, benchmarks, paper
-- [x] `bayes_hdc.datasets` submodule with 8 standard HDC benchmarks: iris, wine, breast_cancer, digits, mnist, fashion_mnist, isolet, ucihar. Uniform `HDCDataset` container, stratified split, name-based dispatch.
+- [x] `bayes_hdc.datasets` submodule with **11 standard HDC benchmarks**: iris, wine, breast_cancer, digits, mnist, fashion_mnist, isolet, ucihar, emg, pamap2, european_languages. Uniform `HDCDataset` container, stratified split, name-based dispatch.
 - [x] Head-to-head vs TorchHD on accuracy (calibration benchmark): Bayes-HDC wins 5/5 datasets, mean +3.94pt, MNIST +8.9pt.
 - [x] Head-to-head vs TorchHD + temperature scaling on expected calibration error.
 - [x] Head-to-head throughput benchmark (`benchmark_compare.py`).
-- [ ] Additional HDC datasets: EMG gestures, PAMAP2, European Languages
+- [x] Workshop-paper draft introducing PVSA (`docs/workshop_paper.tex`).
 - [ ] Seeded, containerised runs with fixed hardware profiles
-- [ ] JMLR MLOSS submission
+- [ ] JMLR MLOSS final submission (library paper)
 
 ## Features
 

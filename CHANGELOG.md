@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Bayesian classifier + plotting + workshop paper + dataset expansion
+
+- **`BayesianCentroidClassifier`** in `bayes_hdc/bayesian_models.py` — per-class Gaussian posterior fit by empirical Bayes (sample mean + regularised diagonal variance with configurable prior strength). Exposes `predict`, `predict_proba`, `predict_uncertainty` (per-class similarity variance — a PVSA-exclusive signal), and `predict_with_uncertainty` in one pass. 15 unit tests.
+- **`bayes_hdc.plots`** module — optional matplotlib helpers. `plot_reliability_diagram` produces the Guo-et-al. 2017 reliability diagram (per-bin accuracy vs confidence with gap bars and the $y = x$ calibration line); `plot_coverage_curve` sweeps $\alpha$ for a conformal classifier and plots empirical coverage + mean set size against $1 - \alpha$. 6 unit tests; `pytest.importorskip("matplotlib")` guarded.
+- **3 new datasets in `bayes_hdc.datasets`**: `load_emg` (multi-class hand gestures), `load_pamap2` (physical activity monitoring, Reiss & Stricker 2012; subsample-by-default for iteration speed), `load_european_languages` (21-class n-gram classification, Joshi / Halseth / Kanerva 2016). Registry now lists 11 datasets.
+- **`docs/workshop_paper.tex`** — standalone short-paper draft introducing PVSA for NeurIPS/ICLR/UAI workshop submission. Sections: introduction, background (classical VSA + calibration + conformal), PVSA algebra, calibrated + coverage-guaranteed prediction, empirical validation (accuracy / ECE / coverage tables), related work, conclusion. References block included.
+
 ### Added — datasets submodule (v1.0 / first cut)
 - `bayes_hdc.datasets` subpackage with a uniform `HDCDataset` container and a name-based `load()` dispatcher.
 - Sklearn-backed (offline) loaders: `load_iris`, `load_wine`, `load_breast_cancer`, `load_digits`.

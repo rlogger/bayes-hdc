@@ -19,6 +19,7 @@ as a baseline and substrate.
 __version__ = "0.4.0a0"
 
 from bayes_hdc import (
+    bayesian_models,
     datasets,
     distributions,
     embeddings,
@@ -31,6 +32,7 @@ from bayes_hdc import (
     utils,
     vsa,
 )
+from bayes_hdc.bayesian_models import BayesianCentroidClassifier
 from bayes_hdc.distributions import (
     DirichletHV,
     GaussianHV,
@@ -129,6 +131,9 @@ __all__ = [
     "distributions",
     "uncertainty",
     "datasets",
+    "bayesian_models",
+    # Bayesian classifiers
+    "BayesianCentroidClassifier",
     # Bayesian hypervectors — Gaussian
     "GaussianHV",
     "bind_gaussian",
