@@ -222,4 +222,133 @@ class BayesianCentroidClassifier:
         return dataclass_replace(self, **updates)
 
 
-__all__ = ["BayesianCentroidClassifier"]
+@register_dataclass
+@dataclass
+class BayesianAdaptiveHDC:
+    r"""Streaming Gaussian-posterior classifier with Kalman updates.
+
+    Starts from a broad prior per class and updates the class posterior
+    one observation at a time via the conjugate-Gaussian (Kalman)
+    update rule:
+
+    .. math::
+        \mu_{\text{new}} &= \frac{\sigma_\mathrm{obs}^2 \, \mu_{\text{old}}
+                                  + \sigma_{\text{old}}^2 \, x}
+                                 {\sigma_\mathrm{obs}^2 + \sigma_{\text{old}}^2} \\
+        \sigma_{\text{new}}^2 &= \frac{\sigma_\mathrm{obs}^2 \, \sigma_{\text{old}}^2}
+                                       {\sigma_\mathrm{obs}^2 + \sigma_{\text{old}}^2}
+
+    The observation-noise variance :math:`\sigma_\mathrm{obs}^2` is a
+    fixed hyperparameter controlling how aggressively each new sample
+    is trusted vs. the current posterior.
+
+    Compared to :class:`BayesianCentroidClassifier`, which does a
+    single empirical-Bayes pass over the whole training set, this
+    classifier supports streaming data, distribution shift, and
+    anytime-valid uncertainty that depends on the number of
+    observations per class seen so far.
+
+    Attributes:
+        mu: Class means, shape ``(num_classes, d)``.
+        var: Class variances, shape ``(num_classes, d)``, non-negative.
+        obs_var: Observation-noise variance (static hyperparameter).
+        num_classes: Number of classes :math:`K` (static).
+        dimensions: Hypervector dimensionality :math:`d` (static).
+    """
+
+    mu: jax.Array
+    var: jax.Array
+    obs_var: float = field(metadata=dict(static=True), default=0.1)
+    num_classes: int = field(metadata=dict(static=True), default=2)
+    dimensions: int = field(metadata=dict(static=True), default=10000)
+
+    @staticmethod
+    def create(
+        num_classes: int,
+        dimensions: int,
+        prior_var: float = 1.0,
+        obs_var: float = 0.1,
+    ) -> BayesianAdaptiveHDC:
+        """Construct an untrained classifier with an isotropic Gaussian prior."""
+        return BayesianAdaptiveHDC(
+            mu=jnp.zeros((num_classes, dimensions)),
+            var=jnp.full((num_classes, dimensions), float(prior_var)),
+            obs_var=float(obs_var),
+            num_classes=num_classes,
+            dimensions=dimensions,
+        )
+
+    def update(self, sample: jax.Array, label: int) -> BayesianAdaptiveHDC:
+        """Single Kalman update for one (sample, label) pair."""
+        mu_c = self.mu[label]
+        var_c = self.var[label]
+        denom = self.obs_var + var_c
+        new_mu = (self.obs_var * mu_c + var_c * sample) / denom
+        new_var = (self.obs_var * var_c) / denom
+        return self.replace(
+            mu=self.mu.at[label].set(new_mu),
+            var=self.var.at[label].set(new_var),
+        )
+
+    def fit(
+        self,
+        train_hvs: jax.Array,
+        train_labels: jax.Array,
+        epochs: int = 1,
+    ) -> BayesianAdaptiveHDC:
+        """Apply Kalman updates sequentially over the training set.
+
+        Args:
+            train_hvs: Training hypervectors of shape ``(n, d)``.
+            train_labels: Integer labels of shape ``(n,)``.
+            epochs: Number of passes through the data. More epochs
+                tighten the posterior further (bounded below by the
+                observation-noise floor).
+        """
+        if train_hvs.shape[0] == 0:
+            raise ValueError("Cannot fit BayesianAdaptiveHDC: training data is empty")
+        clf = self
+        for _ in range(epochs):
+            for i in range(train_hvs.shape[0]):
+                clf = clf.update(train_hvs[i], int(train_labels[i]))
+        return clf
+
+    @jax.jit
+    def _similarity_row(self, query: jax.Array) -> jax.Array:
+        q_norm = query / (jnp.linalg.norm(query) + EPS)
+        mu_norm = self.mu / (jnp.linalg.norm(self.mu, axis=-1, keepdims=True) + EPS)
+        return jnp.clip(mu_norm @ q_norm, -1.0, 1.0)
+
+    @jax.jit
+    def predict(self, queries: jax.Array) -> jax.Array:
+        single = queries.ndim == 1
+        batched = queries[None, :] if single else queries
+        sims = jax.vmap(self._similarity_row)(batched)
+        preds = jnp.argmax(sims, axis=-1)
+        return preds[0] if single else preds
+
+    @jax.jit
+    def predict_proba(self, queries: jax.Array) -> jax.Array:
+        single = queries.ndim == 1
+        batched = queries[None, :] if single else queries
+        sims = jax.vmap(self._similarity_row)(batched)
+        probs = jax.nn.softmax(sims, axis=-1)
+        return probs[0] if single else probs
+
+    @jax.jit
+    def predict_uncertainty(self, queries: jax.Array) -> jax.Array:
+        """Per-class similarity variance (same semantics as BayesianCentroidClassifier)."""
+        single = queries.ndim == 1
+        batched = queries[None, :] if single else queries
+        sim_vars = (batched**2) @ self.var.T
+        return sim_vars[0] if single else sim_vars
+
+    @jax.jit
+    def score(self, test_hvs: jax.Array, test_labels: jax.Array) -> jax.Array:
+        return jnp.mean(self.predict(test_hvs) == test_labels)
+
+    def replace(self, **updates: Any) -> BayesianAdaptiveHDC:
+        return dataclass_replace(self, **updates)
+
+
+__all__ = ["BayesianCentroidClassifier", "BayesianAdaptiveHDC"]

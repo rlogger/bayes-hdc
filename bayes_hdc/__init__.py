@@ -21,9 +21,11 @@ __version__ = "0.4.0a0"
 from bayes_hdc import (
     bayesian_models,
     datasets,
+    distributed,
     distributions,
     embeddings,
     functional,
+    inference,
     memory,
     metrics,
     models,
@@ -32,7 +34,7 @@ from bayes_hdc import (
     utils,
     vsa,
 )
-from bayes_hdc.bayesian_models import BayesianCentroidClassifier
+from bayes_hdc.bayesian_models import BayesianAdaptiveHDC, BayesianCentroidClassifier
 from bayes_hdc.distributions import (
     DirichletHV,
     GaussianHV,
@@ -43,6 +45,7 @@ from bayes_hdc.distributions import (
     bundle_gaussian,
     cleanup_gaussian,
     expected_cosine_similarity,
+    inverse_gaussian,
     kl_dirichlet,
     kl_gaussian,
     permute_gaussian,
@@ -90,6 +93,7 @@ from bayes_hdc.functional import (
     tversky_similarity,
     window,
 )
+from bayes_hdc.inference import elbo_gaussian, reconstruction_log_likelihood_mc
 from bayes_hdc.memory import AttentionMemory, HopfieldMemory, SparseDistributedMemory
 from bayes_hdc.metrics import (
     brier_score,
@@ -132,8 +136,14 @@ __all__ = [
     "uncertainty",
     "datasets",
     "bayesian_models",
+    "inference",
+    "distributed",
     # Bayesian classifiers
     "BayesianCentroidClassifier",
+    "BayesianAdaptiveHDC",
+    # Variational inference
+    "elbo_gaussian",
+    "reconstruction_log_likelihood_mc",
     # Bayesian hypervectors — Gaussian
     "GaussianHV",
     "bind_gaussian",
@@ -143,6 +153,7 @@ __all__ = [
     "kl_gaussian",
     "permute_gaussian",
     "cleanup_gaussian",
+    "inverse_gaussian",
     # Bayesian hypervectors — Dirichlet
     "DirichletHV",
     "bind_dirichlet",

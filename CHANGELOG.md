@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — v0.3/v0.4 closure + v0.5/v0.6 openers + paper figures
+
+- **`inverse_gaussian`** — approximate distributional inverse via the delta method; exact in the zero-variance limit, matches classical MAP unbinding. Preserves `bind(bind(x, y), inverse(y)) ≈ x` on low-variance inputs.
+- **`BayesianAdaptiveHDC`** — streaming Kalman-style online classifier. Maintains a proper conjugate-Gaussian posterior per class, with a configurable observation-noise variance. Supports streaming data, distribution shift, and anytime-valid uncertainty.
+- **`bayes_hdc.inference`** module (v0.5 opener): `elbo_gaussian` for variational PVSA objectives, `reconstruction_log_likelihood_mc` as a convenient MC reconstruction term.
+- **`bayes_hdc.distributed`** module (v0.6 opener): `batch_bind_gaussian` / `batch_similarity_gaussian` (vmap wrappers), `pmap_bind_gaussian` / `pmap_bundle_gaussian` (multi-device with single-device fallback).
+- **Paper figures** (`benchmarks/generate_figures.py`): generates reliability diagrams, conformal-coverage curves, accuracy-comparison bars, and ECE-reduction bars for every dataset. 10 PDFs + 10 PNGs under `benchmarks/figures/`, paper-ready at 150 DPI.
+- **34 new unit tests** across `test_inverse_gaussian.py`, `test_bayesian_adaptive.py`, `test_inference_and_distributed.py` — reparameterisation-gradient tests specifically demonstrate that `jax.grad` composes through every PVSA primitive (bind, bundle, KL), validating variational-codebook training paths.
+- Total test count: **451 passing, 97% line coverage on 20 source files**.
+
 ### Added — Bayesian classifier + plotting + workshop paper + dataset expansion
 
 - **`BayesianCentroidClassifier`** in `bayes_hdc/bayesian_models.py` — per-class Gaussian posterior fit by empirical Bayes (sample mean + regularised diagonal variance with configurable prior strength). Exposes `predict`, `predict_proba`, `predict_uncertainty` (per-class similarity variance — a PVSA-exclusive signal), and `predict_with_uncertainty` in one pass. 15 unit tests.

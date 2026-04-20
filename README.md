@@ -116,16 +116,30 @@ Full JSON dumps live in [`benchmarks/benchmark_calibration_results.json`](benchm
 - [x] Calibration metrics (`expected_calibration_error`, `maximum_calibration_error`, `brier_score`, `sharpness`, `negative_log_likelihood`, `reliability_curve`)
 - [x] `MixtureHV` for multi-modal representations — mixture-of-Gaussian with weights, means, variances, and moment-matched collapse
 - [x] `permute_gaussian`, `cleanup_gaussian` derived operations
-- [ ] `inverse_gaussian` for approximate unbinding
-- [ ] Reparameterisation gradients through every distributional op
+- [x] `inverse_gaussian` — delta-method approximate unbinding
+- [x] Reparameterisation gradients through every distributional op (verified by unit tests)
 
 ### v0.4 — Bayesian learning models ✅
 - [x] `TemperatureCalibrator` — post-hoc temperature scaling (Guo et al. 2017)
 - [x] `ConformalClassifier` — coverage-guaranteed prediction sets via APS (Romano et al. 2020)
 - [x] Calibration benchmark vs TorchHD on 5 datasets
 - [x] `BayesianCentroidClassifier` — per-class Gaussian posteriors with `predict`, `predict_proba`, and `predict_uncertainty` (per-class similarity variance, a PVSA-exclusive signal)
+- [x] `BayesianAdaptiveHDC` — streaming Kalman-style online updates with proper conjugate-Gaussian posterior
 - [x] `bayes_hdc.plots` — optional matplotlib helpers: `plot_reliability_diagram` and `plot_coverage_curve`
-- [ ] `BayesianAdaptiveHDC` with Kalman-style online updates
+
+### v0.5 — Inference & diagnostics (partial ✅)
+- [x] `bayes_hdc.inference.elbo_gaussian` — closed-form ELBO for Gaussian-posterior PVSA models
+- [x] `reconstruction_log_likelihood_mc` — MC reconstruction term for variational training
+- [x] Reparameterisation-gradient unit tests demonstrate end-to-end differentiability of a PVSA ELBO
+- [ ] Probabilistic resonator networks (MCMC / multi-restart factorisation)
+- [ ] Posterior predictive checks / goodness-of-fit diagnostics
+
+### v0.6 — Distribution & scale (partial ✅)
+- [x] `bayes_hdc.distributed.batch_bind_gaussian`, `batch_similarity_gaussian` — `vmap` wrappers
+- [x] `bayes_hdc.distributed.pmap_bind_gaussian`, `pmap_bundle_gaussian` — multi-device `pmap` wrappers with single-device fallback
+- [ ] `shard_map` kernels with explicit axis-annotated sharding
+- [ ] Sharded posteriors across accelerator pods
+- [ ] Streaming Bayesian updates with bounded memory
 
 ### v0.5 — Inference and diagnostics
 - [ ] ELBO optimisation for variational codebooks

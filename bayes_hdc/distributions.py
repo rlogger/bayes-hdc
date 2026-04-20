@@ -291,6 +291,46 @@ def permute_gaussian(x: GaussianHV, shifts: int = 1) -> GaussianHV:
     )
 
 
+@jax.jit
+def inverse_gaussian(x: GaussianHV, eps: float = EPS) -> GaussianHV:
+    r"""Approximate inverse of a Gaussian HV under element-wise product binding.
+
+    Under classical MAP binding ``bind(x, y) = x * y`` the inverse of
+    ``y`` is ``1 / y``. For a Gaussian ``Y_i \\sim \\mathcal{N}(\\mu_i,
+    \\sigma_i^2)`` the exact distribution of ``1/Y_i`` is not Gaussian
+    (and has a pole at :math:`\\mu_i = 0`), so we return the
+    moment-matched Gaussian from the delta-method expansion:
+
+    .. math::
+        \\mathbb{E}[1/Y] &\\approx \\frac{1}{\\mu} + \\frac{\\sigma^2}{\\mu^3} \\\\
+        \\mathrm{Var}[1/Y] &\\approx \\frac{\\sigma^2}{\\mu^4}
+
+    This is exact in the zero-variance limit (recovering classical MAP
+    inverse ``1/μ``) and accurate to :math:`O(\\sigma^4)` when the
+    coefficient of variation :math:`\\sigma/|\\mu|` is small — the
+    typical PVSA regime for non-degenerate hypervectors. Components
+    with :math:`|\\mu| < \\epsilon` are zeroed out; unbinding against
+    near-zero components destroys information, which matches the
+    convention used by :func:`~bayes_hdc.functional.inverse_map`.
+
+    Args:
+        x: Gaussian hypervector to invert.
+        eps: Near-zero threshold for mean components (default ``EPS``).
+
+    Returns:
+        Moment-matched Gaussian inverse.
+    """
+    safe_mu = jnp.where(jnp.abs(x.mu) > eps, x.mu, 1.0)
+    mu_inv = 1.0 / safe_mu + x.var / (safe_mu**3)
+    var_inv = x.var / (safe_mu**4)
+    mask = jnp.abs(x.mu) > eps
+    return GaussianHV(
+        mu=jnp.where(mask, mu_inv, 0.0),
+        var=jnp.where(mask, var_inv, 0.0),
+        dimensions=x.dimensions,
+    )
+
+
 def cleanup_gaussian(
     query: GaussianHV,
     memory: list[GaussianHV],
@@ -634,6 +674,7 @@ __all__ = [
     "kl_gaussian",
     "permute_gaussian",
     "cleanup_gaussian",
+    "inverse_gaussian",
     # Mixture layer
     "MixtureHV",
     # Dirichlet layer
