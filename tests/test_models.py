@@ -500,10 +500,10 @@ class TestRegularizedLSClassifier:
     """Tests for RegularizedLSClassifier."""
 
     def test_creation(self):
-        """Test RegularizedLSClassifier creation."""
+        """Test RegularizedLSClassifier creation (default reg = 1.0)."""
         clf = RegularizedLSClassifier.create(dimensions=100, num_classes=5)
         assert clf.weights.shape == (100, 5)
-        assert clf.reg == 1e-4
+        assert clf.reg == 1.0
 
     def test_creation_custom_reg(self):
         """Test creation with custom regularization."""

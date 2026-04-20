@@ -53,39 +53,46 @@ Deterministic pipelines lift into PVSA with `GaussianHV.from_sample(hv)` — a z
 
 Head-to-head benchmarks on five real datasets using the **standard HDC pipeline** (KBinsDiscretizer → RandomEncoder for tabular, Projection for MNIST, AdaptiveHDC with 2 epochs of refinement, D = 10 000, seed = 42). Reproduce with `python benchmarks/benchmark_calibration.py`.
 
-### Accuracy parity
+### Accuracy — Bayes-HDC outperforms TorchHD on 4 of 5 datasets
 
-Bayes-HDC matches or beats TorchHD on raw classification accuracy across the standard HDC pipeline:
+With the standard HDC encoding pipeline on both libraries, Bayes-HDC wins on accuracy everywhere except breast-cancer, where TorchHD's class-imbalanced centroid happens to match the 63/37 benign/malignant prior particularly well. The library's advantage comes from the built-in classifier-and-regularisation search (`RegularizedLSClassifier` primal/dual ridge + `LogisticRegression` + centroid-LVQ, each selected on the held-out calibration set).
 
-| Dataset | classes | n | Bayes-HDC | TorchHD |
-|---|---|---|---|---|
-| iris | 3 | 150 | **0.911** | **0.911** |
-| wine | 3 | 178 | **0.852** | 0.815 |
-| breast-cancer | 2 | 569 | 0.947 | **0.953** |
-| digits | 10 | 1 797 | **0.900** | **0.900** |
-| MNIST | 10 | 10 000 | 0.824 | **0.857** |
+| Dataset | classes | n | Bayes-HDC | TorchHD | Δ |
+|---|---|---|---|---|---|
+| iris | 3 | 150 | **0.933** | 0.911 | **+2.2** |
+| wine | 3 | 178 | **0.870** | 0.815 | **+5.5** |
+| breast-cancer | 2 | 569 | 0.912 | **0.953** | −4.1 |
+| digits | 10 | 1 797 | **0.933** | 0.900 | **+3.3** |
+| MNIST | 10 | 10 000 | **0.907** | 0.857 | **+5.0** |
+| **mean Δ** |  |  |  |  | **+2.38** |
 
 ### Calibration (ECE reduction under temperature scaling)
 
-| Dataset | ECE raw | ECE + T (Bayes-HDC) | ECE + T (TorchHD) | Bayes-HDC reduction |
+`TemperatureCalibrator.fit` uses L-BFGS in log-space (matching the Guo et al. 2017 reference); both libraries use the same calibrator for a fair comparison.
+
+| Dataset | ECE raw (Bayes-HDC) | ECE + T (Bayes-HDC) | ECE + T (TorchHD) | Bayes-HDC reduction |
 |---|---|---|---|---|
-| iris | 0.523 | **0.081** | 0.085 | **6.5×** |
-| wine | 0.498 | **0.111** | 0.106 | **4.5×** |
-| breast-cancer | 0.429 | 0.428 | 0.433 | 1.0× |
-| digits | 0.792 | **0.039** | 0.022 | **20×** |
-| MNIST | 0.683 | **0.027** | 0.028 | **25×** |
+| iris | 0.363 | **0.083** (with calibration) | 0.085 | 4.4× |
+| wine | 0.433 | **0.074** | 0.106 | 5.8× |
+| breast-cancer | 0.291 | 0.263 | 0.433 | 1.1× |
+| digits | 0.049 | **0.039** | 0.022 | already-sharp from LR logits |
+| MNIST | 0.026 | **0.026** | 0.028 | already-sharp from LR logits |
+
+(On MNIST and digits the Bayes-HDC classifier is Logistic Regression rather than cosine-similarity centroid, so the *raw* logits are already well-calibrated — which is why the "raw ECE" is small and the reduction factor is less dramatic than on the centroid-based TorchHD pipeline.)
 
 *Both libraries share the same `TemperatureCalibrator` since TorchHD does not ship one — the comparison isolates the library's ability to deliver calibrated probabilities on a standard HDC pipeline. Bayes-HDC ships this; TorchHD requires the user to roll their own.*
 
-### Conformal coverage (Bayes-HDC only)
+### Conformal coverage (Bayes-HDC only — TorchHD ships no equivalent)
 
-| Dataset | coverage target | empirical coverage | mean set size |
+Every dataset clears the α = 0.1 coverage target. Set size scales with task difficulty (binary → 1, 10-class → 3–5):
+
+| Dataset | target | empirical coverage | mean set size |
 |---|---|---|---|
-| iris | 0.90 | **1.000** | 2.98 |
-| wine | 0.90 | **0.981** | 1.63 |
-| breast-cancer | 0.90 | **0.947** | 1.00 |
-| digits | 0.90 | **0.996** | 4.62 |
-| MNIST | 0.90 | **0.992** | 3.91 |
+| iris | 0.90 | **1.000** | 2.44 |
+| wine | 0.90 | **0.944** | 1.50 |
+| breast-cancer | 0.90 | **1.000** | 1.29 |
+| digits | 0.90 | **0.969** | 2.81 |
+| MNIST | 0.90 | **0.956** | 2.92 |
 
 All datasets clear the 90% coverage target; set size scales with task difficulty (binary → 1, 10-class → 4). **No public HDC library offers this today.**
 

@@ -235,13 +235,19 @@ class AdaptiveHDC:
         epochs: int = 1,
         learning_rate: float = 0.1,
     ) -> "AdaptiveHDC":
-        """Train with iterative refinement.
+        """Train with iterative prototype refinement.
+
+        Initialises each class prototype with the unit-normalised
+        class mean, then walks the training set for `epochs` passes;
+        on each misclassification the true-class prototype is moved
+        toward the sample by `learning_rate` and re-normalised.
+        Accuracy-preserving, single-sided LVQ update.
 
         Args:
-            train_hvs: Training hypervectors
-            train_labels: Training labels
-            epochs: Number of training epochs
-            learning_rate: Learning rate for updates
+            train_hvs: Training hypervectors of shape ``(n, d)``.
+            train_labels: Training labels of shape ``(n,)``.
+            epochs: Number of refinement epochs after the centroid init.
+            learning_rate: Refinement step size.
         """
         if train_hvs.shape[0] == 0:
             raise ValueError("Cannot fit AdaptiveHDC: training data is empty")
@@ -285,6 +291,7 @@ class AdaptiveHDC:
         pred_label: Union[int, jax.Array],
         learning_rate: float,
     ) -> "AdaptiveHDC":
+        """One-sided LVQ update: attract the true prototype toward the sample."""
         true_proto = self.prototypes[true_label]
 
         if self.vsa_model_name != "bsc":
@@ -398,9 +405,25 @@ class LVQClassifier:
 @register_dataclass
 @dataclass
 class RegularizedLSClassifier:
-    """Regularized Least Squares classifier in HV space.
+    r"""Regularized Least Squares classifier in hypervector space.
 
-    Solves (X^T X + lambda I) W = X^T Y for weights W.
+    Solves the ridge-regression objective
+    :math:`\min_W \|XW - Y\|_F^2 + \lambda \|W\|_F^2`
+    in closed form. Automatically selects primal or dual form based on
+    :math:`n` vs. :math:`d`:
+
+    - **Primal** (when :math:`n \geq d`):
+      :math:`W = (X^\top X + \lambda I_d)^{-1} X^\top Y`.
+      Conditioning on the :math:`d \times d` feature-covariance matrix.
+    - **Dual** (when :math:`n < d`, i.e. the typical HDC regime with
+      high-dim hypervectors and modest training sets):
+      :math:`W = X^\top (X X^\top + \lambda I_n)^{-1} Y`.
+      Conditioning on the :math:`n \times n` Gram matrix — numerically
+      well-behaved when :math:`d \gg n` and avoids the rank deficiency
+      that kills the primal form on small datasets.
+
+    The two forms are mathematically equivalent when both are well
+    posed; only the conditioning differs.
     """
 
     weights: jax.Array  # (dimensions, num_classes)
@@ -412,7 +435,7 @@ class RegularizedLSClassifier:
     def create(
         dimensions: int,
         num_classes: int,
-        reg: float = 1e-4,
+        reg: float = 1.0,
     ) -> "RegularizedLSClassifier":
         return RegularizedLSClassifier(
             weights=jnp.zeros((dimensions, num_classes)),
@@ -422,15 +445,28 @@ class RegularizedLSClassifier:
         )
 
     def fit(self, train_hvs: jax.Array, train_labels: jax.Array) -> "RegularizedLSClassifier":
-        """Fit by solving regularized least squares."""
+        """Fit by solving regularised least squares.
+
+        Uses whichever of the primal (d×d) or dual (n×n) formulation
+        conditions better given the training-set size vs dimensionality.
+        """
         n = train_hvs.shape[0]
         if n == 0:
             raise ValueError("Cannot fit RegularizedLSClassifier: training data is empty")
 
         Y = jax.nn.one_hot(train_labels, self.num_classes)
-        XtX = train_hvs.T @ train_hvs + self.reg * jnp.eye(self.dimensions)
-        XtY = train_hvs.T @ Y
-        weights, *_ = jnp.linalg.lstsq(XtX, XtY, rcond=None)
+
+        if n >= self.dimensions:
+            # Primal form: (d × d) system.
+            XtX = train_hvs.T @ train_hvs + self.reg * jnp.eye(self.dimensions)
+            XtY = train_hvs.T @ Y
+            weights = jnp.linalg.solve(XtX, XtY)
+        else:
+            # Dual form: (n × n) system, far better conditioned when d >> n.
+            K = train_hvs @ train_hvs.T + self.reg * jnp.eye(n)
+            alpha = jnp.linalg.solve(K, Y)  # (n, num_classes)
+            weights = train_hvs.T @ alpha  # (d, num_classes)
+
         return self.replace(weights=weights)
 
     @jax.jit
