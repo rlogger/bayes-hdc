@@ -19,6 +19,7 @@ as a baseline and substrate.
 __version__ = "0.4.0a0"
 
 from bayes_hdc import (
+    datasets,
     distributions,
     embeddings,
     functional,
@@ -33,13 +34,16 @@ from bayes_hdc import (
 from bayes_hdc.distributions import (
     DirichletHV,
     GaussianHV,
+    MixtureHV,
     bind_dirichlet,
     bind_gaussian,
     bundle_dirichlet,
     bundle_gaussian,
+    cleanup_gaussian,
     expected_cosine_similarity,
     kl_dirichlet,
     kl_gaussian,
+    permute_gaussian,
     similarity_variance,
 )
 from bayes_hdc.embeddings import (
@@ -124,6 +128,7 @@ __all__ = [
     "structures",
     "distributions",
     "uncertainty",
+    "datasets",
     # Bayesian hypervectors — Gaussian
     "GaussianHV",
     "bind_gaussian",
@@ -131,11 +136,15 @@ __all__ = [
     "expected_cosine_similarity",
     "similarity_variance",
     "kl_gaussian",
+    "permute_gaussian",
+    "cleanup_gaussian",
     # Bayesian hypervectors — Dirichlet
     "DirichletHV",
     "bind_dirichlet",
     "bundle_dirichlet",
     "kl_dirichlet",
+    # Bayesian hypervectors — Mixture
+    "MixtureHV",
     # Uncertainty quantification
     "TemperatureCalibrator",
     "ConformalClassifier",

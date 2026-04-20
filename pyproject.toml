@@ -59,9 +59,13 @@ examples = [
     "scikit-learn>=1.0.0",
     "tqdm>=4.62.0",
 ]
+datasets = [
+    "scikit-learn>=1.0.0",
+]
 benchmark = [
     "torch>=2.0.0",
     "torch-hd>=5.0.0",
+    "scikit-learn>=1.0.0",
 ]
 
 [project.urls]
@@ -92,6 +96,7 @@ python_functions = ["test_*"]
 addopts = "-v --cov=bayes_hdc --cov-report=term-missing"
 markers = [
     "benchmark: performance benchmark tests (run with -m benchmark to execute)",
+    "network: tests requiring network (OpenML, etc.); skipped by default, run with -m network",
 ]
 
 [tool.mypy]

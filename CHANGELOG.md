@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — datasets submodule (v1.0 / first cut)
+- `bayes_hdc.datasets` subpackage with a uniform `HDCDataset` container and a name-based `load()` dispatcher.
+- Sklearn-backed (offline) loaders: `load_iris`, `load_wine`, `load_breast_cancer`, `load_digits`.
+- OpenML-backed (download + cache) loaders: `load_mnist`, `load_fashion_mnist`, `load_isolet` (Fanty & Cole 1990; the canonical HDC benchmark), `load_ucihar` (Anguita et al. 2013).
+- Stratified 70/30 train/test splits by default with configurable `test_size` / `random_state`; automatic label normalisation to contiguous `int32`.
+- 13 unit tests covering shape, dtype, split stratification, reproducibility, dispatch, and error handling; 1 network-gated integration test.
+- Added `datasets` extras group in `pyproject.toml` for installing the sklearn dependency.
+- New `network` pytest marker for tests that require a network connection; skipped by default.
+
+### Added — Bayesian extensions (v0.3 completion)
+- `MixtureHV` — mixture-of-Gaussian hypervector type with weights, component means and variances, uniform-default construction, law-of-total-variance `variance()`, moment-matched `collapse_to_gaussian()`, and categorical sampling.
+- `permute_gaussian(x, shifts)` — cyclic shift of both the mean and variance vectors, matching the deterministic `permute` under the independent-component assumption.
+- `cleanup_gaussian(query, memory)` — nearest-neighbour retrieval in a list of Gaussian hypervectors via expected cosine similarity; returns `(best_index, best_score)`.
+- 22 new unit tests covering these features.
+
 ### Reframed — Probabilistic VSA (PVSA)
 
 The project now defines and implements **Probabilistic Vector Symbolic Architectures (PVSA)** as a named research framework: an HDC algebra in which every hypervector is a posterior distribution, and every VSA primitive propagates moments in closed form. The README, paper, slide deck, quiz, and cover letter are rewritten to lead with this contribution.

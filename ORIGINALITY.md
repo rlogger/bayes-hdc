@@ -52,6 +52,15 @@ technique inside an HDC library as a first-class primitive.
    harness) — automated model selection over a pool of classifiers
    (RegularizedLS, LogisticRegression, centroid-LVQ, HGB) with
    calibration-set accuracy as the selection criterion.
+10. **`MixtureHV`** — mixture-of-Gaussian hypervector with
+    law-of-total-variance moments, categorical sampling, and a
+    moment-matched collapse to a single `GaussianHV`. First
+    multi-modal posterior type in any HDC library.
+11. **`bayes_hdc.datasets`** — uniform `HDCDataset` container (offline
+    sklearn datasets + OpenML-backed ISOLET / UCIHAR / MNIST /
+    Fashion-MNIST with stratified splits, label normalisation, and
+    name-based dispatch). First-party dataset submodule written from
+    scratch, not ported from any other HDC library.
 
 ## Primary research attribution
 

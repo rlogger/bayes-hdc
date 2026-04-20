@@ -271,6 +271,155 @@ def kl_gaussian(p: GaussianHV, q: GaussianHV) -> jax.Array:
     return 0.5 * jnp.sum(term)
 
 
+# ----------------------------------------------------------------------
+# Derived Gaussian operations
+# ----------------------------------------------------------------------
+
+
+@jax.jit
+def permute_gaussian(x: GaussianHV, shifts: int = 1) -> GaussianHV:
+    """Cyclically permute a Gaussian hypervector.
+
+    Applies the same cyclic shift to both the mean and variance vectors,
+    which is the distributional analogue of classical permutation under
+    the independent-component assumption.
+    """
+    return GaussianHV(
+        mu=jnp.roll(x.mu, shifts, axis=-1),
+        var=jnp.roll(x.var, shifts, axis=-1),
+        dimensions=x.dimensions,
+    )
+
+
+def cleanup_gaussian(
+    query: GaussianHV,
+    memory: list[GaussianHV],
+) -> tuple[int, float]:
+    """Retrieve the entry in ``memory`` most similar to ``query``.
+
+    Uses :func:`expected_cosine_similarity` as the scoring function —
+    the uncertainty-aware analogue of classical cleanup. Returns
+    ``(index, score)`` of the best match.
+
+    Args:
+        query: Query Gaussian hypervector.
+        memory: Non-empty list of Gaussian hypervectors to search.
+
+    Returns:
+        ``(best_index, best_score)`` — the index into ``memory`` of the
+        entry with the highest expected cosine similarity, and that
+        similarity value.
+    """
+    if not memory:
+        raise ValueError("cleanup_gaussian: memory must be non-empty")
+
+    scores = jnp.array([float(expected_cosine_similarity(query, entry)) for entry in memory])
+    idx = int(jnp.argmax(scores))
+    return idx, float(scores[idx])
+
+
+# ======================================================================
+# Mixture hypervectors — mixture-of-Gaussian posteriors
+# ======================================================================
+
+
+@register_dataclass
+@dataclass
+class MixtureHV:
+    r"""A mixture-of-Gaussian posterior over hypervectors.
+
+    Represents a hypervector as a categorical mixture of component
+    :class:`GaussianHV` posteriors — useful for multi-modal
+    representations (e.g. a symbol with two plausible Gaussian
+    interpretations, or a class prototype fit by EM).
+
+    The mixture is parameterised by weights :math:`\boldsymbol{\pi}`
+    (simplex-valued) and component means / variances stacked along a
+    leading axis.
+
+    Attributes:
+        weights: Mixture weights of shape ``(K,)``. Must sum to 1.
+        mu: Component means, shape ``(K, d)``.
+        var: Component variances, shape ``(K, d)``.
+        dimensions: Hypervector dimensionality :math:`d`.
+    """
+
+    weights: jax.Array
+    mu: jax.Array
+    var: jax.Array
+    dimensions: int = field(metadata=dict(static=True))
+
+    @staticmethod
+    def from_components(
+        components: list[GaussianHV],
+        weights: jax.Array | None = None,
+    ) -> MixtureHV:
+        """Build a mixture from a list of :class:`GaussianHV` components.
+
+        ``weights`` defaults to the uniform mixture ``1 / K``.
+        """
+        if not components:
+            raise ValueError("MixtureHV.from_components: components must be non-empty")
+        k = len(components)
+        dims = components[0].dimensions
+        mu = jnp.stack([c.mu for c in components], axis=0)
+        var = jnp.stack([c.var for c in components], axis=0)
+        if weights is None:
+            weights = jnp.full((k,), 1.0 / k)
+        else:
+            weights = jnp.asarray(weights)
+            weights = weights / (jnp.sum(weights) + EPS)
+        return MixtureHV(weights=weights, mu=mu, var=var, dimensions=dims)
+
+    @staticmethod
+    def create(
+        dimensions: int,
+        n_components: int = 2,
+    ) -> MixtureHV:
+        """Uniform mixture of zero-mean, unit-variance components."""
+        return MixtureHV(
+            weights=jnp.full((n_components,), 1.0 / n_components),
+            mu=jnp.zeros((n_components, dimensions)),
+            var=jnp.ones((n_components, dimensions)),
+            dimensions=dimensions,
+        )
+
+    def mean(self) -> jax.Array:
+        """Overall mixture mean :math:`\\sum_k \\pi_k \\mu_k`."""
+        return jnp.sum(self.weights[:, None] * self.mu, axis=0)
+
+    def variance(self) -> jax.Array:
+        r"""Overall mixture variance via the law of total variance.
+
+        .. math::
+            \mathrm{Var}[X] = \sum_k \pi_k (\sigma_k^2 + \mu_k^2)
+                              - \left(\sum_k \pi_k \mu_k\right)^2
+        """
+        overall_mean = self.mean()
+        second_moment = jnp.sum(self.weights[:, None] * (self.var + self.mu**2), axis=0)
+        return second_moment - overall_mean**2
+
+    def collapse_to_gaussian(self) -> GaussianHV:
+        """Moment-matched Gaussian approximation of the mixture.
+
+        Loses the multi-modal structure but is useful when a downstream
+        operation expects a :class:`GaussianHV` and the mixture is
+        unimodal-ish.
+        """
+        return GaussianHV(
+            mu=self.mean(),
+            var=self.variance(),
+            dimensions=self.dimensions,
+        )
+
+    def sample(self, key: jax.Array) -> jax.Array:
+        """Draw one sample from the mixture."""
+        k_comp, k_gauss = jax.random.split(key)
+        component = jax.random.categorical(k_comp, jnp.log(self.weights + EPS))
+        eps = jax.random.normal(k_gauss, (self.dimensions,))
+        return self.mu[component] + jnp.sqrt(jnp.maximum(self.var[component], 0.0)) * eps
+
+
 # ======================================================================
 # Dirichlet hypervectors — distributions on the probability simplex
 # ======================================================================
@@ -483,6 +632,10 @@ __all__ = [
     "expected_cosine_similarity",
     "similarity_variance",
     "kl_gaussian",
+    "permute_gaussian",
+    "cleanup_gaussian",
+    # Mixture layer
+    "MixtureHV",
     # Dirichlet layer
     "DirichletHV",
     "bind_dirichlet",

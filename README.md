@@ -114,8 +114,9 @@ Full JSON dumps live in [`benchmarks/benchmark_calibration_results.json`](benchm
 - [x] `DirichletHV` for probabilistic categorical codebooks
 - [x] `bind_dirichlet`, `bundle_dirichlet`, `kl_dirichlet`
 - [x] Calibration metrics (`expected_calibration_error`, `maximum_calibration_error`, `brier_score`, `sharpness`, `negative_log_likelihood`, `reliability_curve`)
-- [ ] `MixtureHV` for multi-modal representations
-- [ ] `inverse_gaussian`, `permute_gaussian`, `cleanup_gaussian`
+- [x] `MixtureHV` for multi-modal representations — mixture-of-Gaussian with weights, means, variances, and moment-matched collapse
+- [x] `permute_gaussian`, `cleanup_gaussian` derived operations
+- [ ] `inverse_gaussian` for approximate unbinding
 - [ ] Reparameterisation gradients through every distributional op
 
 ### v0.4 — Bayesian learning models ✅
