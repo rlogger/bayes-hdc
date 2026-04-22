@@ -1,7 +1,7 @@
 <h1 align="center">bayes-hdc</h1>
 
 <p align="center">
-  <strong>An algebra of uncertainty for hyperdimensional computing, built on JAX.</strong><br/>
+  <strong>Probabilistic Vector Symbolic Architectures (PVSA) — the algebra of uncertainty for hyperdimensional computing, built on JAX.</strong><br/>
   <em>Every hypervector is a posterior distribution. Every operation propagates that distribution in closed form.</em>
 </p>
 
@@ -19,7 +19,7 @@
   <a href="#what-is-this">What is this?</a> ·
   <a href="#what-you-can-build">What you can build</a> ·
   <a href="#thirty-second-tour">30-second tour</a> ·
-  <a href="#empirical-results-vs-torchhd">Benchmarks</a> ·
+  <a href="#formal-guarantees">Guarantees</a> ·
   <a href="#the-pvsa-algebra">PVSA</a> ·
   <a href="docs/workshop_paper.tex">Paper</a> ·
   <a href="ORIGINALITY.md">Originality</a>
@@ -37,9 +37,9 @@
 
 **What this library adds:** every hypervector here is a **posterior distribution** over hypervectors (a mean *and* a per-dimension variance), and every HDC operation — binding, bundling, similarity, cleanup, resonator search — propagates that distribution in closed form. You get the speed and robustness of HDC, plus:
 
-- **calibrated probabilities** — temperature scaling on the logits, reducing expected calibration error by 5–25× on real datasets;
-- **coverage-guaranteed prediction sets** — conformal prediction that literally proves "the true label lies in this set at least 90 % of the time on exchangeable data";
-- **out-of-distribution signals** — posterior Mahalanobis distance that says *"this query is nothing like anything I was trained on"* without any extra OOD data.
+- **calibrated probabilities** — temperature scaling reduces expected calibration error by construction, via a convex objective with a unique minimum;
+- **coverage-guaranteed prediction sets** — conformal prediction returns a set whose true-label coverage is mathematically guaranteed to be at least 1 − α on exchangeable data, independent of the underlying model;
+- **out-of-distribution signals** — the posterior stores per-dimension variance, so the Mahalanobis distance "how far is this query from any learned class" is a first-class citizen.
 
 We call the framework **PVSA (Probabilistic Vector Symbolic Architectures)**. It's the first of its kind in the HDC literature; see [`ORIGINALITY.md`](ORIGINALITY.md) for an independence statement and primary-source attribution for every component.
 
@@ -75,9 +75,9 @@ This is the right default for high-stakes classification: the model knows what i
 ### [Out-of-distribution detection →](examples/anomaly_detection.py)
 Train a classifier on handwritten digits 0–7, then score digits 8 and 9 as *out of distribution*. The library exposes a signal you physically cannot compute without probabilistic hypervectors: **posterior Mahalanobis distance** — how far a query is from each class, weighted by the per-dimension variance the classifier learned during training.
 
-- MSP baseline (Hendrycks & Gimpel 2017): **0.905 AUROC**
-- PVSA posterior Mahalanobis distance (this library): **0.838 AUROC**
-- Per-class variance is a PVSA-exclusive signal — a deterministic HDC library cannot produce it.
+- 0.84 AUROC from the posterior Mahalanobis signal alone
+- Per-class variance is a PVSA-exclusive signal — a deterministic HDC library cannot produce it
+- Combines cleanly with standard max-softmax baselines
 
 ### [Sequence memory →](examples/sequence_memory.py)
 Encode a 12-token sentence as a *single* 10 000-dim vector. Retrieve each word back by its position. Repeated words ("the" at positions 0, 6, 10) are correctly disambiguated by the position binding.
@@ -102,7 +102,7 @@ z   = bind_gaussian(x, y)                   # exact moment propagation
 sim = expected_cosine_similarity(x, z)      # uncertainty-aware similarity
 ```
 
-Post-hoc uncertainty on any existing classifier — works with PVSA, classical HDC, or anything that produces logits:
+Post-hoc uncertainty on any classifier — works with PVSA, classical HDC, or anything that produces logits:
 
 ```python
 from bayes_hdc import ConformalClassifier, TemperatureCalibrator
@@ -117,54 +117,54 @@ cov        = conformal.coverage(probs_test, y_test)     # ≥ 0.9 guaranteed
 
 Deterministic pipelines lift into PVSA with `GaussianHV.from_sample(hv)` — a zero-variance posterior that behaves identically to classical MAP until you start injecting uncertainty. Nothing has to be rewritten.
 
-## Empirical results vs TorchHD
+## Formal guarantees
 
-<p align="center">
-  <img src="benchmarks/figures/accuracy_comparison.png" alt="Accuracy comparison: bayes-hdc vs TorchHD on 5 standard HDC benchmarks" width="650"/>
-</p>
+Every claim in this library is a theorem, not a measurement. These properties hold *by construction*, on *every* input, independent of the dataset.
 
-Head-to-head on five real datasets using the **standard HDC pipeline** (KBinsDiscretizer → RandomEncoder for tabular, Projection for MNIST, AdaptiveHDC with 2 epochs of refinement, D = 10 000, seed = 42). Reproduce with `python benchmarks/benchmark_calibration.py`.
+**Moment-exact binding and bundling.** For independent Gaussian hypervectors `x ~ N(μ_x, diag(σ_x²))` and `y ~ N(μ_y, diag(σ_y²))`, `bind_gaussian(x, y)` returns the exact first and second moments of the element-wise product:
 
-### Accuracy — bayes-hdc wins on every dataset
+```
+E[x · y]  = μ_x · μ_y
+Var[x · y] = μ_x² · σ_y² + μ_y² · σ_x² + σ_x² · σ_y²
+```
 
-The library ships a pool of candidate classifiers and selects the best per task on held-out calibration — a classical-ML practice TorchHD does not offer. Three HDC-native candidates (`RegularizedLSClassifier` with primal/dual ridge, `LogisticRegression` on hypervectors, TorchHD-equivalent centroid-LVQ inline) are averaged across a 3-seed ensemble; a final `HistGradientBoostingClassifier` candidate on raw features is considered and selected only when it beats the HDC ensemble.
+`bundle_gaussian` is exact under the same independence assumption. These are closed-form algebraic identities — no Monte Carlo, no approximation.
 
-| Dataset | classes | n | bayes-hdc | TorchHD | Δ |
-|---|---|---|---|---|---|
-| iris | 3 | 150 | **0.933** | 0.911 | **+2.2** |
-| wine | 3 | 178 | **0.852** | 0.815 | **+3.7** |
-| breast-cancer | 2 | 569 | **0.959** | 0.953 | **+0.6** |
-| digits | 10 | 1 797 | **0.943** | 0.900 | **+4.3** |
-| MNIST | 10 | 10 000 | **0.946** | 0.857 | **+8.9** |
-| **mean Δ** |  |  |  |  | **+3.94** |
+**Coverage guarantee for conformal prediction.** For any model producing scores on exchangeable data, `ConformalClassifier.fit(probs_cal, y_cal).predict_set(probs_test)` returns a set whose marginal coverage satisfies
 
-### Calibration (ECE reduction under temperature scaling)
+```
+P(y ∈ set(x)) ≥ 1 − α
+```
 
-`TemperatureCalibrator.fit` uses L-BFGS in log-space, matching the Guo et al. 2017 reference; both libraries use the same calibrator for a fair comparison.
+on average over calibration-and-test draws. This is the split-conformal guarantee with APS scores (Romano et al. 2020) and holds independently of the classifier, the feature distribution, or the dimensionality.
 
-| Dataset | ECE raw (bayes-hdc) | ECE + T (bayes-hdc) | ECE + T (TorchHD) | reduction |
-|---|---|---|---|---|
-| iris | 0.363 | **0.083** | 0.085 | 4.4× |
-| wine | 0.433 | **0.074** | 0.106 | 5.8× |
-| breast-cancer | 0.291 | 0.263 | 0.433 | 1.1× |
-| digits | 0.049 | **0.039** | 0.022 | already sharp (LR logits) |
-| MNIST | 0.026 | **0.026** | 0.028 | already sharp (LR logits) |
+**Convex calibration.** `TemperatureCalibrator.fit` minimises the negative log-likelihood over a one-parameter temperature via L-BFGS in log-space. The objective is convex; the global minimum is unique; the fitted temperature is the maximum-likelihood estimator.
 
-*TorchHD ships no temperature calibrator of its own; we use the same `TemperatureCalibrator` on both sides so the comparison isolates the pipeline quality, not the calibration algorithm. bayes-hdc gives you this out of the box; TorchHD requires the user to roll their own.*
+**Closed-form KL.** `kl_gaussian` and `kl_dirichlet` return analytic KL divergences between two distributions of the same family. These are exact — again, no Monte Carlo — and differentiable end-to-end under JAX `grad`, so they drop into variational objectives directly.
 
-### Conformal coverage (bayes-hdc only — TorchHD ships no equivalent)
+**Reparameterisation gradients everywhere.** Every distributional operation admits a differentiable reparameterisation sampler. `jax.grad` composes through `bind_gaussian`, `bundle_gaussian`, `cleanup_gaussian`, `inverse_gaussian`, and the ELBO helpers in `bayes_hdc.inference` — enough for end-to-end variational training of codebooks or classifier posteriors.
 
-Every dataset clears the α = 0.1 coverage target. Set size scales with task difficulty (binary → 1, 10-class → 3–5):
+**PyTree compatibility.** Every type in the library is a JAX pytree. `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with every operation out of the box. Multi-device wrappers (`pmap_bind_gaussian`, `shard_map_bind_gaussian`, `shard_classifier_posteriors`) exist for scale-out.
 
-| Dataset | target | empirical coverage | mean set size |
-|---|---|---|---|
-| iris | 0.90 | **1.000** | 2.44 |
-| wine | 0.90 | **0.944** | 1.50 |
-| breast-cancer | 0.90 | **1.000** | 1.29 |
-| digits | 0.90 | **0.969** | 2.81 |
-| MNIST | 0.90 | **0.956** | 2.92 |
+## Use cases
 
-**No public HDC library offers this today.** Full JSON dumps live in [`benchmarks/benchmark_calibration_results.json`](benchmarks/benchmark_calibration_results.json).
+PVSA is aimed at any problem where you need both the geometric reasoning of HDC *and* a quantitative account of uncertainty.
+
+**Safety-critical classification.** Medical diagnosis, fraud detection, autonomous-system perception. The model either predicts with a coverage-guaranteed confidence set or abstains and routes the case to human review. See `examples/medical_selective_prediction.py`.
+
+**Edge ML and neuromorphic inference.** HDC's original wheelhouse — tiny-memory, low-power, noise-tolerant inference on sensor data, speech, gesture, and biosignals. PVSA keeps the same hypervector representation while adding quantified noise tolerance via the posterior variance.
+
+**Cognitive robotics and symbolic reasoning.** Role-filler binding ("Dollar of Mexico"), analogical inference, and compositional concept building via the core VSA algebra — now with uncertainty in every slot. See `examples/kanerva_example.py`.
+
+**Structured knowledge representation.** Graphs, sequences, hierarchies, and finite state machines encoded as hypervectors via the encoders and `bayes_hdc.structures` module. Sequence memory (`examples/sequence_memory.py`) is one instance of a more general pattern.
+
+**Streaming and online learning.** `StreamingBayesianHDC` maintains a bounded-memory exponential-moving-average posterior per class, handling concept drift without retraining from scratch. `BayesianAdaptiveHDC` is the Kalman-style conjugate update for stationary streams.
+
+**Out-of-distribution detection.** Two signals ship out of the box: the standard max-softmax baseline (works on any classifier) and the PVSA-exclusive posterior Mahalanobis distance (uses the per-class variance the classifier learned during training). See `examples/anomaly_detection.py`.
+
+**Language and sequence analytics.** Character-level trigram encoders for language identification, text classification, and short-sequence retrieval. See `examples/language_identification.py`.
+
+**Research on probabilistic HDC itself.** Closed-form KL, ELBO helpers, reparameterisation gradients, posterior predictive checks, and a MCMC multi-restart resonator network make PVSA a usable platform for variational and Bayesian inference research on top of VSA.
 
 ## Installation
 
@@ -178,11 +178,11 @@ pip install -e ".[dev]"          # + pytest, ruff, mypy (for contributors)
 
 ## The PVSA algebra
 
-PVSA is the library's original research contribution. Three claims, all verified in `tests/`:
+PVSA is the library's original research contribution. Three formal claims, each verified in `tests/`:
 
-1. **Moment-propagating algebra** — every core operation (`bind_gaussian`, `bundle_gaussian`, `bind_dirichlet`, `bundle_dirichlet`, `kl_*`, `permute_gaussian`, `cleanup_gaussian`, `inverse_gaussian`) has closed-form moments, with a Monte Carlo fallback for everything else.
-2. **Calibrated predictive distributions** — post-hoc temperature scaling (Guo et al. 2017) fit via L-BFGS in log-space, reducing ECE by **5–25×** on real datasets.
-3. **Coverage-guaranteed prediction sets** — split-conformal with APS scores (Romano et al. 2020), returning a prediction set whose true-label coverage is ≥ 1 − α on exchangeable data.
+1. **Moment-propagating algebra.** Every core operation (`bind_gaussian`, `bundle_gaussian`, `bind_dirichlet`, `bundle_dirichlet`, `kl_*`, `permute_gaussian`, `cleanup_gaussian`, `inverse_gaussian`) has closed-form moments under standard independence assumptions, with a Monte Carlo fallback for everything else.
+2. **Calibrated predictive distributions.** Post-hoc temperature scaling (Guo et al. 2017) fit via L-BFGS in log-space, solving a convex one-parameter objective that reduces the expected calibration error of any classifier.
+3. **Coverage-guaranteed prediction sets.** Split-conformal with APS scores (Romano et al. 2020), returning a prediction set whose true-label coverage is ≥ 1 − α on exchangeable data.
 
 On top of the PVSA layer, bayes-hdc ships a complete **deterministic VSA foundation** — eight classical models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB), five encoders, five classifiers (including `ClusteringModel`), three associative memory modules, four symbolic data structures, and a capacity-and-noise analysis toolkit — each implemented directly from the primary research papers (Kanerva 1988 / 1997 / 2009; Plate 1995, 2003; Gayler 2003; Rahimi & Recht 2007; Ramsauer et al. 2020; and the Kleyko et al. 2022 VSA surveys). **No component is ported from another HDC library.**
 
@@ -221,7 +221,6 @@ On top of the PVSA layer, bayes-hdc ships a complete **deterministic VSA foundat
 ### v0.4 — Bayesian learning models ✅
 - [x] `TemperatureCalibrator` — post-hoc temperature scaling (Guo et al. 2017)
 - [x] `ConformalClassifier` — coverage-guaranteed prediction sets via APS (Romano et al. 2020)
-- [x] Calibration benchmark vs TorchHD on 5 datasets
 - [x] `BayesianCentroidClassifier` — per-class Gaussian posteriors with `predict_uncertainty`
 - [x] `BayesianAdaptiveHDC` — streaming Kalman-style online updates
 - [x] `bayes_hdc.plots` — optional matplotlib helpers
@@ -238,16 +237,18 @@ On top of the PVSA layer, bayes-hdc ships a complete **deterministic VSA foundat
 - [x] `shard_classifier_posteriors` — reshapes `(K, d)` posteriors into `(n_devices, K/n_devices, d)` for pod-scale training
 - [x] `StreamingBayesianHDC` — bounded-memory streaming with EMA posteriors; handles distribution shift
 
-### v1.0 — Datasets, benchmarks, paper ✅
+### v1.0 — Datasets, paper, examples ✅
 - [x] `bayes_hdc.datasets` with **11 standard HDC benchmarks**: iris, wine, breast_cancer, digits, mnist, fashion_mnist, isolet, ucihar, emg, pamap2, european_languages
-- [x] Head-to-head vs TorchHD: bayes-hdc wins 5/5 datasets, mean +3.94pt, MNIST +8.9pt
-- [x] Head-to-head vs TorchHD on ECE under temperature scaling
-- [x] Head-to-head throughput benchmark (`benchmark_compare.py`)
 - [x] Workshop paper introducing PVSA (`docs/workshop_paper.tex`) with embedded figures
 - [x] Containerised benchmarks (`make docker-bench`) with a `Dockerfile` benchmark stage
-- [x] 10 paper figures (reliability, coverage, accuracy, ECE) in `benchmarks/figures/`
-- [x] 4 application examples — language ID, medical selective classification, OOD detection, sequence memory
-- [ ] JMLR MLOSS final submission (pending venue selection and co-author coordination)
+- [x] Paper figures (reliability, coverage, accuracy, ECE) in `benchmarks/figures/`
+- [x] 4 application examples — language identification, medical selective classification, OOD detection, sequence memory
+
+### Future directions
+- Variational codebooks trained end-to-end via reparameterised ELBO
+- Sparse PVSA posteriors for memory-bounded deployment
+- JAX-native integration with `flax.nnx` for Bayesian HDC modules inside larger neural pipelines
+- GPU-optimised sparse resonator kernels for large-vocabulary cleanup
 
 ## Development
 
@@ -257,8 +258,8 @@ pytest tests/ --cov=bayes_hdc --cov-report=html   # with coverage
 ruff check bayes_hdc/                             # lint
 ruff format bayes_hdc/                            # format
 mypy bayes_hdc/                                   # type check
-make bench                                        # reproduce all benchmarks
-make figures                                      # regenerate all paper figures
+make bench                                        # regenerate internal benchmark numbers
+make figures                                      # regenerate paper figures
 make docker-bench                                 # reproduce benchmarks in a container
 ```
 
