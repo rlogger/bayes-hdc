@@ -18,6 +18,7 @@ python examples/pvsa_quickstart.py
 | [`classification_simple.py`](classification_simple.py) | End-to-end pipeline on synthetic data with `RandomEncoder` + `CentroidClassifier`. |
 | [`kanerva_example.py`](kanerva_example.py) | Kanerva's "Dollar of Mexico" — role-filler binding and analogical reasoning. |
 | [`sequence_memory.py`](sequence_memory.py) | Position-addressable sequence memory: encode a 12-token sentence as one HV, retrieve each token by un-permuting + cleanup, confidence from top-1/top-2 gap. |
+| [`song_matching.py`](song_matching.py) | Fun demo — eight pseudo-songs across four themes, each encoded as a bag-of-words bundle. Cosine similarity recovers the theme pairs and the overlap of shared words is visible on every match. No training, no backprop. |
 
 ## PVSA — probabilistic layer
 
