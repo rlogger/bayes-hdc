@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MIT
+#
+# GitHub-native static analysis via CodeQL. Runs on every PR and weekly
+# on a scheduled cron. Findings appear in the repository's Security tab.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "37 3 * * 1"  # Mondays, 03:37 UTC
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: +security-extended
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"

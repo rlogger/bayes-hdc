@@ -1,0 +1,29 @@
+# CODEOWNERS — who reviews what.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything.
+*                                    @rlogger
+
+# Core library — PVSA primitives.
+/bayes_hdc/distributions.py          @rlogger
+/bayes_hdc/bayesian_models.py        @rlogger
+/bayes_hdc/uncertainty.py            @rlogger
+/bayes_hdc/inference.py              @rlogger
+/bayes_hdc/resonator.py              @rlogger
+/bayes_hdc/diagnostics.py            @rlogger
+/bayes_hdc/distributed.py            @rlogger
+
+# Benchmarks and figures.
+/benchmarks/                         @rlogger
+/bayes_hdc/plots.py                  @rlogger
+
+# Paper and originality statement.
+/docs/main.tex                       @rlogger
+/docs/workshop_paper.tex             @rlogger
+/ORIGINALITY.md                      @rlogger
+
+# CI / release / dependency configuration.
+/.github/                            @rlogger
+/pyproject.toml                      @rlogger
+/Dockerfile                          @rlogger
+/Makefile                            @rlogger

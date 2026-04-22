@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: MIT
+#
+# Automated GitHub Release on tag push. Builds the sdist + wheel,
+# attaches them to the release, and drafts release notes from CHANGELOG.md.
+# PyPI publishing is handled separately by publish.yml (idempotent).
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+      - name: Build sdist + wheel
+        run: python -m build
+      - name: Upload as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        run: |
+          # Find the section for this tag version in CHANGELOG.md.
+          # Fallback to a generic line if the section isn't found.
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          awk -v ver="$VERSION" '
+            BEGIN { found = 0 }
+            /^## / {
+              if (found) exit
+              if ($0 ~ "\\[" ver "\\]" || $0 ~ "\\[Unreleased\\]") found = 1
+              next
+            }
+            found { print }
+          ' CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "bayes-hdc ${TAG}" > release_notes.md
+          fi
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}

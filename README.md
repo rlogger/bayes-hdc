@@ -1,12 +1,32 @@
+<h1 align="center">Bayes-HDC</h1>
+
 <p align="center">
-    <a href="https://github.com/rlogger/bayes-hdc/blob/main/LICENSE"><img alt="GitHub license" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat" /></a>
-    <img alt="Development Status" src="https://img.shields.io/badge/status-alpha-orange.svg?style=flat" />
-    <img alt="Python" src="https://img.shields.io/badge/python-3.9%2B-blue.svg?style=flat" />
+  <strong>Probabilistic Vector Symbolic Architectures (PVSA) — an algebra of uncertainty for Hyperdimensional Computing, built on JAX.</strong>
 </p>
 
-# Bayes-HDC
+<p align="center">
+  <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml/badge.svg?branch=main" /></a>
+  <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://img.shields.io/badge/coverage-97%25-brightgreen.svg" /></a>
+  <a href="https://github.com/rlogger/bayes-hdc/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
+  <img alt="Python" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg" />
+  <img alt="JAX" src="https://img.shields.io/badge/JAX-%E2%89%A5%200.4.20-orange.svg" />
+  <img alt="Status" src="https://img.shields.io/badge/status-alpha-yellow.svg" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-467%20passing-brightgreen.svg" />
+</p>
 
-**Probabilistic Vector Symbolic Architectures (PVSA) — an algebra of uncertainty for Hyperdimensional Computing.**
+<p align="center">
+  <a href="#the-pitch">Pitch</a> ·
+  <a href="#results">Results</a> ·
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="#the-pvsa-algebra">PVSA</a> ·
+  <a href="docs/workshop_paper.tex">Paper</a> ·
+  <a href="ORIGINALITY.md">Originality</a> ·
+  <a href="BENCHMARKS.md">Benchmarks</a>
+</p>
+
+---
+
+## The pitch
 
 Bayes-HDC introduces **Probabilistic Vector Symbolic Architectures (PVSA)**: an HDC framework in which every hypervector is a posterior distribution and every VSA primitive propagates that distribution's moments in closed form. This is the first such framework in the HDC literature; see [`ORIGINALITY.md`](ORIGINALITY.md) for an explicit independence statement and primary-source attribution for every component of the library.
 

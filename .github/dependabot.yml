@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: MIT
+#
+# Dependabot configuration for bayes-hdc.
+#
+# Automatically opens PRs to bump:
+#   - GitHub Actions versions (weekly)
+#   - Python package dependencies declared in pyproject.toml (weekly)
+#
+# PRs are grouped by ecosystem and labelled so they can be triaged quickly.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "ci"
+      include: scope
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - python
+    commit-message:
+      prefix: "deps"
+      include: scope
+    groups:
+      # Batch the dev-tooling updates together — easier to review.
+      dev-tools:
+        patterns:
+          - ruff
+          - mypy
+          - pytest*
+      # Batch the scientific-Python ecosystem updates.
+      scientific-python:
+        patterns:
+          - jax*
+          - numpy
+          - scikit-learn
+          - matplotlib
