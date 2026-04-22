@@ -257,7 +257,6 @@ def main() -> None:
     alpha = 0.2
     conformal = ConformalClassifier.create(alpha=alpha).fit(probs_cal, cal_labels)
     set_mask = conformal.predict_set(probs_test)
-    set_sizes = np.asarray(jnp.sum(set_mask.astype(jnp.int32), axis=-1))
 
     preds = np.asarray(jnp.argmax(probs_test, axis=-1))
     test_labels_np = np.asarray(test_labels)
