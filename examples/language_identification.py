@@ -239,14 +239,18 @@ def main() -> None:
 
     # Fit ridge regression on training hypervectors.
     clf = RegularizedLSClassifier.create(
-        dimensions=DIMS, num_classes=len(LANGUAGES), reg=1.0,
+        dimensions=DIMS,
+        num_classes=len(LANGUAGES),
+        reg=1.0,
     ).fit(train_hvs, train_labels)
     logits_cal = cal_hvs @ clf.weights
     logits_test = test_hvs @ clf.weights
 
     # Calibrate on cal set.
     calibrator = TemperatureCalibrator.create().fit(
-        logits_cal, cal_labels, max_iters=200,
+        logits_cal,
+        cal_labels,
+        max_iters=200,
     )
     probs_cal = calibrator.calibrate(logits_cal)
     probs_test = calibrator.calibrate(logits_test)
@@ -265,7 +269,7 @@ def main() -> None:
     mean_set_size = float(conformal.set_size(probs_test))
 
     print(f"Test accuracy:             {test_accuracy:.3f}")
-    print(f"Conformal coverage @ α={alpha}: {coverage:.3f}  (target ≥ {1-alpha:.2f})")
+    print(f"Conformal coverage @ α={alpha}: {coverage:.3f}  (target ≥ {1 - alpha:.2f})")
     print(f"Mean prediction-set size:   {mean_set_size:.2f}  (of 5 classes)")
     print(f"Fitted temperature T:       {float(calibrator.temperature):.4f}\n")
 

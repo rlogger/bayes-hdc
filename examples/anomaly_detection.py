@@ -64,7 +64,9 @@ def main() -> None:
 
     # Discretise pixel intensities into 16 ordinal levels.
     disc = KBinsDiscretizer(
-        n_bins=LEVELS, encode="ordinal", strategy="quantile",
+        n_bins=LEVELS,
+        encode="ordinal",
+        strategy="quantile",
     )
     X_id_idx = disc.fit_transform(X_id).astype(np.int32)
     X_ood_idx = np.clip(disc.transform(X_ood), 0, LEVELS - 1).astype(np.int32)
@@ -91,7 +93,8 @@ def main() -> None:
     hv_te_id, y_te_id = hv_id[te_idx], jnp.asarray(y_id[te_idx])
 
     clf = BayesianCentroidClassifier.create(
-        num_classes=8, dimensions=DIMS,
+        num_classes=8,
+        dimensions=DIMS,
     ).fit(hv_tr, y_tr, prior_strength=1.0)
 
     acc = float(clf.score(hv_te_id, y_te_id))
@@ -110,7 +113,7 @@ def main() -> None:
         mu, var = clf.mu, clf.var  # shapes (K, D)
         # (N, K, D): broadcast diff per sample per class.
         diff = hv[:, None, :] - mu[None, :, :]
-        d = jnp.sum((diff ** 2) / (var[None, :, :] + 1e-6), axis=-1)
+        d = jnp.sum((diff**2) / (var[None, :, :] + 1e-6), axis=-1)
         return d  # (N, K)
 
     mahal_id = np.asarray(mahal_per_class(hv_te_id))
@@ -119,9 +122,7 @@ def main() -> None:
     min_mahal_ood = mahal_ood.min(axis=-1)
 
     # Labels for AUROC: 1 = OOD.
-    y_auroc = np.concatenate(
-        [np.zeros(len(msp_id)), np.ones(len(msp_ood))]
-    )
+    y_auroc = np.concatenate([np.zeros(len(msp_id)), np.ones(len(msp_ood))])
     # MSP: lower on OOD → negate so higher = more OOD.
     scores_msp = np.concatenate([-msp_id, -msp_ood])
     # Mahalanobis: higher on OOD already.
@@ -153,9 +154,7 @@ def main() -> None:
     elif auroc_mahal > auroc_msp:
         print("→ PVSA Mahalanobis distance is the stronger OOD signal on this task.")
     else:
-        print(
-            "→ MSP is the stronger signal here; PVSA Mahalanobis adds complementary info."
-        )
+        print("→ MSP is the stronger signal here; PVSA Mahalanobis adds complementary info.")
 
 
 if __name__ == "__main__":

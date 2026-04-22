@@ -62,15 +62,25 @@ def main() -> None:
 
     # 60 / 20 / 20 train / cal / test split, stratified.
     X_tr, X_te, y_tr, y_te = train_test_split(
-        X, y, test_size=0.2, random_state=SEED, stratify=y,
+        X,
+        y,
+        test_size=0.2,
+        random_state=SEED,
+        stratify=y,
     )
     X_tr, X_ca, y_tr, y_ca = train_test_split(
-        X_tr, y_tr, test_size=0.25, random_state=SEED, stratify=y_tr,
+        X_tr,
+        y_tr,
+        test_size=0.25,
+        random_state=SEED,
+        stratify=y_tr,
     )
 
     # Discretise + encode.
     disc = KBinsDiscretizer(
-        n_bins=LEVELS, encode="ordinal", strategy="quantile",
+        n_bins=LEVELS,
+        encode="ordinal",
+        strategy="quantile",
     )
     X_tr_idx = disc.fit_transform(X_tr).astype(np.int32)
     X_ca_idx = np.clip(disc.transform(X_ca), 0, LEVELS - 1).astype(np.int32)
@@ -91,17 +101,22 @@ def main() -> None:
 
     # Classifier, calibrator, conformal wrap.
     clf = RegularizedLSClassifier.create(
-        dimensions=DIMS, num_classes=2, reg=1.0,
+        dimensions=DIMS,
+        num_classes=2,
+        reg=1.0,
     ).fit(hv_tr, jnp.asarray(y_tr))
     logits_ca = hv_ca @ clf.weights
     logits_te = hv_te @ clf.weights
     calibrator = TemperatureCalibrator.create().fit(
-        logits_ca, jnp.asarray(y_ca), max_iters=200,
+        logits_ca,
+        jnp.asarray(y_ca),
+        max_iters=200,
     )
     probs_ca = calibrator.calibrate(logits_ca)
     probs_te = calibrator.calibrate(logits_te)
     conformal = ConformalClassifier.create(alpha=ALPHA).fit(
-        probs_ca, jnp.asarray(y_ca),
+        probs_ca,
+        jnp.asarray(y_ca),
     )
 
     # Selective decision: predict iff the conformal set has size 1.
@@ -120,9 +135,11 @@ def main() -> None:
         confident_acc = float(np.mean(preds[confident] == y_te[confident]))
     else:
         confident_acc = float("nan")
-    abstained_acc = float(
-        np.mean(preds[~confident] == y_te[~confident])
-    ) if (~confident).any() else float("nan")
+    abstained_acc = (
+        float(np.mean(preds[~confident] == y_te[~confident]))
+        if (~confident).any()
+        else float("nan")
+    )
 
     # "Under abstention" accuracy: predictions on abstentions count as wrong.
     correct_under_abs = (preds == y_te) & confident

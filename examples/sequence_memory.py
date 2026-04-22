@@ -75,8 +75,10 @@ def main() -> None:
         return jnp.sum(positioned, axis=0)
 
     seq_hv = encode_sequence(indices)
-    print(f"Encoded sequence HV: shape={tuple(seq_hv.shape)}, "
-          f"L2 norm={float(jnp.linalg.norm(seq_hv)):.2f}\n")
+    print(
+        f"Encoded sequence HV: shape={tuple(seq_hv.shape)}, "
+        f"L2 norm={float(jnp.linalg.norm(seq_hv)):.2f}\n"
+    )
 
     # Retrieve: for each position i, un-permute then cleanup against codebook.
     print("Retrieval per position:")
@@ -97,11 +99,9 @@ def main() -> None:
         ok = "✓" if retrieved == true_word else "✗"
         if ok == "✓":
             correct += 1
-        print(
-            f"{i:<4} {true_word:<8} {retrieved:<10} {sim:>8.3f} {gap:>10.3f}   {ok}"
-        )
+        print(f"{i:<4} {true_word:<8} {retrieved:<10} {sim:>8.3f} {gap:>10.3f}   {ok}")
     print("=" * 72)
-    print(f"\nRetrieval accuracy: {correct}/{len(SENTENCE)} = {correct/len(SENTENCE):.1%}")
+    print(f"\nRetrieval accuracy: {correct}/{len(SENTENCE)} = {correct / len(SENTENCE):.1%}")
 
     print("\nInterpretation:")
     print("  - High cos sim ≈ the recovered HV is close to a single codebook entry.")
