@@ -140,14 +140,15 @@ def test_ppc_returns_valid_fields() -> None:
         observed,
         statistic_mean_norm,
         jax.random.fold_in(key, 2),
-        n_replicas=100,
+        n_replicas=500,
     )
     assert result.predictive_std >= 0.0
     assert result.ci_low <= result.ci_high
     assert 0.0 <= result.p_value <= 1.0
-    # When observed truly comes from the posterior, p-value should be
-    # reasonably far from 0 or 1 (i.e., not extreme).
-    assert result.p_value > 0.01
+    # The observed statistic (from the same posterior) must lie inside
+    # the 95 % predictive interval — a basic sanity check that doesn't
+    # depend on Monte Carlo tail noise.
+    assert result.ci_low <= result.observed <= result.ci_high
 
 
 def test_ppc_detects_misspecified_posterior() -> None:

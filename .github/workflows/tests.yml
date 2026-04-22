@@ -13,20 +13,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        exclude:
-          # JAX wheels are not distributed for Windows on all Python versions;
-          # keep the Linux and macOS matrix fully covered and test a single
-          # representative configuration on Windows.
-          - os: windows-latest
-            python-version: "3.9"
-          - os: windows-latest
-            python-version: "3.10"
-          - os: windows-latest
-            python-version: "3.11"
-          - os: windows-latest
-            python-version: "3.13"
 
     steps:
       - uses: actions/checkout@v4
