@@ -25,6 +25,7 @@ from bayes_hdc import (
     distributed,
     distributions,
     embeddings,
+    equivariance,
     functional,
     inference,
     memory,
@@ -71,6 +72,14 @@ from bayes_hdc.embeddings import (
     LevelEncoder,
     ProjectionEncoder,
     RandomEncoder,
+)
+from bayes_hdc.equivariance import (
+    compose_shifts,
+    hrr_equivariant_bilinear,
+    shift,
+    verify_shift_equivariance,
+    verify_shift_invariance,
+    verify_single_argument_shift_equivariance,
 )
 from bayes_hdc.functional import (
     add_noise_map,
@@ -156,7 +165,15 @@ __all__ = [
     "inference",
     "distributed",
     "diagnostics",
+    "equivariance",
     "resonator",
+    # Group-theoretic structure
+    "shift",
+    "compose_shifts",
+    "verify_shift_equivariance",
+    "verify_single_argument_shift_equivariance",
+    "verify_shift_invariance",
+    "hrr_equivariant_bilinear",
     # Bayesian classifiers
     "BayesianCentroidClassifier",
     "BayesianAdaptiveHDC",

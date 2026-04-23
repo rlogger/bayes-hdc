@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Group-theoretic structure module and research-connection framing
+
+- `bayes_hdc.equivariance` — new module exposing the cyclic-shift action of
+  `Z/d` as first-class. Provides `shift`, `compose_shifts`, the canonical
+  shift-equivariant bilinear operator `hrr_equivariant_bilinear`, and
+  property-based verifiers (`verify_shift_equivariance`,
+  `verify_single_argument_shift_equivariance`, `verify_shift_invariance`)
+  that reject user-defined ops claiming a symmetry they do not have.
+- `examples/weight_space_posterior.py` — new demo treating a
+  `BayesianCentroidClassifier`'s posterior as a distribution over
+  weight-space. Shows posterior sampling, epistemic uncertainty as
+  disagreement across draws, and numerically verifies the posterior
+  commutes with the cyclic-shift action.
+- `DESIGN.md` — long-form design document covering the algebra, the PVSA
+  lift to measures, the functional-programming commitments, the JAX
+  idioms, and the research programmes the design serves (weight-space
+  learning, equivariant neural functionals, meta-RL with structured
+  representations).
+- README rewritten with the new framing: a JAX library with serious
+  algebraic depth, legibly useful to weight-space / NFN / structured-RL
+  research.
+- 14 new tests in `tests/test_equivariance.py` for the group action,
+  primitive equivariances, and detector correctness. Suite now 475 tests,
+  97 % line coverage, 100 % on the new module.
+
 ### Added — v0.5/v0.6 completion + containerised benchmarks
 
 - **`bayes_hdc.resonator.probabilistic_resonator`** — multi-restart MCMC factorisation of a composite PVSA hypervector. Each chain samples factor indices from a softmax over residual similarities (Metropolis-style); returns the best chain's `(indices, alignment, history, n_restarts)`. Uses `inverse_gaussian` so uncertainty propagates through unbinding. Closes the v0.5 research-paper block.
