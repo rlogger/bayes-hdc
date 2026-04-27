@@ -139,7 +139,7 @@ Single-device wrappers degrade gracefully on multi-device hosts via `pmap_bind_g
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ Applications                                                                │
-│   language identification · selective classification · OOD detection        │
+│   EMG gesture recognition · activity recognition · language identification  │
 │   sequence memory · weight-space posteriors                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ Uncertainty                                                                 │
@@ -199,14 +199,14 @@ python examples/<name>.py
 | [`weight_space_posterior.py`](examples/weight_space_posterior.py) | A classifier's weights are a `GaussianHV` posterior — a distribution over weight vectors. Sample from it, predict with each draw, read off epistemic uncertainty, verify `Z/d`-equivariance of the whole pipeline. |
 | [`pvsa_quickstart.py`](examples/pvsa_quickstart.py) | 90-second tour through every PVSA primitive end-to-end. |
 
-### PVSA applications
+### PVSA applications — what HDC is most-applied to in the literature
 
 | Example | What it shows |
 |---|---|
-| [`language_identification.py`](examples/language_identification.py) | Character-trigram language ID with calibrated probabilities and conformal sets that grow on ambiguous input. |
-| [`medical_selective_prediction.py`](examples/medical_selective_prediction.py) | Conformal-gated abstention on Breast Cancer Wisconsin — predict or hand off to follow-up. |
-| [`anomaly_detection.py`](examples/anomaly_detection.py) | Posterior-Mahalanobis OOD detection on UCI digits. |
-| [`sequence_memory.py`](examples/sequence_memory.py) | A 12-token sentence encoded as one hypervector, retrieved per position via un-permute and cleanup. |
+| [`emg_gesture_recognition.py`](examples/emg_gesture_recognition.py) | Hand-gesture classification from 8-channel sEMG via channel-position binding and bundling. The single most-cited HDC application since Rahimi et al. (2016). Reports calibrated per-gesture probabilities, posterior variance, and confusion. |
+| [`activity_recognition.py`](examples/activity_recognition.py) | UCIHAR-style 6-class daily-living activity recognition (walking, stairs, sitting, standing, laying) with feature-value binding, temperature calibration, and conformal prediction sets at α = 0.1. Includes selective-abstention pattern. |
+| [`language_identification.py`](examples/language_identification.py) | Character-trigram language ID across 5 European languages (Joshi, Halseth, Kanerva 2016) with calibrated probabilities and conformal sets that grow on ambiguous input. |
+| [`sequence_memory.py`](examples/sequence_memory.py) | A 12-token sentence encoded as one hypervector, retrieved per position via un-permute and cleanup. The classical "sequence as permute-bundle" pattern. |
 
 ### Classical HDC
 
