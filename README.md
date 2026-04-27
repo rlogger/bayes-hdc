@@ -2,111 +2,53 @@
 
 <p align="center">
   <strong>A JAX library with serious algebraic depth.</strong><br/>
-  <em>Hypervectors as a pytree-native algebra. Closed-form moments. Group actions. Equivariant bilinear operators. Reparameterisation gradients end-to-end.</em>
+  Hypervectors as a pytree-native algebra. Closed-form moments. Group actions.<br/>
+  Equivariant bilinear operators. Reparameterisation gradients end-to-end.
 </p>
 
 <p align="center">
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml/badge.svg?branch=main" /></a>
+  <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml/badge.svg?branch=main" /></a>
   <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://img.shields.io/badge/coverage-97%25-brightgreen.svg" /></a>
-  <a href="https://github.com/rlogger/bayes-hdc/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
-  <img alt="Python" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg" />
-  <img alt="JAX" src="https://img.shields.io/badge/JAX-%E2%89%A5%200.4.20-orange.svg" />
   <img alt="Tests" src="https://img.shields.io/badge/tests-475%20passing-brightgreen.svg" />
+  <img alt="Python" src="https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12%20|%203.13-blue.svg" />
+  <img alt="JAX" src="https://img.shields.io/badge/JAX-%E2%89%A5%200.4.20-orange.svg" />
+  <a href="https://github.com/rlogger/bayes-hdc/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
+  <img alt="Code style: ruff" src="https://img.shields.io/badge/code%20style-ruff-000000.svg" />
+  <img alt="Type checked: mypy" src="https://img.shields.io/badge/type%20checked-mypy-1f5082.svg" />
 </p>
 
 <p align="center">
-  <a href="#what-this-is">What</a> ·
-  <a href="#the-algebra">Algebra</a> ·
-  <a href="#library-craft">Craft</a> ·
-  <a href="#research-connections">Research</a> ·
-  <a href="#thirty-seconds">30s</a> ·
-  <a href="#guarantees">Guarantees</a> ·
-  <a href="#examples">Examples</a> ·
-  <a href="DESIGN.md">Design</a>
+  <a href="DESIGN.md">Design notes</a> ·
+  <a href="examples/">Examples</a> ·
+  <a href="docs/workshop_paper.tex">Paper</a> ·
+  <a href="ORIGINALITY.md">Originality</a> ·
+  <a href="BENCHMARKS.md">Benchmarks</a> ·
+  <a href="https://github.com/rlogger/bayes-hdc/discussions">Discussions</a>
 </p>
 
 ---
 
-## What this is
+## About
 
-A JAX library for hyperdimensional computing — with a probabilistic layer on top — that takes the mathematical structure seriously.
+bayes-hdc is a JAX library for hyperdimensional computing (HDC) with a probabilistic layer on top — **PVSA**, Probabilistic Vector Symbolic Architectures. Every hypervector is an element of a small, well-designed algebra: a commutative binding, an associative bundling, a cyclic group action, a cosine measure, and a posterior distribution over the whole thing. Every type is a pytree. Every operation composes with `jit`, `vmap`, `grad`, `pmap`, `shard_map`. The implementation is careful, the API is small, the moments are closed-form, and the claims are theorems.
 
-Every hypervector is an element of a small, well-designed algebra: a commutative binding, an associative bundling, a cyclic group action, a cosine measure, and a posterior distribution over the whole thing. Every type is a pytree. Every operation composes with `jit`, `vmap`, `grad`, `pmap`, `shard_map`. The implementation is careful; the API is small; the moments are closed-form; the claims are theorems.
+The library is legibly useful at the intersection of three active research programmes: **transformer weight-space learning**, **equivariant neural functionals (NFNs)**, and **meta-RL with structured representations**. See [`DESIGN.md`](DESIGN.md) for the long-form story.
 
-The framework sits naturally at the intersection of three threads in current ML research, and that intersection is the reason this library exists.
+### Highlights
 
-## The algebra
+- **Pytree-native.** `jit` / `vmap` / `grad` / `pmap` / `shard_map` compose with every operation unconditionally.
+- **Closed-form algebra.** `bind_gaussian`, `bundle_gaussian`, `kl_gaussian`, `kl_dirichlet` are analytic. No Monte Carlo where math is enough.
+- **First-class group actions.** `Z/d` cyclic shift exposed as a real group object, with property-based verifiers for shift equivariance and invariance.
+- **Calibration & coverage out of the box.** Temperature scaling (Guo 2017) and split-conformal prediction (Romano 2020), each with formal guarantees.
+- **Differentiable end-to-end.** Reparameterisation samplers on every distributional op; `jax.grad` composes through everything.
+- **Scales.** From a laptop CPU to a TPU pod with the same code via `pmap` / `shard_map` wrappers.
+- **Deterministic VSA foundation.** Eight classical VSA models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB) implemented from the primary papers; nothing ported.
+- **475 tests, 97 % coverage.** Property-based tests for every algebraic identity. CI on Ubuntu + macOS × Python 3.9–3.13 on every push.
 
-A VSA is a compact algebraic object on :math:`\mathbb{R}^d`:
+## Quick tour
 
-| Primitive | Signature | Law |
-|---|---|---|
-| `bind`       | `(R^d, R^d) → R^d`        | commutative, associative, invertible |
-| `bundle`     | `(R^d)^n → R^d`           | commutative, associative |
-| `permute`    | `R^d × Z → R^d`           | faithful action of `Z/d`, isometric |
-| `similarity` | `(R^d, R^d) → R`          | cosine on the unit sphere |
-
-**PVSA** lifts this to measures. A `GaussianHV` is a Dirac point when the variance is zero and a full posterior otherwise; all four primitives lift from `R^d` to `P(R^d)` in closed form, preserving the algebraic laws:
-
-```python
-bind_gaussian(x, y).mu  = x.mu * y.mu
-bind_gaussian(x, y).var = x.mu**2 * y.var + y.mu**2 * x.var + x.var * y.var
-```
-
-These are not approximations. They are the exact first and second moments of the product distribution — which is what "closed form" means.
-
-The group-theoretic structure is not folklore; it is first-class. `bayes_hdc.equivariance` exposes the cyclic-shift action, the single-argument vs. diagonal equivariances of the primitives, and property-based verifiers that reject any user-defined op that claims a symmetry it does not have.
-
-## Library craft
-
-- **Every type is a JAX pytree.** `jit`, `vmap`, `grad`, `pmap`, `shard_map` compose unconditionally, without ceremony at the call site. `@register_dataclass` is applied where it needs to be.
-- **Immutable and functional.** All operations return new values. No in-place state. No hidden mutation.
-- **Closed-form where possible, Monte Carlo where not.** `bind_gaussian`, `bundle_gaussian`, `kl_gaussian`, `kl_dirichlet` are analytic. Sampling fallbacks are explicit and reparameterised.
-- **Small, typed API.** Every public function has a type signature and a docstring. No untyped kwargs. No surprise tensor shapes.
-- **475 tests, 97 % coverage.** Property-based tests for algebraic identities (commutativity, associativity, inverse, equivariance, isometry). Shape tests, dtype tests, grad tests.
-- **Zero transitive dependencies beyond JAX + numpy.** `matplotlib` and `scikit-learn` are extras for examples only.
-- **CI on every push.** Ubuntu + macOS × Python 3.9–3.13. Ruff, mypy, pytest. CodeQL scheduled. Dependabot weekly.
-
-See [`DESIGN.md`](DESIGN.md) for the long-form story.
-
-## Research connections
-
-The design is legible to three research programmes, each of which cares about the kind of thing this library provides by default.
-
-### 1. Transformer weight-space research
-
-Papers that treat a network's weights as data — model-zoo hypernets, permutation-invariant weight encoders, functa — ask for a representation that is typed, symmetry-respecting, and distribution-valued. A `BayesianCentroidClassifier` here stores `K` class hypervectors, each one a `GaussianHV` with mean `mu_c` and per-dimension variance `var_c`. That is literally a distribution over weight vectors.
-
-```python
-clf = BayesianCentroidClassifier.create(num_classes=K, dimensions=d).fit(X, y)
-clf.mu       # (K, d)  — posterior mean weight matrix
-clf.var      # (K, d)  — posterior variance
-weight_sample = clf.mu + jax.random.normal(key, clf.mu.shape) * jnp.sqrt(clf.var)
-```
-
-[`examples/weight_space_posterior.py`](examples/weight_space_posterior.py) walks through this explicitly: draw from the posterior, predict with each draw, read off epistemic uncertainty as disagreement across draws, and verify that the whole pipeline commutes with the cyclic-shift symmetry of the representation.
-
-### 2. Equivariant neural functionals (NFNs)
-
-The NFN programme builds layers that respect the symmetries of weight-space. Cyclic shift is a `Z/d` action on hypervectors; element-wise-product binding is diagonally equivariant; circular-convolution binding is single-argument equivariant. `bayes_hdc.equivariance` makes all of this explicit, and ships `verify_shift_equivariance` / `verify_single_argument_shift_equivariance` so you can check at test-time that your custom op respects the symmetry it claims.
-
-```python
-from bayes_hdc import shift, verify_shift_equivariance, hrr_equivariant_bilinear
-
-# Element-wise bind is diagonally Z/d-equivariant.
-assert verify_shift_equivariance(bind_map, x, y)
-
-# Circular convolution is the canonical single-argument equivariant bilinear operator.
-z = hrr_equivariant_bilinear(x, filter_hv)
-```
-
-### 3. Meta-RL with structured representations
-
-Task-conditioned agents that generalise systematically need a composable representation of "(task, state)". HDC gives you exactly that: `bind(task_hv, state_hv)` is a structured pair whose constituents can be unbound by similarity, and whose symmetries are inherited from the operands. `BayesianAdaptiveHDC` gives per-arm streaming posteriors for contextual bandits; `StreamingBayesianHDC` gives bounded-memory EMA posteriors for non-stationary environments; the posterior Mahalanobis distance from `BayesianCentroidClassifier` is a drop-in novelty / intrinsic-reward signal.
-
-The reframe is this: **HDC is a structured-representation substrate, and PVSA is a weight-space algebra with uncertainty.** The rest is engineering.
-
-## Thirty seconds
+### Probabilistic hypervectors
 
 ```python
 import jax
@@ -120,7 +62,7 @@ z   = bind_gaussian(x, y)                  # exact moment propagation
 sim = expected_cosine_similarity(x, z)     # uncertainty-aware similarity
 ```
 
-Wrap any classifier in calibration and coverage guarantees:
+### Calibration and coverage on any classifier
 
 ```python
 from bayes_hdc import TemperatureCalibrator, ConformalClassifier
@@ -129,70 +71,119 @@ calibrator = TemperatureCalibrator.create().fit(logits_cal, y_cal)
 probs      = calibrator.calibrate(logits_test)
 
 conformal  = ConformalClassifier.create(alpha=0.1).fit(probs_cal, y_cal)
-sets       = conformal.predict_set(probs)                    # (n, k) bool mask
-coverage   = conformal.coverage(probs_test, y_test)          # ≥ 0.9 by construction
+sets       = conformal.predict_set(probs)                # (n, k) bool mask
+coverage   = conformal.coverage(probs_test, y_test)      # ≥ 0.9 by construction
 ```
 
-Verify a custom op respects the cyclic group action:
+### Verify a custom op respects the cyclic group action
 
 ```python
-from bayes_hdc import verify_shift_equivariance
+from bayes_hdc import bind_map, verify_shift_equivariance
 
-def my_layer(x, y):
-    ...
-
-assert verify_shift_equivariance(my_layer, x, y)
+assert verify_shift_equivariance(bind_map, x, y)         # diagonal Z/d-equivariant
 ```
 
-Deterministic pipelines lift into PVSA with `GaussianHV.from_sample(hv)` — a zero-variance posterior that behaves identically to classical MAP until you inject uncertainty. Nothing has to be rewritten.
+### Lift a deterministic pipeline into PVSA
 
-## Guarantees
+```python
+from bayes_hdc import GaussianHV
 
-Not benchmarks. Theorems. These hold *by construction* on *every* input, independent of dataset, dimension, or training quality.
+x_pvsa = GaussianHV.from_sample(x_classical)             # zero-variance posterior
+# behaves identically to classical MAP until you inject uncertainty
+```
 
-**Moment-exact algebra.** `bind_gaussian` returns the exact first and second moments of the element-wise product of two independent Gaussian hypervectors. Closed form, no Monte Carlo:
+## More about bayes-hdc
+
+### A pytree-native algebra
+
+Every type in the library is a frozen JAX pytree, registered via `jax.tree_util.register_dataclass`. `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with `GaussianHV`, `DirichletHV`, `BayesianCentroidClassifier`, and every other public type without any user-side flattening or unflattening. The library is deliberately functional — immutable values, pure operations, no hidden state.
+
+### Closed-form moment propagation
+
+For independent Gaussian hypervectors, the first and second moments of bind and bundle are exact:
 
 ```
 E[x · y]   = μ_x · μ_y
 Var[x · y] = μ_x² σ_y² + μ_y² σ_x² + σ_x² σ_y²
+
+E[Σ xᵢ]    = Σ μᵢ
+Var[Σ xᵢ]  = Σ σᵢ²
 ```
 
-Same story for `bundle_gaussian`, `permute_gaussian`, `kl_gaussian`, and their Dirichlet counterparts.
+`bind_gaussian` and `bundle_gaussian` return these analytically. `kl_gaussian` and `kl_dirichlet` are likewise closed form and differentiable end-to-end. Monte Carlo fallbacks exist where the math is not closed; they are explicit and reparameterised.
 
-**Group-theoretic correctness.** The cyclic-shift action `T_k` is faithful, additive (`T_j ∘ T_k = T_{j+k}`), and isometric (`⟨T_k(x), T_k(y)⟩ = ⟨x, y⟩`). Element-wise binding is diagonally `Z/d`-equivariant; circular convolution is single-argument equivariant; cosine similarity is diagonally invariant. Every claim is in `tests/test_equivariance.py` as a property-based test.
+### First-class group actions
 
-**Coverage ≥ 1 − α.** `ConformalClassifier` returns prediction sets whose marginal coverage satisfies `P(y ∈ set(x)) ≥ 1 − α` on exchangeable data. Holds for any underlying classifier. Holds in any dimension. Holds independently of how well the model was trained.
+The cyclic-shift action `T_k` of `Z/d` on `R^d` — what `permute` *is* — is a faithful, additive, isometric group action. The `bayes_hdc.equivariance` module exposes it, distinguishes the two flavours of equivariance correctly (element-wise bind is diagonally equivariant; circular convolution is single-argument equivariant), and ships property-based verifiers that reject any user-defined op claiming a symmetry it does not have.
 
-**Convex calibration.** `TemperatureCalibrator` minimises the NLL over a one-parameter temperature via L-BFGS in log-space. Convex objective, unique global minimum, the fitted temperature is the MLE.
+```python
+from bayes_hdc import shift, hrr_equivariant_bilinear, verify_single_argument_shift_equivariance
 
-**End-to-end differentiable.** Every distributional op admits a reparameterisation sampler. `jax.grad` composes through `bind_gaussian`, `bundle_gaussian`, `cleanup_gaussian`, `inverse_gaussian`, and the ELBO helpers in `bayes_hdc.inference`.
+assert verify_single_argument_shift_equivariance(hrr_equivariant_bilinear, x, filter_hv)
+```
 
-**Scales.** Every type is a JAX pytree. `jit`, `vmap`, `grad`, `pmap`, `shard_map` compose unconditionally. `pmap_bind_gaussian`, `shard_map_bind_gaussian`, `shard_classifier_posteriors` for pod-scale training.
+### Reparameterisation gradients end-to-end
 
-## What's inside
+Every distributional operation admits a differentiable reparameterisation sampler. `jax.grad` composes through `bind_gaussian`, `bundle_gaussian`, `cleanup_gaussian`, `inverse_gaussian`, `permute_gaussian`, `kl_gaussian`, and the ELBO helpers in `bayes_hdc.inference`. End-to-end variational training of codebooks and classifier posteriors is one `jax.grad` away.
 
-| Layer | Contents |
-|---|---|
-| **Probabilistic core** | `GaussianHV`, `DirichletHV`, `MixtureHV` · exact `bind_*`, `bundle_*`, `permute_*`, `cleanup_*`, `inverse_*`, `kl_*` · reparameterisation gradients everywhere |
-| **Group structure** | `shift`, `compose_shifts`, `hrr_equivariant_bilinear`, `verify_shift_equivariance`, `verify_single_argument_shift_equivariance`, `verify_shift_invariance` |
-| **VSA models** | BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB — shared `bind`, `bundle`, `inverse`, `similarity`, `random` API |
-| **Encoders** | `RandomEncoder`, `LevelEncoder`, `ProjectionEncoder`, `KernelEncoder` (RFF), `GraphEncoder` |
-| **Classifiers** | `CentroidClassifier`, `AdaptiveHDC`, `LVQClassifier`, `RegularizedLSClassifier`, `BayesianCentroidClassifier`, `BayesianAdaptiveHDC`, `StreamingBayesianHDC` |
-| **Uncertainty** | `TemperatureCalibrator`, `ConformalClassifier`, `posterior_predictive_check`, `coverage_calibration_check` |
-| **Memory** | `SparseDistributedMemory` (Kanerva), `HopfieldMemory` (modern), `AttentionMemory` (multi-head) |
-| **Inference** | `elbo_gaussian`, `reconstruction_log_likelihood_mc`, `probabilistic_resonator` (MCMC multi-restart) |
-| **Scale** | `pmap_bind_gaussian`, `shard_map_bind_gaussian`, `shard_classifier_posteriors` |
-| **Datasets** | `iris`, `wine`, `breast_cancer`, `digits`, `mnist`, `fashion_mnist`, `isolet`, `ucihar`, `emg`, `pamap2`, `european_languages` |
+### Calibration and coverage with formal guarantees
 
-Every component implemented directly from the primary paper (Kanerva 1988 / 1997 / 2009; Plate 1995, 2003; Gayler 2003; Rahimi & Recht 2007; Guo 2017; Romano 2020; Ramsauer 2020; Kleyko 2022). Nothing ported from another HDC library.
+`TemperatureCalibrator` minimises the negative log-likelihood over a one-parameter temperature via L-BFGS in log-space. Convex objective, unique global minimum, the fitted temperature is the maximum-likelihood estimator. `ConformalClassifier` uses split-conformal with APS scores (Romano et al. 2020) and returns prediction sets whose marginal coverage satisfies `P(y ∈ set(x)) ≥ 1 − α` on exchangeable data — independent of model, dimension, or training quality.
 
-## Install
+### Scales from laptop to pod
+
+Single-device wrappers degrade gracefully on multi-device hosts via `pmap_bind_gaussian`, `pmap_bundle_gaussian`, `shard_map_bind_gaussian`, and `shard_classifier_posteriors`. The same code runs on a laptop CPU and on a TPU pod. `StreamingBayesianHDC` keeps EMA posteriors in bounded memory for non-stationary streams.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Applications                                                                │
+│   language identification · selective classification · OOD detection        │
+│   sequence memory · weight-space posteriors                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Uncertainty                                                                 │
+│   ConformalClassifier · TemperatureCalibrator · posterior_predictive_check  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Bayesian models                                                             │
+│   BayesianCentroidClassifier · BayesianAdaptiveHDC · StreamingBayesianHDC   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ PVSA core                                                                   │
+│   GaussianHV · DirichletHV · MixtureHV                                      │
+│   bind_gaussian · bundle_gaussian · permute_gaussian · cleanup_gaussian     │
+│   inverse_gaussian · kl_gaussian · kl_dirichlet                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Group structure                                                             │
+│   shift · compose_shifts · hrr_equivariant_bilinear                         │
+│   verify_shift_equivariance · verify_single_argument_shift_equivariance     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Classical VSA                                                               │
+│   BSC · MAP · HRR · FHRR · BSBC · CGR · MCR · VTB                           │
+│   five encoders · five classifiers · three memory modules                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ JAX                                                                         │
+│   pytree · jit · vmap · grad · pmap · shard_map · CPU / GPU / TPU           │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Installation
 
 ```bash
 pip install -e .                 # core
-pip install -e ".[examples]"     # + matplotlib + scikit-learn for the application examples
+pip install -e ".[examples]"     # + matplotlib + scikit-learn (for the application examples)
 pip install -e ".[dev]"          # + pytest, ruff, mypy
 ```
+
+### Compatibility
+
+| Component | Supported versions |
+|---|---|
+| Python | 3.9, 3.10, 3.11, 3.12, 3.13 |
+| JAX    | ≥ 0.4.20 |
+| OS     | Linux (Ubuntu), macOS |
+| Hardware | CPU, GPU (CUDA via JAX), TPU |
+
+The library is pure Python on top of JAX. There are no compiled extensions, no C++ build steps, and no transitive dependencies beyond `jax`, `jaxlib`, and `numpy`. `matplotlib` and `scikit-learn` are extras for the examples only.
 
 ## Examples
 
@@ -205,16 +196,16 @@ python examples/<name>.py
 
 | Example | What it shows |
 |---|---|
-| [`weight_space_posterior.py`](examples/weight_space_posterior.py) | A classifier's weights are a `GaussianHV` posterior. Sample from the posterior, predict with each draw, read off epistemic uncertainty, verify `Z/d`-equivariance of the whole pipeline. |
-| [`pvsa_quickstart.py`](examples/pvsa_quickstart.py) | 90-second tour through every PVSA primitive end-to-end — construction, bind/bundle moment propagation, KL, conformal coverage. |
+| [`weight_space_posterior.py`](examples/weight_space_posterior.py) | A classifier's weights are a `GaussianHV` posterior — a distribution over weight vectors. Sample from it, predict with each draw, read off epistemic uncertainty, verify `Z/d`-equivariance of the whole pipeline. |
+| [`pvsa_quickstart.py`](examples/pvsa_quickstart.py) | 90-second tour through every PVSA primitive end-to-end. |
 
-### Applications
+### PVSA applications
 
 | Example | What it shows |
 |---|---|
 | [`language_identification.py`](examples/language_identification.py) | Character-trigram language ID with calibrated probabilities and conformal sets that grow on ambiguous input. |
 | [`medical_selective_prediction.py`](examples/medical_selective_prediction.py) | Conformal-gated abstention on Breast Cancer Wisconsin — predict or hand off to follow-up. |
-| [`anomaly_detection.py`](examples/anomaly_detection.py) | Posterior-Mahalanobis OOD detection on UCI digits. A signal impossible without probabilistic hypervectors. |
+| [`anomaly_detection.py`](examples/anomaly_detection.py) | Posterior-Mahalanobis OOD detection on UCI digits. |
 | [`sequence_memory.py`](examples/sequence_memory.py) | A 12-token sentence encoded as one hypervector, retrieved per position via un-permute and cleanup. |
 
 ### Classical HDC
@@ -222,40 +213,52 @@ python examples/<name>.py
 | Example | What it shows |
 |---|---|
 | [`song_matching.py`](examples/song_matching.py) | Bag-of-words song similarity; the sum of word hypervectors is legible by eye. |
-| [`kanerva_example.py`](examples/kanerva_example.py) | Dollar of Mexico — role-filler binding and analogical reasoning. |
+| [`kanerva_example.py`](examples/kanerva_example.py) | "Dollar of Mexico" — role-filler binding and analogical reasoning. |
 | [`basic_operations.py`](examples/basic_operations.py) | bind / bundle / permute / similarity across all eight VSA models. |
 | [`classification_simple.py`](examples/classification_simple.py) | Vanilla `RandomEncoder` + `CentroidClassifier` pipeline. |
 
-## Status
+## Project status
 
-**Alpha.** v0.2 through v1.0 shipped — Gaussian and Dirichlet posteriors, equivariance module, conformal prediction, temperature calibration, probabilistic resonator, posterior predictive checks, streaming Bayesian updates, multi-device sharding, 11 standard HDC datasets, workshop paper, containerised benchmarks. 475 tests, 97 % line coverage, Ubuntu + macOS × Python 3.9–3.13 on every push.
+**Alpha — `0.4.0a0`.** API may shift before `1.0`.
 
-API may shift before 1.0.
+| | |
+|---|---|
+| **Tests** | 475 passing, 2 skipped (network-gated dataset loaders) |
+| **Coverage** | 97 % line coverage |
+| **Lint** | `ruff check`, `ruff format --check`, `mypy` clean on every push |
+| **CI** | Ubuntu + macOS × Python 3.9–3.13 |
+| **Security** | CodeQL on a weekly schedule; Dependabot weekly bumps |
+| **Release** | Tag `vX.Y.Z` triggers TestPyPI then PyPI publish via OIDC |
 
-## Development
+See [`CHANGELOG.md`](CHANGELOG.md) for what's shipped and [`DESIGN.md`](DESIGN.md) for the design rationale.
 
-```bash
-pytest tests/ -v                                  # tests
-pytest tests/ --cov=bayes_hdc --cov-report=html   # tests + coverage
-ruff check bayes_hdc/ && ruff format bayes_hdc/   # lint + format
-mypy bayes_hdc/                                   # types
-make bench                                        # benchmarks
-make figures                                      # paper figures
-make docker-bench                                 # benchmarks in a container
-```
+## Community and contributing
 
-## Citing
+- **Questions** — [GitHub Discussions → Q&A](https://github.com/rlogger/bayes-hdc/discussions/categories/q-a)
+- **Bugs** — [open an issue](https://github.com/rlogger/bayes-hdc/issues/new?template=bug_report.yml) with a reproducer
+- **Feature ideas** — [GitHub Discussions → Ideas](https://github.com/rlogger/bayes-hdc/discussions/categories/ideas)
+- **Security** — see [`SECURITY.md`](SECURITY.md); do not open a public issue
+- **Contributing** — read [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, style, and release process. All interactions are governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Citation
+
+If you use bayes-hdc in research, please cite:
 
 ```bibtex
 @software{bayes_hdc,
   author = {Singh, Rajdeep},
-  title  = {{bayes-hdc: Probabilistic Vector Symbolic Architectures for Hyperdimensional Computing}},
+  title  = {{bayes-hdc: Probabilistic Vector Symbolic Architectures
+             for Hyperdimensional Computing}},
   year   = {2026},
   url    = {https://github.com/rlogger/bayes-hdc},
 }
 ```
 
+A machine-readable [`CITATION.cff`](CITATION.cff) is at the repository root; the GitHub "Cite this repository" button reads from it. See [`ORIGINALITY.md`](ORIGINALITY.md) for per-component primary-source attribution.
+
 ## References
+
+The library implements every component directly from the primary research paper. Selected core references:
 
 - Kanerva (2009). *Hyperdimensional Computing.*
 - Plate (1995). *Holographic Reduced Representations.*
@@ -269,4 +272,4 @@ make docker-bench                                 # benchmarks in a container
 
 ## License
 
-MIT.
+[MIT](LICENSE).
