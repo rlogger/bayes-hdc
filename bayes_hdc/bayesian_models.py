@@ -154,6 +154,25 @@ class BayesianCentroidClassifier:
         return jnp.clip(mu_norm @ q_norm, -1.0, 1.0)
 
     @jax.jit
+    def logits(self, queries: jax.Array) -> jax.Array:
+        """Pre-softmax cosine-similarity scores against each class posterior mean.
+
+        This is the canonical input to :meth:`~bayes_hdc.TemperatureCalibrator.fit`
+        and :meth:`~bayes_hdc.ConformalClassifier.fit`.
+
+        Args:
+            queries: Hypervector(s) of shape ``(D,)`` or ``(N, D)``.
+
+        Returns:
+            Cosine similarities of shape ``(num_classes,)`` for a single
+            query or ``(N, num_classes)`` for a batch.
+        """
+        single = queries.ndim == 1
+        batched = queries[None, :] if single else queries
+        sims = jax.vmap(self._similarity_row)(batched)
+        return sims[0] if single else sims
+
+    @jax.jit
     def predict(self, queries: jax.Array) -> jax.Array:
         """Argmax over cosine similarities."""
         single = queries.ndim == 1
@@ -298,6 +317,11 @@ class BayesianAdaptiveHDC:
     ) -> BayesianAdaptiveHDC:
         """Apply Kalman updates sequentially over the training set.
 
+        Implementation runs as a single :func:`jax.lax.scan` per epoch,
+        so the whole pass JIT-compiles into one XLA computation and
+        composes with ``vmap`` / ``pmap``. No Python-level loop over
+        observations.
+
         Args:
             train_hvs: Training hypervectors of shape ``(n, d)``.
             train_labels: Integer labels of shape ``(n,)``.
@@ -307,17 +331,41 @@ class BayesianAdaptiveHDC:
         """
         if train_hvs.shape[0] == 0:
             raise ValueError("Cannot fit BayesianAdaptiveHDC: training data is empty")
-        clf = self
-        for _ in range(epochs):
-            for i in range(train_hvs.shape[0]):
-                clf = clf.update(train_hvs[i], int(train_labels[i]))
-        return clf
+
+        obs_var = self.obs_var
+
+        def step(
+            carry: tuple[jax.Array, jax.Array],
+            sample_label: tuple[jax.Array, jax.Array],
+        ) -> tuple[tuple[jax.Array, jax.Array], None]:
+            mu, var = carry
+            sample, label = sample_label
+            mu_c = mu[label]
+            var_c = var[label]
+            denom = obs_var + var_c
+            new_mu_c = (obs_var * mu_c + var_c * sample) / denom
+            new_var_c = (obs_var * var_c) / denom
+            return (mu.at[label].set(new_mu_c), var.at[label].set(new_var_c)), None
+
+        labels = train_labels.astype(jnp.int32)
+        mu, var = self.mu, self.var
+        for _ in range(int(epochs)):
+            (mu, var), _ = jax.lax.scan(step, (mu, var), (train_hvs, labels))
+        return self.replace(mu=mu, var=var)
 
     @jax.jit
     def _similarity_row(self, query: jax.Array) -> jax.Array:
         q_norm = query / (jnp.linalg.norm(query) + EPS)
         mu_norm = self.mu / (jnp.linalg.norm(self.mu, axis=-1, keepdims=True) + EPS)
         return jnp.clip(mu_norm @ q_norm, -1.0, 1.0)
+
+    @jax.jit
+    def logits(self, queries: jax.Array) -> jax.Array:
+        """Pre-softmax cosine-similarity scores. See :meth:`BayesianCentroidClassifier.logits`."""
+        single = queries.ndim == 1
+        batched = queries[None, :] if single else queries
+        sims = jax.vmap(self._similarity_row)(batched)
+        return sims[0] if single else sims
 
     @jax.jit
     def predict(self, queries: jax.Array) -> jax.Array:
@@ -428,20 +476,48 @@ class StreamingBayesianHDC:
         train_labels: jax.Array,
         epochs: int = 1,
     ) -> StreamingBayesianHDC:
-        """Stream the training data through the classifier."""
+        """Stream the training data through the classifier.
+
+        Each epoch is a single :func:`jax.lax.scan`; the whole pass
+        JIT-compiles into one XLA computation. Memory is ``O(K * d)``
+        and stays constant across the stream.
+        """
         if train_hvs.shape[0] == 0:
             raise ValueError("Cannot fit StreamingBayesianHDC: training data is empty")
-        clf = self
-        for _ in range(epochs):
-            for i in range(train_hvs.shape[0]):
-                clf = clf.update(train_hvs[i], int(train_labels[i]))
-        return clf
+
+        lam = self.decay
+
+        def step(
+            carry: tuple[jax.Array, jax.Array],
+            sample_label: tuple[jax.Array, jax.Array],
+        ) -> tuple[tuple[jax.Array, jax.Array], None]:
+            mu, var = carry
+            sample, label = sample_label
+            mu_old = mu[label]
+            var_old = var[label]
+            new_mu = lam * mu_old + (1.0 - lam) * sample
+            new_var = lam * var_old + (1.0 - lam) * (sample - new_mu) ** 2
+            return (mu.at[label].set(new_mu), var.at[label].set(new_var)), None
+
+        labels = train_labels.astype(jnp.int32)
+        mu, var = self.mu, self.var
+        for _ in range(int(epochs)):
+            (mu, var), _ = jax.lax.scan(step, (mu, var), (train_hvs, labels))
+        return self.replace(mu=mu, var=var)
 
     @jax.jit
     def _similarity_row(self, query: jax.Array) -> jax.Array:
         q_norm = query / (jnp.linalg.norm(query) + EPS)
         mu_norm = self.mu / (jnp.linalg.norm(self.mu, axis=-1, keepdims=True) + EPS)
         return jnp.clip(mu_norm @ q_norm, -1.0, 1.0)
+
+    @jax.jit
+    def logits(self, queries: jax.Array) -> jax.Array:
+        """Pre-softmax cosine-similarity scores. See :meth:`BayesianCentroidClassifier.logits`."""
+        single = queries.ndim == 1
+        batched = queries[None, :] if single else queries
+        sims = jax.vmap(self._similarity_row)(batched)
+        return sims[0] if single else sims
 
     @jax.jit
     def predict(self, queries: jax.Array) -> jax.Array:

@@ -116,8 +116,8 @@ def main() -> None:
     test_hvs = train_hvs[n_cal:]
     test_labels = train_labels[n_cal:]
 
-    logits_cal = jax.vmap(clf._similarity_row)(cal_hvs)
-    logits_test = jax.vmap(clf._similarity_row)(test_hvs)
+    logits_cal = clf.logits(cal_hvs)
+    logits_test = clf.logits(test_hvs)
     calibrator = TemperatureCalibrator.create().fit(logits_cal, cal_labels, max_iters=200)
     probs_cal = calibrator.calibrate(logits_cal)
     probs_test = calibrator.calibrate(logits_test)

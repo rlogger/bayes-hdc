@@ -17,19 +17,28 @@ Last refreshed from commit `0f761f0` (April 22, 2026), Python 3.14, JAX 0.4.28, 
 
 ## Accuracy (Bayes-HDC vs TorchHD, identical preprocessing)
 
-Bayes-HDC wins 5 of 5 standard classification tasks. The library's built-in
-classifier-and-hyperparameter search (ridge / logistic-on-HV / centroid-LVQ
-/ gradient-boosted baseline) picks the best per task on a held-out
-calibration set; TorchHD ships only a single centroid classifier.
+The numbers below are not a like-for-like single-classifier comparison: the
+Bayes-HDC column reports the *best of an ensemble* of four classifiers
+(ridge regression on hypervectors, logistic regression on hypervectors,
+centroid-LVQ matching TorchHD's default, and an off-the-shelf gradient-
+boosted baseline on raw features), with the per-task winner chosen by
+held-out calibration-set accuracy. The TorchHD column reports its default
+centroid classifier on the same encoder. The setup is closer to "how well
+does the ensemble + cal-set selection do" than to "is bind/bundle in JAX
+faster than in PyTorch"; read the deltas accordingly.
 
-| Dataset | n | classes | Bayes-HDC | TorchHD | Δ |
+| Dataset | n | classes | Bayes-HDC ensemble | TorchHD centroid | Δ |
 |---|---:|---:|---:|---:|---:|
-| iris          |    150 |  3 | **0.933** | 0.911 | **+2.2** |
-| wine          |    178 |  3 | **0.852** | 0.815 | **+3.7** |
-| breast-cancer |    569 |  2 | **0.959** | 0.953 | **+0.6** |
-| digits        |  1 797 | 10 | **0.943** | 0.900 | **+4.3** |
-| MNIST         | 10 000 | 10 | **0.946** | 0.857 | **+8.9** |
-| **mean** | | | | | **+3.94** |
+| iris          |    150 |  3 | **0.933** | 0.911 | +2.2 |
+| wine          |    178 |  3 | **0.852** | 0.815 | +3.7 |
+| breast-cancer |    569 |  2 | **0.959** | 0.953 | +0.6 |
+| digits        |  1 797 | 10 | **0.943** | 0.900 | +4.3 |
+| MNIST         | 10 000 | 10 | **0.946** | 0.857 | +8.9 |
+| **mean Δ** | | | | | **+3.9** |
+
+Numbers are single-seed; the JSON dump in
+[`benchmarks/benchmark_calibration_results.json`](benchmarks/benchmark_calibration_results.json)
+records exact configurations. A multi-seed sweep is a planned addition.
 
 ## Calibration (ECE reduction under temperature scaling, Bayes-HDC)
 

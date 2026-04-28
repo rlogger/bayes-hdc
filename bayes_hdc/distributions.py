@@ -337,9 +337,11 @@ def cleanup_gaussian(
 ) -> tuple[int, float]:
     """Retrieve the entry in ``memory`` most similar to ``query``.
 
-    Uses :func:`expected_cosine_similarity` as the scoring function —
-    the uncertainty-aware analogue of classical cleanup. Returns
-    ``(index, score)`` of the best match.
+    Convenience wrapper that accepts a Python ``list[GaussianHV]``;
+    delegates to :func:`cleanup_gaussian_stacked` after stacking. Use
+    :func:`cleanup_gaussian_stacked` directly when you need ``jit`` /
+    ``vmap`` composition — a Python list is not a JAX pytree, so this
+    wrapper cannot be traced.
 
     Args:
         query: Query Gaussian hypervector.
@@ -348,14 +350,49 @@ def cleanup_gaussian(
     Returns:
         ``(best_index, best_score)`` — the index into ``memory`` of the
         entry with the highest expected cosine similarity, and that
-        similarity value.
+        similarity value, as plain Python ints / floats.
     """
     if not memory:
         raise ValueError("cleanup_gaussian: memory must be non-empty")
 
-    scores = jnp.array([float(expected_cosine_similarity(query, entry)) for entry in memory])
-    idx = int(jnp.argmax(scores))
-    return idx, float(scores[idx])
+    stacked = GaussianHV(
+        mu=jnp.stack([entry.mu for entry in memory]),
+        var=jnp.stack([entry.var for entry in memory]),
+        dimensions=memory[0].dimensions,
+    )
+    idx, score = cleanup_gaussian_stacked(query, stacked)
+    return int(idx), float(score)
+
+
+@jax.jit
+def cleanup_gaussian_stacked(
+    query: GaussianHV,
+    memory: GaussianHV,
+) -> tuple[jax.Array, jax.Array]:
+    """JIT-friendly cleanup against a stacked memory of Gaussian hypervectors.
+
+    Takes a *stacked* :class:`GaussianHV` whose ``mu`` and ``var`` carry
+    a leading batch dimension — i.e. ``memory.mu.shape == (N, D)`` and
+    ``memory.var.shape == (N, D)``. Returns ``(best_index, best_score)``
+    as JAX scalars so the call composes with ``jit`` / ``vmap`` /
+    ``grad`` without leaving XLA.
+
+    Args:
+        query: Single Gaussian hypervector with ``mu.shape == (D,)``.
+        memory: Stacked Gaussian hypervectors with ``mu.shape == (N, D)``.
+
+    Returns:
+        ``(best_index, best_score)`` — JAX scalars. ``best_index`` is
+        ``int32``; ``best_score`` is ``float32``.
+    """
+
+    def score_one(mu_i: jax.Array, var_i: jax.Array) -> jax.Array:
+        entry = GaussianHV(mu=mu_i, var=var_i, dimensions=memory.dimensions)
+        return expected_cosine_similarity(query, entry)
+
+    scores = jax.vmap(score_one)(memory.mu, memory.var)
+    best_idx = jnp.argmax(scores).astype(jnp.int32)
+    return best_idx, scores[best_idx]
 
 
 # ======================================================================

@@ -33,18 +33,20 @@ technique inside an HDC library as a first-class primitive.
    probabilistic categorical codebooks, with exact bundle (posterior
    update by concentration sum), moment-matched bind, and closed-form
    KL.
-4. **`TemperatureCalibrator`** for HDC — L-BFGS-in-log-space fit; first
-   HDC library to ship a post-hoc calibrator as a library primitive.
-5. **`ConformalClassifier`** for HDC — split-conformal with APS scores;
-   first HDC library to ship coverage-guaranteed prediction sets.
-6. **Calibration metrics for HDC** — `expected_calibration_error`,
+4. **`TemperatureCalibrator`** for HDC — L-BFGS-in-log-space fit;
+   to the author's knowledge, no comparable HDC library ships a post-hoc
+   calibrator as a built-in primitive at time of writing.
+5. **`ConformalClassifier`** for HDC — split-conformal with APS scores
+   (Romano et al. 2020); to the author's knowledge, no comparable HDC
+   library ships coverage-guaranteed prediction sets as a built-in
+   primitive at time of writing.
+6. **Calibration metrics** — `expected_calibration_error`,
    `maximum_calibration_error`, `brier_score`, `sharpness`,
-   `negative_log_likelihood`, `reliability_curve` — first HDC library
-   to provide these as JIT-compilable primitives.
+   `negative_log_likelihood`, `reliability_curve` as JIT-compilable
+   primitives.
 7. **Capacity-and-noise toolkit** (`metrics.py`) — `bundle_snr`,
    `bundle_capacity`, `effective_dimensions`, `retrieval_confidence`,
-   `cosine_matrix`, `saturation` — first-class analysis primitives not
-   present in prior HDC libraries.
+   `cosine_matrix`, `saturation` as first-class analysis primitives.
 8. **Auto primal/dual ridge** (`RegularizedLSClassifier`) — closed-form
    ridge in hypervector space that auto-switches between primal
    (`d × d`) and dual (`n × n`) forms for numerical conditioning.

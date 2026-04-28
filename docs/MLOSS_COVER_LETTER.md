@@ -73,13 +73,28 @@ offered hypervectors as distributions with closed-form moment propagation
 and calibrated retrieval. A feature-level comparison table is in
 Section 3 of the paper.
 
-## Evidence of community adoption
+## Maturity and community adoption
 
-- **Repository activity:** `[ X stars, Y forks, Z watchers ]` at submission time.
-- **External uses / citations:** `[ list of downstream projects or papers, if any ]`.
-- **Recent release cadence:** `[ date of last 3 tagged releases ]`.
-- **Open issues / closed PRs:** `[ numbers ]` — indicating responsive
-  maintainership.
+The library is at version `0.4.0a0` and was first published on April 15,
+2026; community adoption is therefore limited at submission time. The
+following are the concrete maturity signals available today:
+
+- **Continuous integration**: 475 unit tests and 97% line coverage on
+  every push to `main`, across Ubuntu and macOS for Python 3.9–3.13;
+  weekly CodeQL security scan; weekly Dependabot dependency bumps.
+- **Release infrastructure**: tag-driven TestPyPI / PyPI publishing
+  workflow with OIDC trust; release notes via `CHANGELOG.md`.
+- **Issue and discussion templates** for bug reports, feature requests,
+  and Q&A.
+- **Repository activity at submission**: see the live shields at
+  the top of `README.md` for the current snapshot.
+
+We acknowledge that "evidence of an existing user community" is the
+weakest dimension of this submission against MLOSS criteria. The
+deliberate strategy is to ship a small, correct, well-tested foundation
+first and grow the community after publication; the contributing
+infrastructure (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SUPPORT.md`)
+is already in place to accept external contributions.
 
 ## Authorship and prior publication
 
@@ -89,18 +104,23 @@ elsewhere** and is submitted here for the first time.
 
 ## Suggested reviewers
 
-1. `[ Name, affiliation ]` — expert on `[HDC / JAX / VSA models / …]`,
-   relevant because `[ reason ]`.
-2. `[ Name, affiliation ]` — `[ reason ]`.
-3. `[ Name, affiliation ]` — `[ reason ]`.
+The author defers to the action editor for reviewer assignment; the
+following names are offered as illustrative of the relevant subfield
+expertise rather than a hard request:
 
-(Reviewers with whom the author has a current or recent collaboration have
-been excluded.)
+- HDC/VSA — researchers active in the Kleyko et al. (2022) survey
+  community.
+- JAX scientific software — authors of recent JMLR MLOSS submissions
+  on JAX-based libraries.
+- Calibration and conformal prediction — researchers familiar with
+  the post-hoc calibration and split-conformal literatures.
+
+The author has no current or recent collaboration with any researcher
+identifiable by these descriptors.
 
 ## Non-reviewer requests
 
-`[ If applicable, list people you would not like to review, with a neutral
-one-line reason. Otherwise: "None." ]`
+None.
 
 ## Ethics and research integrity
 
@@ -122,4 +142,4 @@ Thank you for considering this submission.
 
 Rajdeep Singh
 University of Southern California
-`[ date ]`
+_Date to be inserted at submission._

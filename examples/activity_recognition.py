@@ -26,11 +26,12 @@ deliverables that classical centroid HDC does not produce:
    the same pattern that makes HDC interesting for medical telemetry
    and prosthetic-control safety layers.
 
-Synthetic 9-channel (3-axis × 3 sensors) accelerometer windows stand in
-for the real UCIHAR feature vector so the example runs offline. The
-encoder and classifier are literature-faithful — pointing
-:func:`bayes_hdc.datasets.load_ucihar` at the same pipeline runs on the
-real benchmark (one-time OpenML download).
+By default the example runs on a synthetic 36-feature accelerometer
+window so the pipeline is fast and offline. Pass ``--real-data`` to load
+the actual UCIHAR 561-feature benchmark via
+:func:`bayes_hdc.datasets.load_ucihar` (one-time OpenML download); the
+encoder and classifier code paths are identical, only the data source
+changes.
 
 References:
 
@@ -43,10 +44,13 @@ References:
 
 Run::
 
-    python examples/activity_recognition.py
+    python examples/activity_recognition.py                # synthetic
+    python examples/activity_recognition.py --real-data    # real UCIHAR
 """
 
 from __future__ import annotations
+
+import argparse
 
 import jax
 import jax.numpy as jnp
@@ -120,19 +124,71 @@ def _discretise(X: np.ndarray, num_levels: int) -> np.ndarray:
     return X_idx
 
 
-def main() -> None:
-    print("Human activity recognition — UCIHAR-style multi-class")
-    print(
-        f"  activities = {NUM_ACTIVITIES}   features = {NUM_FEATURES}   "
-        f"samples/activity = {SAMPLES_PER_ACTIVITY}   D = {DIMS}\n"
+def _load_real_ucihar() -> tuple[np.ndarray, np.ndarray, tuple[str, ...], int]:
+    """Load real UCIHAR via bayes_hdc.datasets (one-time OpenML download)."""
+    from bayes_hdc.datasets import load_ucihar
+
+    data = load_ucihar()
+    # Standardise per-feature so the discretisation quantiles are stable.
+    X = np.asarray(data.X, dtype=np.float32)
+    y = np.asarray(data.y, dtype=np.int32)
+    activity_names = (
+        "walking",
+        "stairs-up",
+        "stairs-down",
+        "sitting",
+        "standing",
+        "laying",
     )
+    return X, y, activity_names, X.shape[1]
+
+
+def _parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
+    p.add_argument(
+        "--real-data",
+        action="store_true",
+        help="Load the real UCIHAR dataset via OpenML (one-time download). "
+        "Default: synthetic 36-feature accelerometer windows that always run offline.",
+    )
+    return p.parse_args()
+
+
+def main() -> None:
+    args = _parse_args()
+    print("Human activity recognition — UCIHAR-style multi-class")
 
     key = jax.random.PRNGKey(SEED)
     k_data, k_codebook = jax.random.split(key)
 
+    if args.real_data:
+        try:
+            X, y, activity_names, num_features = _load_real_ucihar()
+            num_activities = int(y.max() + 1)
+            data_label = "real UCIHAR"
+        except Exception as e:  # noqa: BLE001 — surface the failure, fall back.
+            print(f"  ! could not load real UCIHAR ({e}); falling back to synthetic.")
+            X, y_jax = _synthetic_imu_features(k_data)
+            y = np.asarray(y_jax)
+            activity_names = ACTIVITY_NAMES
+            num_features = NUM_FEATURES
+            num_activities = NUM_ACTIVITIES
+            data_label = "synthetic (fallback)"
+    else:
+        X, y_jax = _synthetic_imu_features(k_data)
+        y = np.asarray(y_jax)
+        activity_names = ACTIVITY_NAMES
+        num_features = NUM_FEATURES
+        num_activities = NUM_ACTIVITIES
+        data_label = "synthetic (use --real-data for OpenML UCIHAR)"
+
+    print(
+        f"  data = {data_label}   activities = {num_activities}   "
+        f"features = {num_features}   n = {len(y)}   D = {DIMS}\n"
+    )
+
     # ----------------------------------------------------------------- 1.
-    print("[1] Build feature vectors and discretise into ordinal levels.")
-    X, y = _synthetic_imu_features(k_data)
+    print("[1] Discretise features into ordinal levels.")
     X_idx = _discretise(X, NUM_LEVELS)
     print(f"      X shape: {X.shape}    discretised range: [{X_idx.min()}, {X_idx.max()}]")
 
@@ -146,7 +202,7 @@ def main() -> None:
     print("\n[2] Encode each window via feature-value binding (RandomEncoder).")
     vsa = MAP.create(dimensions=DIMS)
     encoder = RandomEncoder.create(
-        num_features=NUM_FEATURES,
+        num_features=num_features,
         num_values=NUM_LEVELS,
         dimensions=DIMS,
         vsa_model=vsa,
@@ -164,7 +220,7 @@ def main() -> None:
     # ----------------------------------------------------------------- 3.
     print("\n[3] Train BayesianCentroidClassifier.")
     clf = BayesianCentroidClassifier.create(
-        num_classes=NUM_ACTIVITIES,
+        num_classes=num_activities,
         dimensions=DIMS,
     ).fit(hv_tr, y_tr, prior_strength=1.0)
 
@@ -174,8 +230,8 @@ def main() -> None:
 
     # ----------------------------------------------------------------- 4.
     print("\n[4] Calibrate logits + wrap in a ConformalClassifier.")
-    logits_ca = jax.vmap(clf._similarity_row)(hv_ca)
-    logits_te = jax.vmap(clf._similarity_row)(hv_te)
+    logits_ca = clf.logits(hv_ca)
+    logits_te = clf.logits(hv_te)
     calibrator = TemperatureCalibrator.create().fit(logits_ca, y_ca, max_iters=200)
     probs_ca = calibrator.calibrate(logits_ca)
     probs_te = calibrator.calibrate(logits_te)
@@ -185,7 +241,7 @@ def main() -> None:
     mean_set_size = float(conformal.set_size(probs_te))
     print(f"      target coverage (1 − α) = {1 - ALPHA:.2f}")
     print(f"      empirical coverage      = {coverage:.3f}")
-    print(f"      mean prediction-set size = {mean_set_size:.2f}  (of {NUM_ACTIVITIES} activities)")
+    print(f"      mean prediction-set size = {mean_set_size:.2f}  (of {num_activities} activities)")
 
     # ----------------------------------------------------------------- 5.
     print("\n[5] Selective abstention: predict iff conformal set is a singleton.")
@@ -218,20 +274,27 @@ def main() -> None:
     # ----------------------------------------------------------------- 6.
     print("\n[6] Per-activity coverage breakdown:")
     print(f"      {'activity':<14s} {'in-set rate':>12s} {'mean set size':>15s}")
-    for a in range(NUM_ACTIVITIES):
+    for a in range(num_activities):
         mask = y_te_np == a
         if not mask.any():
             continue
         in_set = float(set_mask[mask, a].mean())
         m_size = float(set_sizes[mask].mean())
-        print(f"      {ACTIVITY_NAMES[a]:<14s} {in_set:>12.3f} {m_size:>15.2f}")
+        name = activity_names[a] if a < len(activity_names) else f"class-{a}"
+        print(f"      {name:<14s} {in_set:>12.3f} {m_size:>15.2f}")
 
-    print(
-        "\nThe pipeline above is feature-value binding (Hassan et al. 2018, "
-        "Schmuck et al. 2019)\nrunning on synthetic 36-feature accelerometer windows. "
-        "Pointing it at\n`bayes_hdc.datasets.load_ucihar()` runs on the real Anguita-et-al "
-        "561-feature\nbenchmark (one-time OpenML download)."
-    )
+    if args.real_data:
+        print(
+            "\nNumbers above are on the real UCIHAR 561-feature benchmark "
+            "(Anguita et al. 2013), encoded by feature-value binding."
+        )
+    else:
+        print(
+            "\nThe pipeline above is feature-value binding (Hassan et al. 2018, "
+            "Schmuck et al. 2019)\nrunning on synthetic 36-feature accelerometer windows. "
+            "Run with --real-data to point\nit at `bayes_hdc.datasets.load_ucihar()` "
+            "and the real 561-feature benchmark."
+        )
 
 
 if __name__ == "__main__":

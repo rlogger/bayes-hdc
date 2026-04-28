@@ -59,6 +59,7 @@ from bayes_hdc.distributions import (
     bundle_dirichlet,
     bundle_gaussian,
     cleanup_gaussian,
+    cleanup_gaussian_stacked,
     expected_cosine_similarity,
     inverse_gaussian,
     kl_dirichlet,
@@ -200,6 +201,7 @@ __all__ = [
     "kl_gaussian",
     "permute_gaussian",
     "cleanup_gaussian",
+    "cleanup_gaussian_stacked",
     "inverse_gaussian",
     # Bayesian hypervectors — Dirichlet
     "DirichletHV",

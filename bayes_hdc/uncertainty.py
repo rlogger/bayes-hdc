@@ -27,6 +27,7 @@ retraining.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 
 import jax
@@ -107,8 +108,10 @@ class TemperatureCalibrator:
         init_log_t = jnp.log(jnp.maximum(self.temperature, EPS))
         init = jnp.asarray([init_log_t])
 
+        log_t = init_log_t
+        used_fallback = False
         try:
-            from jax.scipy.optimize import minimize
+            from jax.scipy.optimize import minimize  # type: ignore[import-not-found]
 
             result = minimize(
                 nll_log_t,
@@ -116,8 +119,28 @@ class TemperatureCalibrator:
                 method="BFGS",
                 options={"maxiter": max_iters},
             )
-            log_t = result.x[0]
-        except Exception:  # pragma: no cover — JAX version without minimize
+            candidate = result.x[0]
+            # If BFGS produced a non-finite result, fall through to gradient
+            # descent rather than propagate NaN. (BFGS itself does not raise
+            # on failure-to-converge; it returns a result with non-finite
+            # entries or success=False.)
+            if jnp.isfinite(candidate):
+                log_t = candidate
+            else:
+                used_fallback = True
+        except ImportError:  # pragma: no cover — older JAX without minimize
+            used_fallback = True
+
+        if used_fallback:
+            warnings.warn(
+                "TemperatureCalibrator: jax.scipy.optimize.minimize unavailable "
+                "or BFGS produced a non-finite result; falling back to gradient "
+                "descent. The fitted temperature is still consistent but may be "
+                "less precise — pin a JAX version that ships minimize, or "
+                "increase max_iters.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
             log_t = init_log_t
             grad_fn = jax.jit(jax.value_and_grad(lambda lt: nll_log_t(jnp.asarray([lt]))))
             for _ in range(max_iters):

@@ -153,6 +153,26 @@ def test_predict_proba_argmax_matches_predict() -> None:
     assert jnp.all(jnp.argmax(probs, axis=-1) == clf.predict(X))
 
 
+def test_logits_handles_single_and_batch_and_matches_softmax() -> None:
+    """Public ``logits`` is the canonical input to TemperatureCalibrator / ConformalClassifier."""
+    key = jax.random.PRNGKey(11)
+    X, y = _synthetic_data(key)
+    clf = BayesianCentroidClassifier.create(N_CLASSES, DIMS).fit(X, y)
+
+    # Batch path returns (N, K).
+    batch_logits = clf.logits(X)
+    assert batch_logits.shape == (X.shape[0], N_CLASSES)
+
+    # Single path returns (K,).
+    single_logits = clf.logits(X[0])
+    assert single_logits.shape == (N_CLASSES,)
+    assert jnp.allclose(single_logits, batch_logits[0], atol=1e-6)
+
+    # softmax(logits) must equal predict_proba — proves logits is the
+    # genuine pre-softmax score, suitable for downstream calibration.
+    assert jnp.allclose(jax.nn.softmax(batch_logits, axis=-1), clf.predict_proba(X), atol=1e-6)
+
+
 def test_score_matches_manual_accuracy() -> None:
     key = jax.random.PRNGKey(8)
     X, y = _synthetic_data(key, noise=0.05)

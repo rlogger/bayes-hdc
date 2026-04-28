@@ -51,7 +51,7 @@
 \maketitle
 
 \begin{abstract}
-We introduce \emph{Probabilistic Vector Symbolic Architectures} (PVSA), a new framework in which every hypervector is a posterior distribution rather than a point, and every VSA primitive---binding, bundling, similarity, and retrieval---propagates the posterior's moments in closed form. Bayes-HDC is the first open-source library implementing PVSA. It ships two distribution types---diagonal-covariance Gaussian hypervectors and Dirichlet hypervectors over the probability simplex---each with closed-form moment propagation under the core VSA operations and closed-form Kullback--Leibler divergences suitable as variational objectives. On top of the distributional algebra, Bayes-HDC provides two uncertainty-quantification wrappers: a log-space L-BFGS temperature calibrator that reduces Expected Calibration Error by $5$--$25\times$ on standard HDC datasets, and a split-conformal classifier with the Adaptive Prediction Sets nonconformity score that returns prediction sets with provable marginal coverage at level $1 - \alpha$. A complete deterministic VSA foundation---eight classical models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB), five encoders, five learning models, three memory modules, four symbolic data structures, and a capacity-and-noise analysis toolkit---serves as a baseline for comparison and the substrate on which PVSA is built. Head-to-head benchmarks against Torchhd on five datasets (iris, wine, breast-cancer, digits, MNIST) show accuracy parity and calibration-loss reductions of up to $25\times$. All operations are JIT-compilable and run unchanged on CPUs, GPUs, and TPUs via JAX's XLA backend. The library is available under the MIT license at \url{https://github.com/rlogger/bayes-hdc}.
+We introduce \emph{Probabilistic Vector Symbolic Architectures} (PVSA), a framework in which every hypervector is a posterior distribution rather than a point, and every VSA primitive---binding, bundling, permutation, similarity, and retrieval---propagates the posterior's moments in closed form. Bayes-HDC is a JAX library implementing PVSA. It provides Gaussian, Dirichlet, and Mixture hypervector types, each with closed-form moment propagation under the core operations and closed-form Kullback--Leibler divergences suitable as variational objectives; a property-based treatment of the cyclic-shift group action and the diagonal vs.\ single-argument equivariance of binding; a log-space L-BFGS temperature calibrator that reduces Expected Calibration Error on standard HDC datasets; and a split-conformal classifier with the Adaptive Prediction Sets nonconformity score that returns prediction sets with marginal coverage at level $1-\alpha$ on exchangeable data. A deterministic VSA foundation---eight classical models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB), five encoders, five learning models, three memory modules, and four symbolic data structures---serves as the substrate. All types are JAX pytrees, so \texttt{jit}, \texttt{vmap}, \texttt{grad}, \texttt{pmap}, and \texttt{shard\_map} compose with every operation. The library is available under the MIT license at \url{https://github.com/rlogger/bayes-hdc}.
 \end{abstract}
 
 \begin{keywords}
@@ -66,201 +66,90 @@ Interest in HDC has grown substantially in recent years, driven by comprehensive
 
 Despite this progress, existing HDC software treats a hypervector as a point in $\mathbb{R}^d$ with no explicit notion of confidence. Retrieval therefore returns a symbol without a calibrated probability, and classification returns a label without a coverage guarantee. In domains where HDC is being deployed---biomedical signal classification, anomaly detection, robotics---uncalibrated point predictions are a liability. Every comparable library---Torchhd \citep{heddes2023torchhd}, hdlib \citep{cumbo2023hdlib}, PyBHV \citep{vandervorst2023pybhv}---shares this limitation.
 
-Bayes-HDC addresses the gap by lifting every hypervector to a distribution. The primary contribution is a Bayesian layer in which binding, bundling, similarity, and retrieval are defined directly on distributions rather than on samples, giving the user first-class control over uncertainty. The layer is built on JAX \citep{jax2018github} so that all operations are JIT-compilable, vectorisable via \texttt{vmap}, and differentiable via \texttt{grad}, which in turn enables variational learning of codebooks. Concretely, this paper contributes:
+Bayes-HDC addresses the gap by lifting every hypervector to a distribution. The primary contribution is a Bayesian layer in which binding, bundling, similarity, and retrieval are defined directly on distributions, giving the user first-class control over uncertainty. The layer is built on JAX \citep{jax2018github} so that all operations are JIT-compilable, vectorisable via \texttt{vmap}, and differentiable via \texttt{grad}. Concretely, the paper contributes (i) Gaussian, Dirichlet, and Mixture hypervector types with closed-form moment propagation under bind, bundle, and permute (Section~\ref{sec:pvsa}); (ii) an explicit treatment of the cyclic-shift group action and the two distinct equivariance flavours of the HDC primitives, together with property-based verifiers; (iii) a temperature calibrator and a conformal classifier that supply calibrated probabilities and marginal-coverage guarantees on top of any HDC pipeline; and (iv) a deterministic VSA foundation of eight models, five encoders, five learning models, three memory modules, and four symbolic data structures (Section~\ref{sec:system}). All operations are pytree-native and compose with \texttt{jit} / \texttt{vmap} / \texttt{grad} / \texttt{pmap} / \texttt{shard\_map} unconditionally; Section~\ref{sec:examples} shows a single end-to-end pipeline that exercises the full stack.
 
-\begin{enumerate}
-\item \textbf{A Gaussian hypervector type} (\texttt{GaussianHV}) with closed-form moment propagation under element-wise product and normalised sum, together with a closed-form Kullback--Leibler divergence that serves as a variational objective. Deterministic hypervectors are recovered as the zero-variance limit.
+\section{Probabilistic VSA}
+\label{sec:pvsa}
 
-\item \textbf{An uncertainty-aware similarity API} comprising expected cosine similarity at the moment-matched Gaussian and the exact first-order variance of the dot product, enabling calibrated retrieval without Monte Carlo.
+The primary contribution is to lift the VSA algebra from $\mathbb{R}^d$ to the space $\mathcal{P}(\mathbb{R}^d)$ of distributions, in such a way that every primitive propagates the distribution's moments in closed form.
 
-\item \textbf{A complete deterministic VSA foundation}---eight algebraic models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB) with a uniform pytree-native API, five data encoders, five learning models including clustering, three associative memory modules, four symbolic data structures, an analysis toolkit for capacity, signal-to-noise ratio, participation ratio, and retrieval confidence, and a resonator-network primitive for factorisation.
+\subsection{Distribution types}
 
-\item \textbf{XLA-backed portability} across CPUs, GPUs, and TPUs without code changes, and a reproducible benchmark harness that compares Bayes-HDC against Torchhd on identical workloads.
-\end{enumerate}
+A \texttt{GaussianHV} is a frozen pytree dataclass holding a mean $\mu \in \mathbb{R}^d$ and a per-dimension variance $\sigma^2 \in \mathbb{R}_{\geq 0}^d$, modelling $X \sim \mathcal{N}(\mu, \mathrm{diag}(\sigma^2))$. The zero-variance limit recovers a deterministic hypervector exactly, which means classical pipelines lift into PVSA via \texttt{GaussianHV.from\_sample(x)} without code changes. A \texttt{DirichletHV} models a hypervector on the probability simplex through a concentration vector $\alpha \in \mathbb{R}_{>0}^d$. A \texttt{MixtureHV} composes either type into a categorical mixture, with weighted moments collapsing back to a single $\mathrm{GaussianHV}$.
 
-Sections \ref{sec:system} through \ref{sec:examples} describe the library architecture and provide usage examples, Section \ref{sec:related} positions the contribution relative to prior software and calibration literature, and Section \ref{sec:conclusion} outlines future directions on the research roadmap.
+\subsection{Closed-form moment propagation}
 
-\section{The Bayes-HDC System}
+Under the standard independence assumption between operands---which classical HDC relies on for quasi-orthogonality at random initialisation---the first and second moments of the element-wise product $Z = X \cdot Y$ of two independent Gaussian hypervectors are exact:
+\begin{align}
+\mathbb{E}[Z] &= \mu_x \cdot \mu_y, \\
+\mathrm{Var}[Z] &= \mu_x^2 \sigma_y^2 + \mu_y^2 \sigma_x^2 + \sigma_x^2 \sigma_y^2.
+\end{align}
+The function \texttt{bind\_gaussian} returns a \texttt{GaussianHV} carrying exactly these two moments---there is no Monte Carlo, and no delta-method approximation. The bundle case is the trivial sum-of-independent-Gaussians identity, normalised to the unit sphere via the delta method on the variance term. \texttt{permute\_gaussian} applies the cyclic-shift action to both $\mu$ and $\sigma^2$ jointly. The Dirichlet bundling identity (additive concentration) is exact and is implemented in \texttt{bundle\_dirichlet}.
+
+\subsection{KL divergences and reparameterisation gradients}
+
+The Kullback--Leibler divergences $D_{\mathrm{KL}}(\mathcal{N}_0 \,\|\, \mathcal{N}_1)$ and $D_{\mathrm{KL}}(\mathrm{Dir}(\alpha_0) \,\|\, \mathrm{Dir}(\alpha_1))$ are textbook closed forms; \texttt{kl\_gaussian} and \texttt{kl\_dirichlet} return them analytically. Both are differentiable end-to-end under \texttt{jax.grad}, which is what makes them usable in a variational objective. Every \texttt{GaussianHV} carries a reparameterised \texttt{sample(key)} method, so $\nabla$ composes through \texttt{bind\_gaussian}, \texttt{bundle\_gaussian}, \texttt{cleanup\_gaussian}, \texttt{inverse\_gaussian}, and the ELBO helpers in \texttt{bayes\_hdc.inference} without any user-side custom VJP.
+
+\subsection{Group action and equivariance}
+\label{sec:equivariance}
+
+For fixed dimension $d$, cyclic shift by $k$ defines an action of $\mathbb{Z}/d$ on $\mathbb{R}^d$: $T_k(x)_i = x_{(i-k) \bmod d}$. The action is faithful, additive ($T_j \circ T_k = T_{j+k}$), and an isometry of the inner product. The HDC primitives have two distinct equivariance flavours, which the library distinguishes explicitly in \texttt{bayes\_hdc.equivariance}: \emph{diagonal} equivariance ($T_k(x \star y) = T_k(x) \star T_k(y)$ for element-wise binding) and \emph{single-argument} equivariance ($T_k(x * y) = T_k(x) * y$ for circular convolution, which acquires a $2k$ shift under the diagonal action). The module ships property-based verifiers (\texttt{verify\_shift\_equivariance}, \texttt{verify\_single\_argument\_shift\_equivariance}, \texttt{verify\_shift\_invariance}) that reject any user-defined op claiming a symmetry it does not have. This makes hypervectors a typed, symmetry-respecting substrate for downstream equivariant-architecture research.
+
+\subsection{Uncertainty layer}
+
+\texttt{TemperatureCalibrator} fits a single temperature $T$ to a held-out validation set by minimising the negative log-likelihood in $\log T$ via L-BFGS \citep{guo2017calibration}. The objective is convex in $\log T$ with a unique global minimum; the fitted temperature is the maximum-likelihood estimator. \texttt{ConformalClassifier} implements split-conformal prediction with the Adaptive Prediction Sets nonconformity score \citep{romano2020classification}, producing prediction sets whose marginal coverage satisfies $\Pr(y \in S(x)) \geq 1 - \alpha$ on exchangeable data, regardless of the underlying classifier. Both objects accept the public \texttt{logits} method exposed on every Bayesian classifier (\texttt{BayesianCentroidClassifier.logits}, etc.) as their canonical input.
+
+\section{System architecture}
 \label{sec:system}
 
-\subsection{Design Principles}
-
-Bayes-HDC is built on four principles:
-
-\begin{enumerate}
-\item \textbf{Functional purity.} All operations are pure functions with no hidden state. VSA models, encoders, classifiers, and memory modules are implemented as frozen dataclasses registered with \texttt{jax.tree\_util}, making them compatible with JAX transformations. Mutation returns new instances.
-
-\item \textbf{Uniform API.} Every VSA model implements the same interface---\texttt{create}, \texttt{random}, \texttt{bind}, \texttt{bundle}, \texttt{inverse}, and \texttt{similarity}---enabling model-agnostic code and systematic comparison.
-
-\item \textbf{Performance by default.} Operations are decorated with \texttt{@jax.jit} where appropriate, and the library is structured to maximize XLA kernel fusion. Users obtain compiled performance without manual optimization.
-
-\item \textbf{JAX version compatibility.} A compatibility layer (\texttt{\_compat.py}) handles API differences across JAX versions for \texttt{register\_dataclass}, ensuring the library works with \texttt{jax >= 0.4.20}.
-\end{enumerate}
-
-\subsection{Library Architecture}
-
-Bayes-HDC consists of eight modules. Table~\ref{tab:modules} summarizes the components.
+PVSA is built on top of a complete deterministic VSA foundation, summarised in Table~\ref{tab:modules}. Every component is implemented from primary research papers; no code is ported from existing HDC libraries (see \texttt{ORIGINALITY.md}). All types are frozen dataclasses registered with \texttt{jax.tree\_util}, so \texttt{jit}, \texttt{vmap}, \texttt{grad}, \texttt{pmap}, and \texttt{shard\_map} compose through every operation without user-side flattening boilerplate.
 
 \begin{table}[t]
 \centering
-\caption{Bayes-HDC module overview.}
+\caption{Bayes-HDC module overview. The probabilistic layer sits in \texttt{distributions}, \texttt{bayesian\_models}, \texttt{uncertainty}, \texttt{equivariance}, \texttt{inference}, and \texttt{diagnostics}; the deterministic substrate is in the rest.}
 \label{tab:modules}
+\small
 \begin{tabular}{lll}
 \toprule
-\textbf{Module} & \textbf{Purpose} & \textbf{Components} \\
+\textbf{Module} & \textbf{Purpose} & \textbf{Key components} \\
 \midrule
-\texttt{functional} & Core HDC operations & bind, bundle, permute, similarity, n-grams, \\
- & & sequences, hash table, resonator, quantize \\
-\texttt{vsa} & VSA model classes & BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB \\
-\texttt{embeddings} & Data $\to$ HV encoders & Random, Level, Projection, Kernel, Graph \\
+\texttt{distributions} & PVSA primitives & GaussianHV, DirichletHV, MixtureHV; \\
+ & & bind/bundle/permute/cleanup/inverse/KL \\
+\texttt{bayesian\_models} & Bayesian classifiers & BayesianCentroidClassifier, BayesianAdaptiveHDC, \\
+ & & StreamingBayesianHDC \\
+\texttt{uncertainty} & Calibration \& coverage & TemperatureCalibrator, ConformalClassifier \\
+\texttt{equivariance} & Group structure & shift, hrr\_equivariant\_bilinear, verifiers \\
+\texttt{inference} & Variational helpers & elbo\_gaussian, reconstruction\_log\_likelihood\_mc \\
+\texttt{diagnostics} & Posterior checks & posterior\_predictive\_check, coverage\_calibration\_check \\
+\texttt{distributed} & Multi-device & pmap\_bind\_gaussian, shard\_map\_bind\_gaussian \\
+\texttt{resonator} & Factorisation & probabilistic\_resonator (MCMC multi-restart) \\
+\midrule
+\texttt{functional} & Core HDC ops & bind, bundle, permute, similarity, n-grams, sequences \\
+\texttt{vsa} & VSA models & BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB \\
+\texttt{embeddings} & Data $\to$ HV encoders & Random, Level, Projection, Kernel (RFF), Graph \\
 \texttt{structures} & Symbolic data structs & Multiset, HashTable, Sequence, Graph \\
-\texttt{models} & Learning models & Centroid, Adaptive, LVQ, RegLS, Clustering \\
+\texttt{models} & Classical classifiers & Centroid, Adaptive, LVQ, RegLS, Clustering \\
 \texttt{memory} & Associative memory & SDM, Hopfield, Attention \\
-\texttt{metrics} & Capacity \& diagnostics & SNR, capacity, PR, sparsity, confidence \\
-\texttt{utils} & Utilities & normalize, benchmark\_function \\
+\texttt{metrics} & Capacity \& diagnostics & SNR, capacity, PR, ECE, MCE, Brier \\
+\texttt{datasets} & Standard benchmarks & 11 loaders (iris, MNIST, UCIHAR, EMG, \ldots) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsubsection{Module 1: \texttt{jax\_hdc.functional}}
+\subsection{Comparison with existing software}
 
-The \texttt{functional} module implements the core algebraic operations for each VSA family as standalone, JIT-compiled functions:
-
-\begin{itemize}
-\item \textbf{Binding} creates a vector dissimilar to both inputs. Implementations: XOR (BSC), element-wise multiplication (MAP), circular convolution via FFT (HRR), modular addition (CGR/MCR), and matrix multiplication of reshaped $\sqrt{d} \times \sqrt{d}$ blocks (VTB).
-\item \textbf{Bundling} aggregates vectors into a representation similar to all inputs. Implementations: majority vote (BSC), normalized sum (MAP/HRR/VTB), component-wise mode (CGR), and phasor sum with snap-to-grid (MCR).
-\item \textbf{Inverse} enables unbinding. Implementations: identity (BSC), element-wise reciprocal (MAP), element reversal (HRR), modular negation (CGR/MCR), and matrix pseudoinverse (VTB).
-\item \textbf{Similarity} measures relatedness. Implementations: normalized Hamming distance (BSC), cosine similarity (MAP/HRR/VTB), element matching fraction (CGR), and phasor inner product (MCR).
-\item \textbf{Permutation} encodes sequence position via cyclic shift.
-\item \textbf{Cleanup} retrieves the nearest vector from a memory set by similarity search.
-\end{itemize}
-
-Beyond the per-model primitives, the module provides:
-
-\begin{itemize}
-\item \textbf{Multi-vector operations:} \texttt{multibind} reduces $n$ vectors via binding; \texttt{cross\_product} computes all pairwise bindings between two sets.
-\item \textbf{Composite encodings:} \texttt{hash\_table} bundles bound key--value pairs; \texttt{ngrams} computes position-encoded $n$-grams; \texttt{bundle\_sequence} and \texttt{bind\_sequence} produce order-preserving representations; \texttt{graph\_encode} encodes edge lists into a single vector.
-\item \textbf{Resonator network:} Iterative factorization of a composite hypervector into codebook factors \citep{frady2020resonator}.
-\item \textbf{Additional similarity metrics:} Jaccard and Tversky indices for binary vectors, inspired by PyBHV \citep{vandervorst2023pybhv}.
-\item \textbf{Selection and threshold:} \texttt{select} (element-wise MUX), \texttt{threshold} (at-least-$t$-of-$n$), and \texttt{window} (count in $[\ell, h]$), generalizing majority voting.
-\item \textbf{Noise injection:} \texttt{flip\_fraction} flips a controlled fraction of bits; \texttt{add\_noise\_map} adds Gaussian noise and re-normalizes.
-\item \textbf{Fractional power:} \texttt{fractional\_power} raises a MAP hypervector to a fractional exponent ($\text{sign}(x) \cdot |x|^p$), enabling smooth interpolation for continuous attribute encoding---a key primitive for real-world data like time series and financial features.
-\item \textbf{Quantization:} \texttt{soft\_quantize} (tanh) and \texttt{hard\_quantize} (sign).
-\end{itemize}
-
-Batch variants (\texttt{batch\_bind\_bsc}, \texttt{batch\_cosine\_similarity}, etc.) are provided via \texttt{jax.vmap}.
-
-\subsubsection{Module 2: \texttt{jax\_hdc.vsa}}
-
-The \texttt{vsa} module defines eight VSA model classes, each wrapping the corresponding \texttt{functional} operations behind a uniform interface. Table~\ref{tab:models} summarizes the models and their algebraic properties.
+Table~\ref{tab:comparison} contrasts Bayes-HDC's feature surface with the three other actively maintained HDC libraries. The framing axes are derived from the underlying framework choice (JAX vs.\ PyTorch) and the presence or absence of a probabilistic layer; they are descriptive of capability, not a head-to-head performance comparison.
 
 \begin{table}[t]
 \centering
-\caption{VSA models implemented in Bayes-HDC. All share the interface: \texttt{create}, \texttt{random}, \texttt{bind}, \texttt{bundle}, \texttt{inverse}, \texttt{similarity}.}
-\label{tab:models}
-\begin{tabular}{llllll}
-\toprule
-\textbf{Model} & \textbf{Domain} & \textbf{Bind} & \textbf{Bundle} & \textbf{Similarity} \\
-\midrule
-BSC & $\{0,1\}^d$ & XOR & Majority & Hamming \\
-MAP & $\mathbb{R}^d$ & $x \odot y$ & Norm.\ sum & Cosine \\
-HRR & $\mathbb{R}^d$ & Circ.\ conv. & Norm.\ sum & Cosine \\
-FHRR & $\mathbb{C}^d$ & $x \odot y$ & Norm.\ sum & Cosine \\
-BSBC & $\{0,1\}^d$ (sparse) & XOR & Majority & Hamming \\
-CGR & $\mathbb{Z}_q^d$ & $(x+y) \bmod q$ & Mode & Matching \\
-MCR & $\mathbb{Z}_q^d$ & $(x+y) \bmod q$ & Phasor sum & Phasor \\
-VTB & $\mathbb{R}^d$ & $\text{mat}(x) \cdot \text{mat}(y)$ & Norm.\ sum & Cosine \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-All models are frozen dataclasses registered as JAX pytrees. A factory function \texttt{create\_vsa\_model(model\_type, dimensions)} provides string-based model construction. BSBC supports configurable block size and sparsity (\texttt{k\_active} ones per block). CGR and MCR accept a parameter $q$ controlling the cyclic group order. VTB requires $d$ to be a perfect square.
-
-\subsubsection{Module 3: \texttt{jax\_hdc.embeddings}}
-
-Five encoder classes transform raw data into hypervectors:
-
-\begin{itemize}
-\item \textbf{RandomEncoder}: Maps discrete feature indices to random hypervectors via a codebook of shape \texttt{(num\_features, num\_values, dimensions)}, then bundles across features. Supports BSC and MAP models.
-\item \textbf{LevelEncoder}: Encodes continuous values by linear interpolation between adjacent level hypervectors, producing smooth representations where similar values map to similar vectors.
-\item \textbf{ProjectionEncoder}: Projects high-dimensional inputs through a random matrix ($\mathbb{R}^{n \times d}$), normalized by $1/\sqrt{n}$. Useful for images, embeddings, and other continuous data.
-\item \textbf{KernelEncoder}: Approximates the RBF kernel $k(x,y) = \exp(-\gamma \|x-y\|^2)$ via random Fourier features \citep{rahimi2007random}, preserving kernel similarity in hypervector space.
-\item \textbf{GraphEncoder}: Represents graph structure by assigning random hypervectors to nodes and bundling bound node pairs for each edge.
-\end{itemize}
-
-RandomEncoder, LevelEncoder, ProjectionEncoder, and KernelEncoder provide \texttt{encode} and \texttt{encode\_batch} methods (the latter via \texttt{jax.vmap}). GraphEncoder provides \texttt{encode\_edges} for graph-structured input.
-
-\subsubsection{Module 4: \texttt{jax\_hdc.structures}}
-
-Four symbolic data structures are implemented directly on top of the core VSA primitives, following the constructions in the HDC literature \citep{kanerva2009hyperdimensional,kanerva2010dollar,plate1995holographic}:
-
-\begin{itemize}
-\item \textbf{Multiset}: Maintains a running sum of added hypervectors. Supports \texttt{add}, \texttt{remove}, and \texttt{contains} (cosine similarity query).
-\item \textbf{HashTable}: Stores key--value pairs via binding and retrieves approximate values by unbinding with a query key. Supports \texttt{add}, \texttt{remove}, \texttt{get}, and batch construction via \texttt{from\_pairs}.
-\item \textbf{Sequence}: Order-preserving structure via positional permutation before bundling. Supports incremental \texttt{append} and batch \texttt{from\_vectors}.
-\item \textbf{Graph}: Encodes edges as bound node pairs (with positional permutation for directed graphs). Supports \texttt{add\_edge}, \texttt{neighbors}, and \texttt{contains\_edge}.
-\end{itemize}
-
-All structures are frozen JAX-compatible dataclasses; mutation returns new instances.
-
-\subsubsection{Module 5: \texttt{jax\_hdc.models}}
-
-Five learning models are provided:
-
-\begin{itemize}
-\item \textbf{CentroidClassifier}: One-shot learning by computing class centroids (majority vote for BSC, normalized mean for real-valued models). Supports online updates with configurable learning rate. Provides \texttt{predict}, \texttt{predict\_proba}, \texttt{score}, and \texttt{fit} methods.
-\item \textbf{AdaptiveHDC}: Multi-epoch iterative refinement. After initial centroid computation, misclassified samples update the true-class prototype \citep{imani2017voicehd}.
-\item \textbf{LVQClassifier}: Learning Vector Quantization. Updates the winning prototype toward or away from the sample depending on correctness.
-\item \textbf{RegularizedLSClassifier}: Solves $(X^\top X + \lambda I) W = X^\top Y$ for weight matrix $W$, providing a closed-form linear classifier in hypervector space.
-\item \textbf{ClusteringModel}: HDC-style $k$-means clustering, inspired by the clustering model in hdlib \citep{cumbo2023hdlib}. Iteratively assigns hypervectors to the nearest centroid by cosine similarity and updates centroids by normalized bundling. Supports \texttt{fit} and \texttt{predict}.
-\end{itemize}
-
-All models follow the same pattern: \texttt{create} $\to$ \texttt{fit} $\to$ \texttt{predict}/\texttt{score}, returning new instances on mutation.
-
-\subsubsection{Module 6: \texttt{jax\_hdc.memory}}
-
-Three associative memory modules are implemented:
-
-\begin{itemize}
-\item \textbf{SparseDistributedMemory (SDM)}: Content-addressable memory with random address locations and a configurable activation radius \citep{kanerva1988sparse}. Supports \texttt{write} and \texttt{read} operations; read returns a normalized weighted sum over matching locations.
-\item \textbf{HopfieldMemory}: Modern continuous Hopfield network \citep{ramsauer2020hopfield} with softmax-weighted retrieval over stored patterns. Temperature parameter $\beta$ controls retrieval sharpness. Patterns are added incrementally via \texttt{add}.
-\item \textbf{AttentionMemory}: Key-value store with scaled dot-product attention retrieval. Supports multi-head attention (configurable \texttt{num\_heads}) and temperature scaling. Provides \texttt{write}, \texttt{write\_batch}, \texttt{retrieve}, and \texttt{retrieve\_with\_weights}.
-\end{itemize}
-
-\subsubsection{Module 7: \texttt{jax\_hdc.metrics}}
-
-The \texttt{metrics} module provides statistical tools for analysing hypervector representations and sizing HDC systems:
-
-\begin{itemize}
-\item \textbf{bundle\_snr}: Expected signal-to-noise ratio after bundling $n$ MAP vectors in $d$ dimensions, $\text{SNR} = \sqrt{d/(n-1)}$.
-\item \textbf{bundle\_capacity}: Conservative upper bound on the number of vectors that can be bundled before retrieval probability drops below $1 - \delta$.
-\item \textbf{effective\_dimensions}: Participation ratio $\text{PR} = (\sum x_i^2)^2 / \sum x_i^4$, measuring how many dimensions carry signal.  PR $= d$ for a uniform vector; PR $= 1$ for a one-hot vector.
-\item \textbf{sparsity}: Fraction of near-zero elements in a hypervector.
-\item \textbf{signal\_energy}: Squared L2 norm, for monitoring representation magnitude.
-\item \textbf{saturation}: Fraction of elements near $\pm 1$, indicating quantisation level.
-\item \textbf{cosine\_matrix}: Pairwise cosine similarity matrix for codebook orthogonality checks.
-\item \textbf{retrieval\_confidence}: Gap between the best and second-best cosine similarity to a codebook, measuring retrieval certainty.
-\end{itemize}
-
-These metrics are essential for real-world deployments where practitioners need to (a)~select an appropriate dimensionality for a given capacity requirement, (b)~diagnose collapsed or degenerate representations, and (c)~assess retrieval reliability before acting on HDC outputs.
-
-\subsubsection{Module 8: \texttt{jax\_hdc.utils}}
-
-The \texttt{utils} module provides two functions: \texttt{normalize} (unit-length normalization along a specified axis) and \texttt{benchmark\_function} (timing with configurable warmup and trial counts, reporting mean, std, min, max, and median in milliseconds).
-
-\subsection{Comparison with Existing Software}
-
-Table~\ref{tab:comparison} compares Bayes-HDC with existing HDC libraries.
-
-\begin{table}[t]
-\centering
-\caption{Comparison of HDC/VSA software libraries.}
+\caption{Feature comparison of HDC/VSA software libraries.}
 \label{tab:comparison}
+\small
 \begin{tabular}{lcccccc}
 \toprule
-\textbf{Library} & \textbf{VSA} & \textbf{XLA} & \textbf{Auto-diff} & \textbf{Functional} & \textbf{TPU} & \textbf{Structures} \\
+\textbf{Library} & \textbf{VSA models} & \textbf{XLA} & \textbf{TPU} & \textbf{PVSA} & \textbf{Conformal} & \textbf{Calibration} \\
 \midrule
-Torchhd \citep{heddes2023torchhd} & 10+ & $\times$ & \checkmark & $\times$ & $\times$ & \checkmark \\
+Torchhd \citep{heddes2023torchhd} & 10+ & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ \\
 hdlib \citep{cumbo2023hdlib} & 2 & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ \\
 PyBHV \citep{vandervorst2023pybhv} & 1 & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ \\
 \textbf{Bayes-HDC} & 8 & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
@@ -268,128 +157,52 @@ PyBHV \citep{vandervorst2023pybhv} & 1 & $\times$ & $\times$ & $\times$ & $\time
 \end{tabular}
 \end{table}
 
-Bayes-HDC introduces Probabilistic Vector Symbolic Architectures, an algebra in which every hypervector is a posterior distribution and every VSA primitive propagates the posterior's moments in closed form. No prior HDC library offers this framework, nor its constituent pieces: closed-form distributional binding and bundling (\texttt{GaussianHV}, \texttt{DirichletHV}), L-BFGS-in-log-space temperature calibration fit on held-out data, split-conformal prediction with the APS nonconformity score for marginal-coverage guarantees, or calibration-metric primitives (ECE, MCE, Brier, reliability curves) as JIT-compilable operations. The deterministic VSA layer is implemented from primary research---Kanerva (1997, 2009), Plate (1995), Gayler (2003), and the related-model surveys of \citet{kleyko2022survey1,kleyko2022survey2}---rather than derived from other library implementations; Torchhd \citep{heddes2023torchhd}, hdlib \citep{cumbo2023hdlib}, and PyBHV \citep{vandervorst2023pybhv} are included as empirical baselines for head-to-head comparison.
-
-\section{Usage Examples}
+\section{Usage}
 \label{sec:examples}
 
-\subsection{Basic Operations}
+A single end-to-end pipeline exercises the PVSA layer: build a probabilistic centroid classifier, fit a temperature on held-out logits, wrap the calibrated probabilities in a conformal predictor, and read off coverage-guaranteed prediction sets. The same pattern drives the application examples shipped with the library (gesture recognition, activity recognition, language identification).
 
-Listing~\ref{lst:basic} demonstrates fundamental HDC operations with the MAP model.
+\begin{lstlisting}[caption={A PVSA classification pipeline with calibration and coverage guarantees.},label={lst:pvsa}]
+from bayes_hdc import (
+    BayesianCentroidClassifier, ConformalClassifier,
+    RandomEncoder, MAP, TemperatureCalibrator,
+)
 
-\begin{lstlisting}[caption={Basic HDC operations},label={lst:basic}]
-import jax
-from bayes_hdc import MAP
-from bayes_hdc.functional import permute
-
-model = MAP.create(dimensions=10000)
-key = jax.random.PRNGKey(42)
-
-# Generate two random hypervectors
-k1, k2 = jax.random.split(key)
-x = model.random(k1, (10000,))
-y = model.random(k2, (10000,))
-
-# Binding: result is dissimilar to both inputs
-bound = model.bind(x, y)
-print(model.similarity(x, bound))  # ~0.0
-
-# Bundling: result is similar to all inputs
-vectors = model.random(key, (5, 10000))
-bundled = model.bundle(vectors, axis=0)
-
-# Unbinding with inverse
-y_inv = model.inverse(y)
-recovered = model.bind(bound, y_inv)
-
-# Sequence encoding via permutation
-a, b, c = model.random(key, (3, 10000))
-sequence = permute(a, 2) + permute(b, 1) + c
-\end{lstlisting}
-
-\subsection{Classification Pipeline}
-
-Listing~\ref{lst:classification} shows an end-to-end encode--train--predict pipeline.
-
-\begin{lstlisting}[caption={Classification with RandomEncoder and CentroidClassifier},label={lst:classification}]
-import jax
-import jax.numpy as jnp
-from bayes_hdc import MAP
-from bayes_hdc.embeddings import RandomEncoder
-from bayes_hdc.models import CentroidClassifier
-
-model = MAP.create(dimensions=10000)
-key = jax.random.PRNGKey(42)
-
-# Create encoder and classifier
+vsa = MAP.create(dimensions=10_000)
 encoder = RandomEncoder.create(
-    num_features=20, num_values=10,
-    dimensions=10000, vsa_model=model, key=key,
+    num_features=F, num_values=L, dimensions=10_000,
+    vsa_model=vsa, key=key,
 )
-classifier = CentroidClassifier.create(
-    num_classes=5, dimensions=10000, vsa_model=model,
-)
+hv_tr = encoder.encode_batch(X_tr_idx)
+hv_ca = encoder.encode_batch(X_ca_idx)
+hv_te = encoder.encode_batch(X_te_idx)
 
-# Generate synthetic data
-train_data = jax.random.randint(key, (500, 20), 0, 10)
-train_labels = jnp.sum(train_data[:, :3], axis=1) % 5
+clf = BayesianCentroidClassifier.create(
+    num_classes=K, dimensions=10_000,
+).fit(hv_tr, y_tr)
 
-# Encode, train, evaluate
-train_hvs = encoder.encode_batch(train_data)
-classifier = classifier.fit(train_hvs, train_labels)
-accuracy = classifier.score(train_hvs, train_labels)
-print(f"Accuracy: {accuracy:.2%}")
+# `logits` is the canonical pre-softmax score; it is the public input
+# to TemperatureCalibrator.fit and ConformalClassifier.fit.
+calib = TemperatureCalibrator.create().fit(clf.logits(hv_ca), y_ca)
+probs_ca = calib.calibrate(clf.logits(hv_ca))
+probs_te = calib.calibrate(clf.logits(hv_te))
+
+conf = ConformalClassifier.create(alpha=0.1).fit(probs_ca, y_ca)
+sets = conf.predict_set(probs_te)         # (n, K) bool mask
+cov  = conf.coverage(probs_te, y_te)      # >= 0.9 by construction
 \end{lstlisting}
 
-\subsection{Associative Memory}
+The classifier object is itself a JAX pytree: all four library calls---\texttt{fit}, \texttt{logits}, \texttt{calibrate}, \texttt{predict\_set}---compile under \texttt{jax.jit} without user-side flattening. \texttt{BayesianCentroidClassifier.var} (per-class posterior variance) supplies an out-of-distribution signal via posterior Mahalanobis distance, which is unavailable from a deterministic centroid classifier. \texttt{StreamingBayesianHDC.fit} runs as a single \texttt{jax.lax.scan} so the same end-to-end pipeline works on a non-stationary stream with bounded $O(K \cdot d)$ memory.
 
-Listing~\ref{lst:memory} demonstrates the attention-based memory module.
-
-\begin{lstlisting}[caption={Attention-based associative memory},label={lst:memory}]
-import jax
-from bayes_hdc.memory import AttentionMemory
-
-key = jax.random.PRNGKey(42)
-mem = AttentionMemory.create(
-    dimensions=1000, temperature=0.1, num_heads=4,
-)
-
-# Store key-value pairs
-keys = jax.random.normal(key, (10, 1000))
-values = jax.random.normal(jax.random.split(key)[1], (10, 1000))
-mem = mem.write_batch(keys, values)
-
-# Retrieve by query similarity
-result = mem.retrieve(keys[0])
-result, weights = mem.retrieve_with_weights(keys[0])
-\end{lstlisting}
-
-\section{Related Work}
+\section{Related work}
 \label{sec:related}
 
-\textbf{HDC/VSA Foundations.} The theoretical foundations were established by \citet{kanerva1988sparse, kanerva2009hyperdimensional} for sparse distributed representations and Binary Spatter Codes, and by \citet{plate1991holographic, plate1995holographic} for Holographic Reduced Representations. Recent surveys \citep{kleyko2022survey1, kleyko2022survey2} provide comprehensive coverage of models, data transformations, applications, and open challenges.
+The theoretical foundations of HDC/VSA were established by \citet{kanerva1988sparse,kanerva2009hyperdimensional} and \citet{plate1995holographic}; recent surveys \citep{kleyko2022survey1,kleyko2022survey2} cover models, data transformations, and applications. The most mature HDC software libraries are Torchhd \citep{heddes2023torchhd} (PyTorch, broad VSA coverage), hdlib \citep{cumbo2023hdlib} (domain-oriented bioinformatics), and PyBHV \citep{vandervorst2023pybhv} (Boolean hypervectors). None ships a probabilistic layer, a temperature calibrator, or a conformal predictor; Bayes-HDC fills that gap on top of a JAX substrate. Calibration via post-hoc temperature scaling follows \citet{guo2017calibration}; conformal prediction with Adaptive Prediction Sets follows \citet{romano2020classification}. HDC's group-theoretic structure connects to current work on equivariant neural functionals and weight-space learning, where the cyclic-shift action and circular-convolution binding provide a natural bilinear primitive.
 
-\textbf{Software.} Torchhd \citep{heddes2023torchhd} is the most mature HDC library, built on PyTorch with GPU support and broad model coverage. hdlib \citep{cumbo2023hdlib} provides a design-oriented Python library with domain-specific models for bioinformatics, graph encoding, regression, and clustering. PyBHV \citep{vandervorst2023pybhv} contributes a Boolean hypervector framework with threshold logic, Tversky and Jaccard metrics, noise injection, and symbolic analysis. Bayes-HDC incorporates ideas from all three---composite encodings and structures from Torchhd, clustering from hdlib, and similarity metrics and threshold operations from PyBHV---while targeting the JAX ecosystem with XLA compilation and TPU support.
-
-\textbf{Applications.} HDC has been applied to classification \citep{rahimi2016robust}, speech recognition \citep{imani2017voicehd}, robotics \citep{neubert2019introduction}, neuromorphic hardware \citep{kleyko2022vector}, and neuro-symbolic reasoning \citep{hersche2023neuro}.
-
-\textbf{Learning Algorithms.} Adaptive training procedures for HDC include online prototype refinement \citep{imani2021onlinehd} and gradient-based encoder learning \citep{kim2024flash}. Bayes-HDC's native autodiff support via \texttt{jax.grad} facilitates implementing such methods.
-
-\section{Conclusions and Future Work}
+\section{Conclusion}
 \label{sec:conclusion}
 
-Bayes-HDC provides a complete toolkit for hyperdimensional computing research and deployment on JAX: eight VSA models with a uniform API, composite encodings (n-grams, sequences, hash tables, graph encoding, resonator networks), symbolic data structures (multisets, hash tables, sequences, graphs), five feature encoders, five learning models (including clustering), three associative memory modules, and a statistical metrics module for capacity analysis and representation diagnostics---all JIT-compilable and portable across CPUs, GPUs, and TPUs. Additional operations drawn from hdlib and PyBHV---Jaccard and Tversky similarity, threshold voting, noise injection, fractional power encoding, and quantization---broaden the library's practical capabilities for real-world applications in fast similarity search, streaming classification, and continuous data encoding.
-
-Planned extensions include:
-
-\begin{enumerate}
-\item \textbf{Mixed-precision training} (BF16/FP16) for increased throughput.
-\item \textbf{Neural-HDC hybrids} via integration with Flax/Equinox.
-\item \textbf{Benchmark suite} with standard HDC datasets (EU Languages, ISOLET, EMG gestures) for reproducible evaluation.
-\item \textbf{Distributed training} via \texttt{pmap} and model parallelism across multi-device setups.
-\end{enumerate}
-
-Bayes-HDC is open source under the MIT license at \url{https://github.com/rlogger/bayes-hdc}.
+Bayes-HDC is a JAX library for hyperdimensional computing that lifts the standard VSA algebra to a probabilistic algebra over distributions. The closed-form moment propagation under binding and bundling, the property-based equivariance verifiers for the cyclic-shift action, the post-hoc temperature calibrator, and the split-conformal classifier with marginal-coverage guarantees together form a small, typed surface on which calibrated and coverage-guaranteed retrieval are first-class operations rather than after-the-fact wrappers. The deterministic VSA foundation is implemented from primary research and supports the library as a standalone classical-HDC toolkit. Planned work includes variational codebook learning via the reparameterised ELBO, sparse PVSA posteriors, and integration with \texttt{flax.nnx} for use as Bayesian HDC modules inside larger neural pipelines.
 
 \section*{Acknowledgments}
 
@@ -515,19 +328,9 @@ H.~Ramsauer, B.~Sch{\"a}fl, J.~Lehner, et~al.
 
 \end{thebibliography}
 
-\appendix
-
-\section{Implementation Notes}
-\label{app:implementation}
-
-\subsection{JAX Dataclass Registration}
-
-All stateful objects (VSA models, encoders, classifiers, memory modules) are implemented as Python \texttt{@dataclass} instances registered with \texttt{jax.tree\_util.register\_dataclass}. Fields are partitioned into \emph{data fields} (JAX arrays, traced during compilation) and \emph{metadata fields} (static values like dimension counts and model names, marked with \texttt{metadata=dict(static=True)}). This allows JAX to trace through these objects during JIT compilation while keeping configuration fixed.
-
-\subsection{Older JAX Compatibility}
-
-The \texttt{jax.tree\_util.register\_dataclass} API changed between JAX versions. In older versions, it requires explicit \texttt{data\_fields} and \texttt{meta\_fields} lists; in newer versions, it infers them automatically. The \texttt{\_compat.py} module detects the available API at import time and provides a unified \texttt{register\_dataclass} decorator that works with \texttt{jax >= 0.4.20}.
-
-Similarly, older JAX versions do not support the \texttt{@jax.jit(static\_argnames=...)} decorator syntax. The library uses \texttt{functools.partial(jax.jit, static\_argnames=...)} for backward compatibility.
+% Implementation notes (JAX dataclass registration, version-compatibility
+% layer, ruff/mypy/CI matrix) are documented in DESIGN.md at the
+% repository root rather than reproduced here, to respect the MLOSS
+% four-page body limit.
 
 \end{document}

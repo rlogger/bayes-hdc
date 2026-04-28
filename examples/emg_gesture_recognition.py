@@ -185,8 +185,8 @@ def main() -> None:
 
     # ----------------------------------------------------------------- 5.
     print("\n[5] Calibrate probabilities (Guo et al. 2017).")
-    logits_ca = jax.vmap(clf._similarity_row)(hv_ca)
-    logits_te = jax.vmap(clf._similarity_row)(hv_te)
+    logits_ca = clf.logits(hv_ca)
+    logits_te = clf.logits(hv_te)
     calibrator = TemperatureCalibrator.create().fit(logits_ca, y_ca, max_iters=200)
     probs_te = calibrator.calibrate(logits_te)
     preds = np.asarray(jnp.argmax(probs_te, axis=-1))

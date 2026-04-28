@@ -1,7 +1,7 @@
 <h1 align="center">bayes-hdc</h1>
 
 <p align="center">
-  <strong>A JAX library with serious algebraic depth.</strong><br/>
+  <strong>Probabilistic hyperdimensional computing in JAX.</strong><br/>
   Hypervectors as a pytree-native algebra. Closed-form moments. Group actions.<br/>
   Equivariant bilinear operators. Reparameterisation gradients end-to-end.
 </p>
@@ -31,7 +31,7 @@
 
 ## About
 
-bayes-hdc is a JAX library for hyperdimensional computing (HDC) with a probabilistic layer on top — **PVSA**, Probabilistic Vector Symbolic Architectures. Every hypervector is an element of a small, well-designed algebra: a commutative binding, an associative bundling, a cyclic group action, a cosine measure, and a posterior distribution over the whole thing. Every type is a pytree. Every operation composes with `jit`, `vmap`, `grad`, `pmap`, `shard_map`. The implementation is careful, the API is small, the moments are closed-form, and the claims are theorems.
+bayes-hdc is a JAX library for hyperdimensional computing (HDC) with a probabilistic layer on top — **PVSA**, Probabilistic Vector Symbolic Architectures. Every hypervector is an element of a small, well-designed algebra: a commutative binding, an associative bundling, a cyclic group action, a cosine measure, and a posterior distribution over the whole thing. Every type is a JAX pytree, so `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with every operation. The API is small, the moments under bind and bundle are closed-form, and the algebraic and coverage claims are property-tested.
 
 The library is legibly useful at the intersection of three active research programmes: **transformer weight-space learning**, **equivariant neural functionals (NFNs)**, and **meta-RL with structured representations**. See [`DESIGN.md`](DESIGN.md) for the long-form story.
 

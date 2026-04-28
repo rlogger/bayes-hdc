@@ -276,6 +276,38 @@ def test_streaming_jit_compatible() -> None:
     assert probs.shape == (20, 2)
 
 
+def test_streaming_fit_runs_under_jit() -> None:
+    """fit() should JIT-compile end-to-end via lax.scan — no Python for-loop."""
+    key = jax.random.PRNGKey(60)
+    X = jax.random.normal(key, (40, DIMS))
+    y = jax.random.randint(jax.random.fold_in(key, 1), (40,), 0, 3)
+    clf0 = StreamingBayesianHDC.create(num_classes=3, dimensions=DIMS)
+
+    @jax.jit
+    def fit_jit(c: StreamingBayesianHDC, hvs: jax.Array, lbl: jax.Array) -> StreamingBayesianHDC:
+        return c.fit(hvs, lbl)
+
+    clf = fit_jit(clf0, X, y)
+    assert clf.mu.shape == (3, DIMS)
+    assert jnp.all(jnp.isfinite(clf.mu))
+    assert jnp.all(clf.var >= 0.0)
+
+
+def test_adaptive_fit_runs_under_jit() -> None:
+    """BayesianAdaptiveHDC.fit should also compile under jit (lax.scan path)."""
+    from bayes_hdc.bayesian_models import BayesianAdaptiveHDC
+
+    key = jax.random.PRNGKey(61)
+    X = jax.random.normal(key, (40, DIMS))
+    y = jax.random.randint(jax.random.fold_in(key, 1), (40,), 0, 3)
+    clf0 = BayesianAdaptiveHDC.create(num_classes=3, dimensions=DIMS)
+
+    clf = jax.jit(lambda c, h, lbl: c.fit(h, lbl))(clf0, X, y)
+    assert clf.mu.shape == (3, DIMS)
+    assert jnp.all(jnp.isfinite(clf.mu))
+    assert jnp.all(clf.var >= 0.0)
+
+
 # ----------------------------------------------------------------------
 # shard_map / sharding helpers
 # ----------------------------------------------------------------------

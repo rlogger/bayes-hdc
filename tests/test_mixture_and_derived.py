@@ -12,6 +12,7 @@ from bayes_hdc.distributions import (
     GaussianHV,
     MixtureHV,
     cleanup_gaussian,
+    cleanup_gaussian_stacked,
     expected_cosine_similarity,
     permute_gaussian,
 )
@@ -98,6 +99,49 @@ def test_cleanup_empty_memory_raises() -> None:
         assert "non-empty" in str(e)
     else:
         raise AssertionError("cleanup_gaussian should raise on empty memory")
+
+
+def test_cleanup_gaussian_stacked_matches_list_form() -> None:
+    """Stacked-form cleanup is a JIT-friendly mirror of the list form."""
+    keys = jax.random.split(jax.random.PRNGKey(33), 5)
+    memory = [GaussianHV.random(k, DIMS) for k in keys[:4]]
+    query = memory[2]  # exact match available
+
+    list_idx, list_score = cleanup_gaussian(query, memory)
+
+    stacked = GaussianHV(
+        mu=jnp.stack([m.mu for m in memory]),
+        var=jnp.stack([m.var for m in memory]),
+        dimensions=DIMS,
+    )
+    stacked_idx, stacked_score = cleanup_gaussian_stacked(query, stacked)
+
+    assert int(stacked_idx) == list_idx
+    assert jnp.allclose(stacked_score, list_score, atol=1e-5)
+
+
+def test_cleanup_gaussian_stacked_is_jit_compatible() -> None:
+    """The stacked variant must compose with jit and vmap end-to-end."""
+    keys = jax.random.split(jax.random.PRNGKey(34), 6)
+    stacked = GaussianHV(
+        mu=jnp.stack([GaussianHV.random(k, DIMS).mu for k in keys[:5]]),
+        var=jnp.stack([GaussianHV.random(k, DIMS).var for k in keys[:5]]),
+        dimensions=DIMS,
+    )
+    queries = jnp.stack([GaussianHV.random(keys[5], DIMS).mu for _ in range(3)])
+
+    def best_idx_for(query_mu: jax.Array) -> jax.Array:
+        q = GaussianHV(
+            mu=query_mu,
+            var=jnp.zeros_like(query_mu),
+            dimensions=DIMS,
+        )
+        idx, _ = cleanup_gaussian_stacked(q, stacked)
+        return idx
+
+    indices = jax.vmap(best_idx_for)(queries)
+    assert indices.shape == (3,)
+    assert jnp.all((indices >= 0) & (indices < 5))
 
 
 # ----------------------------------------------------------------------
