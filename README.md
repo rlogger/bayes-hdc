@@ -48,10 +48,6 @@
 
 **bayes-hdc** is a [JAX](https://github.com/google/jax) library for **hyperdimensional computing (HDC)** and **vector symbolic architectures (VSA)** with a built-in probabilistic layer — **PVSA**, *Probabilistic Vector Symbolic Architectures*. It provides Gaussian and Dirichlet hypervector types with closed-form moment propagation under `bind`, `bundle`, and `permute`; explicit cyclic-shift group actions with property-based equivariance verifiers; calibrated probabilities via temperature scaling; and coverage-guaranteed prediction sets via split-conformal prediction. The deterministic substrate ships eight classical VSA models — **BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB** — with a uniform API. Every type is a JAX pytree, so `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with every operation, on CPU, GPU, and TPU.
 
-📖 **Documentation:** [rlogger.github.io/bayes-hdc](https://rlogger.github.io/bayes-hdc/) — API reference, user guide, examples.<br/>
-💬 **Discuss:** [GitHub Discussions](https://github.com/rlogger/bayes-hdc/discussions) for Q&A, ideas, show-and-tell.<br/>
-🤝 **Contribute:** see [`COMMUNITY.md`](COMMUNITY.md) for ways to get involved.
-
 ### Highlights
 
 - **Pytree-native.** `jit` / `vmap` / `grad` / `pmap` / `shard_map` compose with every operation.
