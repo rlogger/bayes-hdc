@@ -1,7 +1,8 @@
 # Benchmarks
 
-Head-to-head numbers for `bayes-hdc` against TorchHD (Heddes et al., JMLR MLOSS 2023).
-All numbers produced by `make bench`; figures rendered by `make figures`.
+Reference numbers for `bayes-hdc`. All numbers are produced by
+`make bench`; the included figures are checked into
+`benchmarks/figures/`.
 
 **Reproduce:**
 

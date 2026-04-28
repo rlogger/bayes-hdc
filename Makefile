@@ -1,6 +1,6 @@
 .PHONY: help install install-dev install-all test test-all lint format typecheck \
         docs docs-serve build publish publish-test clean \
-        bench bench-docker docker-build docker-test docker-bench figures
+        bench docker-build docker-test docker-bench
 
 PYTHON ?= python3
 PIP    ?= $(PYTHON) -m pip
@@ -45,9 +45,6 @@ bench: ## Run all calibration / selective / OOD benchmarks locally
 	$(PYTHON) benchmarks/benchmark_calibration.py
 	$(PYTHON) benchmarks/benchmark_selective.py
 	$(PYTHON) benchmarks/benchmark_ood.py
-
-figures: bench ## Generate paper figures from benchmark results
-	$(PYTHON) benchmarks/generate_figures.py
 
 docker-build: ## Build the benchmark Docker image
 	docker build --target benchmark -t bayes-hdc:benchmark .

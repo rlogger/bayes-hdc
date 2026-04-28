@@ -1,9 +1,9 @@
 # Design notes
 
-This document is the long-form companion to the README. It exists to make the
-design choices of the library legible — the algebraic structure, the
-functional-programming commitments, the JAX idioms, and the research
-programmes the design is in conversation with.
+The long-form companion to the README, covering the algebraic structure
+of the library, the functional-programming commitments, and the JAX
+idioms it relies on. Read this if you want to extend the library or
+understand the trade-offs behind the API.
 
 ## 1. The algebra
 
@@ -140,72 +140,7 @@ The library is deliberately FP-shaped.
   dtypes; `jnp.astype` is used where promotion matters; no accidental
   upcasts.
 
-## 5. Research programmes the design serves
-
-### Weight-space learning
-
-The shift in the literature from "networks train on data" to "networks
-operate on networks" creates demand for weight-space representations that
-are well-typed, symmetric-by-construction, and distribution-valued. A
-`BayesianCentroidClassifier` here satisfies all three simultaneously:
-
-- **Well-typed**: the weights are K hypervectors. You can read them, write
-  them, sample from them, bind them, bundle them, KL them.
-- **Symmetric**: the posterior is `Z/d`-equivariant, as verified
-  numerically in `examples/weight_space_posterior.py`.
-- **Distribution-valued**: each class-centroid is a `GaussianHV`, not a
-  point estimate. Epistemic uncertainty is a straight read-off from
-  `clf.var`; sampled weight configurations are alternate classifiers.
-
-This is exactly the representation the weight-space research programme
-assumes, offered on a substrate where the primitives are algebraic rather
-than MLP-based.
-
-### Equivariant neural functionals (NFNs)
-
-NFN-style architectures build layers that are equivariant under the symmetries of weight-space. Two of those symmetries are already first-class here: the cyclic-shift action of $\mathbb{Z}/d$, and the channel permutation that acts on $\mathbb{R}^{K \times d}$.
-
-- `hrr_equivariant_bilinear` is the canonical single-argument
-  shift-equivariant bilinear layer — the operator you want at the bottom
-  of an NFN block that operates on hypervectors.
-- `verify_shift_equivariance` / `verify_single_argument_shift_equivariance`
-  are property-based checkers; you can attach them to any user-defined
-  layer as a unit test.
-
-### Meta-RL with structured representations
-
-Meta-RL agents that generalise across tasks need a composable
-representation of "(task, state)". HDC gives one by construction:
-`bind(task_hv, state_hv)` is a structured pair with an approximate inverse
-via similarity. Task and state live on the same manifold; the task-state
-symmetry group is inherited.
-
-The library's classifier line-up maps onto standard meta-RL primitives:
-
-- **Posterior sampling / Thompson exploration** —
-  `BayesianCentroidClassifier` stores a Gaussian posterior per action;
-  sampling a weight configuration is one line.
-- **UCB** — `similarity_variance` gives `Var[⟨x, W_a⟩]` directly from the
-  posterior; no ensembles needed.
-- **Novelty / intrinsic reward** — per-class posterior Mahalanobis
-  distance (the OOD signal in `anomaly_detection.py`).
-- **Safe RL** — conformal prediction sets over action outcomes; abstain
-  when the set is not a singleton.
-- **Non-stationary streams** — `StreamingBayesianHDC` maintains an EMA
-  posterior with bounded memory.
-
-## 6. What this library is not
-
-- It is not a deep-net framework. It does not compete with flax, equinox,
-  or haiku. It composes with them.
-- It is not a drop-in replacement for classical HDC on large vision tasks.
-  The universal approximation of a transformer is not on the menu.
-- It is not a port. Every component is implemented from the primary paper;
-  see [`ORIGINALITY.md`](https://github.com/rlogger/bayes-hdc/blob/main/ORIGINALITY.md).
-- It is not a research platform where correctness is aspirational. Every
-  theorem in the docs is a property-based test in `tests/`.
-
-## 7. Versioning and stability
+## 5. Versioning and stability
 
 The library is at `0.4.0a0`. The public API (everything in
 `bayes_hdc/__init__.py`) follows semver loosely — breaking changes are
@@ -218,16 +153,15 @@ types belong in `bayes_hdc/distributions.py`, new inference primitives in
 `bayes_hdc/equivariance.py`. Public names are re-exported from
 `bayes_hdc/__init__.py` with an explicit `__all__`.
 
-## 8. When to reach for this library
+## 6. When to reach for this library
 
 Reach for it when you need one or more of:
 
 - a well-typed hypervector algebra with pytree-native composition;
 - closed-form moment propagation for a probabilistic HDC pipeline;
 - coverage-guaranteed or calibrated predictions on top of an HDC classifier;
-- an equivariance-respecting substrate for NFN-style experiments;
 - a distribution-valued representation of classifier weights;
-- structured representations for meta-RL or task-conditioned agents.
+- structured representations for task-conditioned agents.
 
 Reach for something else when the task calls for deep end-to-end learning
 on natural images at ImageNet scale, or when the uncertainty in your model

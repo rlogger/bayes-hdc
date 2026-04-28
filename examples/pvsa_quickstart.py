@@ -132,7 +132,7 @@ def main() -> None:
     )
 
     print("\nAll seven PVSA primitives work out of the box, end-to-end, in < 90 s.")
-    print("See docs/workshop_paper.tex for the theory and BENCHMARKS.md for numbers.")
+    print("See DESIGN.md for the design rationale and BENCHMARKS.md for numbers.")
 
 
 if __name__ == "__main__":

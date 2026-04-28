@@ -11,13 +11,12 @@ depending on what you need:
 | Report a reproducible bug | [Bug-report issue](https://github.com/rlogger/bayes-hdc/issues/new?template=bug_report.yml) |
 | Report a security vulnerability | See [`SECURITY.md`](SECURITY.md) — **do not** open a public issue |
 | Cite the library in a paper | `CITATION.cff` at the repo root (BibTeX via GitHub's "Cite this repository" button) |
-| Read the theory behind PVSA | [`docs/workshop_paper.tex`](docs/workshop_paper.tex) — the short-paper draft introducing PVSA |
-| Understand what's original vs. from prior work | [`ORIGINALITY.md`](ORIGINALITY.md) |
 | Reproduce the benchmark numbers | `make bench` locally or `make docker-bench` for the containerised run |
+| Read the design rationale | [`DESIGN.md`](DESIGN.md) |
 
 ## Response-time expectations
 
-This is a single-maintainer research library. Typical response times:
+Typical response times:
 
 - **Security reports** — acknowledgement within 72 hours.
 - **Bug reports with reproductions** — within 7 days.

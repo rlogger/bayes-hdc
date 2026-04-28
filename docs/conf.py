@@ -91,17 +91,7 @@ intersphinx_mapping = {
 # ----------------------------------------------------------------------
 
 templates_path = ["_templates"]
-exclude_patterns = [
-    "_build",
-    "Thumbs.db",
-    ".DS_Store",
-    # MLOSS submission artefacts: not user-facing documentation.
-    "MLOSS_CHECKLIST.md",
-    "MLOSS_COVER_LETTER.md",
-    # LaTeX sources for the JMLR paper — not part of the website build.
-    "main.tex",
-    "workshop_paper.tex",
-]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"
 

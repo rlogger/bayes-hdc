@@ -122,9 +122,7 @@ Issues = "https://github.com/rlogger/bayes-hdc/issues"
 Discussions = "https://github.com/rlogger/bayes-hdc/discussions"
 Changelog = "https://github.com/rlogger/bayes-hdc/blob/main/CHANGELOG.md"
 "Design notes" = "https://github.com/rlogger/bayes-hdc/blob/main/DESIGN.md"
-Originality = "https://github.com/rlogger/bayes-hdc/blob/main/ORIGINALITY.md"
 Benchmarks = "https://github.com/rlogger/bayes-hdc/blob/main/BENCHMARKS.md"
-Citation = "https://github.com/rlogger/bayes-hdc/blob/main/CITATION.cff"
 
 [tool.setuptools.packages.find]
 where = ["."]

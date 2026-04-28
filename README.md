@@ -35,10 +35,8 @@
 
 <p align="center">
   <a href="https://rlogger.github.io/bayes-hdc/"><strong>Documentation</strong></a> ·
-  <a href="DESIGN.md">Design notes</a> ·
   <a href="examples/">Examples</a> ·
-  <a href="docs/workshop_paper.tex">Paper</a> ·
-  <a href="ORIGINALITY.md">Originality</a> ·
+  <a href="DESIGN.md">Design notes</a> ·
   <a href="BENCHMARKS.md">Benchmarks</a> ·
   <a href="COMMUNITY.md">Community</a> ·
   <a href="https://github.com/rlogger/bayes-hdc/discussions">Discussions</a>
@@ -48,24 +46,22 @@
 
 ## About
 
-**bayes-hdc** is a [JAX](https://github.com/google/jax) library for **hyperdimensional computing (HDC)** and **vector symbolic architectures (VSA)** with a built-in probabilistic layer — **PVSA**, *Probabilistic Vector Symbolic Architectures*. It provides Gaussian and Dirichlet hypervector types with closed-form moment propagation under `bind`, `bundle`, and `permute`; explicit cyclic-shift group actions with property-based equivariance verifiers; calibrated probabilities via temperature scaling (Guo 2017); and coverage-guaranteed prediction sets via split-conformal prediction with APS scores (Romano 2020). The deterministic substrate ships eight classical VSA models — **BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB** — implemented directly from the primary research papers (Kanerva 2009; Plate 1995; Gayler 2003; Kleyko et al. 2022). Every type is a JAX pytree, so `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with every operation, on CPU, GPU, and TPU.
+**bayes-hdc** is a [JAX](https://github.com/google/jax) library for **hyperdimensional computing (HDC)** and **vector symbolic architectures (VSA)** with a built-in probabilistic layer — **PVSA**, *Probabilistic Vector Symbolic Architectures*. It provides Gaussian and Dirichlet hypervector types with closed-form moment propagation under `bind`, `bundle`, and `permute`; explicit cyclic-shift group actions with property-based equivariance verifiers; calibrated probabilities via temperature scaling; and coverage-guaranteed prediction sets via split-conformal prediction. The deterministic substrate ships eight classical VSA models — **BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB** — with a uniform API. Every type is a JAX pytree, so `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with every operation, on CPU, GPU, and TPU.
 
-The library is built for, and legibly useful to, three active research programmes: **transformer weight-space learning**, **equivariant neural functionals (NFNs)**, and **meta-RL with structured representations**. See [`DESIGN.md`](DESIGN.md) for the long-form story.
-
-📖 **Documentation:** [rlogger.github.io/bayes-hdc](https://rlogger.github.io/bayes-hdc/) — full API reference, user guide, and design notes, auto-deployed from `main` via GitHub Pages.<br/>
-💬 **Discuss:** [GitHub Discussions](https://github.com/rlogger/bayes-hdc/discussions) for Q&A, ideas, and show-and-tell.<br/>
-🤝 **Contribute:** see [`COMMUNITY.md`](COMMUNITY.md) for paths from ten-minute fixes to co-authorship.
+📖 **Documentation:** [rlogger.github.io/bayes-hdc](https://rlogger.github.io/bayes-hdc/) — API reference, user guide, examples.<br/>
+💬 **Discuss:** [GitHub Discussions](https://github.com/rlogger/bayes-hdc/discussions) for Q&A, ideas, show-and-tell.<br/>
+🤝 **Contribute:** see [`COMMUNITY.md`](COMMUNITY.md) for ways to get involved.
 
 ### Highlights
 
-- **Pytree-native.** `jit` / `vmap` / `grad` / `pmap` / `shard_map` compose with every operation unconditionally.
-- **Closed-form algebra.** `bind_gaussian`, `bundle_gaussian`, `kl_gaussian`, `kl_dirichlet` are analytic. No Monte Carlo where math is enough.
-- **First-class group actions.** `Z/d` cyclic shift exposed as a real group object, with property-based verifiers for shift equivariance and invariance.
-- **Calibration & coverage out of the box.** Temperature scaling (Guo 2017) and split-conformal prediction (Romano 2020), each with formal guarantees.
+- **Pytree-native.** `jit` / `vmap` / `grad` / `pmap` / `shard_map` compose with every operation.
+- **Closed-form algebra.** `bind_gaussian`, `bundle_gaussian`, `kl_gaussian`, `kl_dirichlet` are analytic.
+- **First-class group actions.** `Z/d` cyclic shift as a group object, with property-based equivariance verifiers.
+- **Calibration & coverage out of the box.** Temperature scaling and split-conformal APS prediction sets.
 - **Differentiable end-to-end.** Reparameterisation samplers on every distributional op; `jax.grad` composes through everything.
 - **Scales.** From a laptop CPU to a TPU pod with the same code via `pmap` / `shard_map` wrappers.
-- **Deterministic VSA foundation.** Eight classical VSA models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB) implemented from the primary papers; nothing ported.
-- **480 tests, 97 % coverage.** Property-based tests for every algebraic identity. CI on Ubuntu + macOS × Python 3.9–3.13 on every push.
+- **Eight VSA models** under one uniform `bind` / `bundle` / `inverse` / `similarity` / `random` API.
+- **480 tests, 97 % coverage.** Ubuntu + macOS × Python 3.9–3.13 on every push.
 
 ## Quick tour
 
@@ -213,30 +209,25 @@ pip install -e ".[examples]"
 python examples/<name>.py
 ```
 
-### Research-connection demos
+### Get started
 
 | Example | What it shows |
 |---|---|
-| [`weight_space_posterior.py`](examples/weight_space_posterior.py) | A classifier's weights are a `GaussianHV` posterior — a distribution over weight vectors. Sample from it, predict with each draw, read off epistemic uncertainty, verify `Z/d`-equivariance of the whole pipeline. |
 | [`pvsa_quickstart.py`](examples/pvsa_quickstart.py) | 90-second tour through every PVSA primitive end-to-end. |
-
-### PVSA applications — what HDC is most-applied to in the literature
-
-| Example | What it shows |
-|---|---|
-| [`emg_gesture_recognition.py`](examples/emg_gesture_recognition.py) | Hand-gesture classification from 8-channel sEMG via channel-position binding and bundling. The single most-cited HDC application since Rahimi et al. (2016). Reports calibrated per-gesture probabilities, posterior variance, and confusion. |
-| [`activity_recognition.py`](examples/activity_recognition.py) | UCIHAR-style 6-class daily-living activity recognition (walking, stairs, sitting, standing, laying) with feature-value binding, temperature calibration, and conformal prediction sets at α = 0.1. Includes selective-abstention pattern. |
-| [`language_identification.py`](examples/language_identification.py) | Character-trigram language ID across 5 European languages (Joshi, Halseth, Kanerva 2016) with calibrated probabilities and conformal sets that grow on ambiguous input. |
-| [`sequence_memory.py`](examples/sequence_memory.py) | A 12-token sentence encoded as one hypervector, retrieved per position via un-permute and cleanup. The classical "sequence as permute-bundle" pattern. |
-
-### Classical HDC
-
-| Example | What it shows |
-|---|---|
-| [`song_matching.py`](examples/song_matching.py) | Bag-of-words song similarity; the sum of word hypervectors is legible by eye. |
-| [`kanerva_example.py`](examples/kanerva_example.py) | "Dollar of Mexico" — role-filler binding and analogical reasoning. |
 | [`basic_operations.py`](examples/basic_operations.py) | bind / bundle / permute / similarity across all eight VSA models. |
 | [`classification_simple.py`](examples/classification_simple.py) | Vanilla `RandomEncoder` + `CentroidClassifier` pipeline. |
+
+### Applications
+
+| Example | What it shows |
+|---|---|
+| [`emg_gesture_recognition.py`](examples/emg_gesture_recognition.py) | Hand-gesture classification from 8-channel sEMG via channel-position binding and bundling. Calibrated per-gesture probabilities, posterior variance, and confusion. |
+| [`activity_recognition.py`](examples/activity_recognition.py) | UCIHAR-style 6-class daily-living activity recognition (walking, stairs, sitting, standing, laying) with feature-value binding, temperature calibration, and conformal prediction sets at α = 0.1. Includes a selective-abstention pattern. |
+| [`language_identification.py`](examples/language_identification.py) | Character-trigram language ID across 5 European languages with calibrated probabilities and conformal sets that grow on ambiguous input. |
+| [`sequence_memory.py`](examples/sequence_memory.py) | A 12-token sentence encoded as one hypervector, retrieved per position via un-permute and cleanup. |
+| [`weight_space_posterior.py`](examples/weight_space_posterior.py) | A classifier's weights as a `GaussianHV` posterior — a distribution over weight vectors. Sample from it, predict with each draw, read off epistemic uncertainty. |
+| [`song_matching.py`](examples/song_matching.py) | Bag-of-words song similarity — the sum of word hypervectors is legible by eye. |
+| [`kanerva_example.py`](examples/kanerva_example.py) | "Dollar of Mexico" — role-filler binding and analogical reasoning. |
 
 ## Project status
 
@@ -255,56 +246,16 @@ See [`CHANGELOG.md`](CHANGELOG.md) for what's shipped and [`DESIGN.md`](DESIGN.m
 
 ## Community and contributing
 
-bayes-hdc is built to outgrow any single lab. Five distinct ways to participate, sorted from "ten minutes" to "co-author":
+Four ways to get involved, sorted from "ten minutes" to "deep dive":
 
-- **Ten minutes** — star the repo, post a [show-and-tell Discussion](https://github.com/rlogger/bayes-hdc/discussions/categories/show-and-tell), fix a typo
-- **One hour** — claim a [`good first issue`](https://github.com/rlogger/bayes-hdc/labels/good%20first%20issue), add a docstring example, write a benchmark
-- **Half a day** — build a new application example, port a dataset loader, add a VSA model
-- **Multi-day** — add a probabilistic primitive, wire bayes-hdc into a downstream library (flax / equinox / blackjax / dynamax), run a benchmark study
-- **Co-author** — bring a closed-form result, a tighter capacity bound, or a new theorem; we work with you on the publication
+- **Ten minutes** — star the repo, post a [show-and-tell Discussion](https://github.com/rlogger/bayes-hdc/discussions/categories/show-and-tell), fix a typo.
+- **One hour** — claim a [`good first issue`](https://github.com/rlogger/bayes-hdc/labels/good%20first%20issue), add a docstring example, write a benchmark.
+- **Half a day** — build a new application example, port a dataset loader, add a VSA model.
+- **Deep dive** — add a probabilistic primitive, wire bayes-hdc into a downstream library (flax / equinox / blackjax / dynamax).
 
-Full pathway with mentor-tagged issues, paths to maintainership, and recognition in [`COMMUNITY.md`](COMMUNITY.md). Setup, style, and release process in [`CONTRIBUTING.md`](CONTRIBUTING.md). All interactions follow the [Code of Conduct](CODE_OF_CONDUCT.md). Security disclosures: [`SECURITY.md`](SECURITY.md).
+Detailed paths, paths to maintainership, and recognition in [`COMMUNITY.md`](COMMUNITY.md). Setup, style, and release process in [`CONTRIBUTING.md`](CONTRIBUTING.md). All interactions follow the [Code of Conduct](CODE_OF_CONDUCT.md). Security disclosures: [`SECURITY.md`](SECURITY.md).
 
-**Channels:** [Discussions](https://github.com/rlogger/bayes-hdc/discussions) for Q&A, ideas, RFCs · [Issues](https://github.com/rlogger/bayes-hdc/issues) for confirmed bugs and concrete tasks · email `rajdeeps@usc.edu` for security and private collaboration.
-
-## Citation
-
-If you use bayes-hdc in research, please cite both the software and (once accepted) the accompanying paper.
-
-**BibTeX (software):**
-
-```bibtex
-@software{bayes_hdc,
-  author       = {Singh, Rajdeep},
-  title        = {{bayes-hdc: Probabilistic Vector Symbolic Architectures
-                   for Hyperdimensional Computing in JAX}},
-  year         = {2026},
-  version      = {0.4.0a0},
-  url          = {https://github.com/rlogger/bayes-hdc},
-  howpublished = {\url{https://rlogger.github.io/bayes-hdc/}},
-  license      = {MIT},
-}
-```
-
-**APA:**
-
-> Singh, R. (2026). *bayes-hdc: Probabilistic Vector Symbolic Architectures for Hyperdimensional Computing in JAX* (Version 0.4.0a0) [Computer software]. https://github.com/rlogger/bayes-hdc
-
-A machine-readable [`CITATION.cff`](CITATION.cff) is at the repository root; GitHub's "Cite this repository" button reads from it. See [`ORIGINALITY.md`](ORIGINALITY.md) for per-component primary-source attribution.
-
-## References
-
-The library implements every component directly from the primary research paper. Selected core references:
-
-- Kanerva (2009). *Hyperdimensional Computing.*
-- Plate (1995). *Holographic Reduced Representations.*
-- Gayler (2003). *Vector Symbolic Architectures answer Jackendoff's challenges.*
-- Joshi, Halseth, Kanerva (2016). *Language Geometry using Random Indexing.*
-- Guo et al. (2017). *On Calibration of Modern Neural Networks.*
-- Hendrycks & Gimpel (2017). *A Baseline for Detecting Misclassified and OOD Examples.*
-- Romano et al. (2020). *Classification with Valid and Adaptive Coverage.*
-- Ramsauer et al. (2020). *Hopfield Networks is All You Need.*
-- Kleyko et al. (2022). *A Survey on Hyperdimensional Computing aka Vector Symbolic Architectures.*
+**Channels:** [Discussions](https://github.com/rlogger/bayes-hdc/discussions) · [Issues](https://github.com/rlogger/bayes-hdc/issues) · email `rajdeeps@usc.edu` for security.
 
 ## License
 
