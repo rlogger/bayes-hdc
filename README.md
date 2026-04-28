@@ -219,6 +219,7 @@ python examples/<name>.py
 |---|---|
 | [`emg_gesture_recognition.py`](examples/emg_gesture_recognition.py) | Hand-gesture classification from 8-channel sEMG via channel-position binding and bundling. Calibrated per-gesture probabilities, posterior variance, and confusion. |
 | [`activity_recognition.py`](examples/activity_recognition.py) | UCIHAR-style 6-class daily-living activity recognition (walking, stairs, sitting, standing, laying) with feature-value binding, temperature calibration, and conformal prediction sets at α = 0.1. Includes a selective-abstention pattern. |
+| [`image_classification.py`](examples/image_classification.py) | Classical HDC for vision — random-projection encoding + centroid / adaptive / ridge classifiers. Bundled 8×8 digits offline, real MNIST 28×28 with `--real-data`. |
 | [`language_identification.py`](examples/language_identification.py) | Character-trigram language ID across 5 European languages with calibrated probabilities and conformal sets that grow on ambiguous input. |
 | [`sequence_memory.py`](examples/sequence_memory.py) | A 12-token sentence encoded as one hypervector, retrieved per position via un-permute and cleanup. |
 | [`weight_space_posterior.py`](examples/weight_space_posterior.py) | A classifier's weights as a `GaussianHV` posterior — a distribution over weight vectors. Sample from it, predict with each draw, read off epistemic uncertainty. |
