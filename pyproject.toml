@@ -5,36 +5,81 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bayes-hdc"
 version = "0.4.0a0"
-description = "Probabilistic Vector Symbolic Architectures (PVSA) — an algebra of uncertainty for Hyperdimensional Computing, built on JAX"
+description = "Probabilistic hyperdimensional computing in JAX. Closed-form Gaussian and Dirichlet hypervectors, group-theoretic equivariance, calibrated probabilities, and coverage-guaranteed conformal prediction sets — pytree-native end-to-end."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 authors = [
-    {name = "Rajdeep Singh"},
+    {name = "Rajdeep Singh", email = "rajdeeps@usc.edu"},
 ]
+maintainers = [
+    {name = "Rajdeep Singh", email = "rajdeeps@usc.edu"},
+]
+# Keywords are searchable on PyPI and indexed by some search engines.
+# Front-load the discoverable terms; redundancy here is good.
 keywords = [
+    "hyperdimensional computing",
+    "hyperdimensional-computing",
+    "vector symbolic architectures",
+    "vector-symbolic-architectures",
+    "VSA",
+    "HDC",
     "Bayesian hyperdimensional computing",
     "probabilistic vector symbolic architectures",
+    "PVSA",
     "uncertainty quantification",
     "calibrated retrieval",
-    "hyperdimensional computing",
-    "vector symbolic architectures",
-    "HDC",
-    "VSA",
+    "calibration",
+    "conformal prediction",
+    "temperature scaling",
+    "Gaussian hypervectors",
+    "Dirichlet hypervectors",
     "JAX",
+    "jax",
+    "pytree",
+    "vmap",
+    "pmap",
+    "neuromorphic",
+    "edge ML",
+    "Bayesian machine learning",
+    "probabilistic machine learning",
     "machine learning",
+    "scientific computing",
+    "Kanerva",
+    "Plate",
+    "Holographic Reduced Representations",
+    "HRR",
+    "BSC",
+    "MAP",
+    "associative memory",
+    "Hopfield networks",
+    "sparse distributed memory",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
+    "Environment :: GPU",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Framework :: Jupyter",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 dependencies = [
     "jax>=0.4.20",
@@ -69,10 +114,17 @@ benchmark = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rlogger/bayes-hdc"
-Documentation = "https://bayes-hdc.readthedocs.io"
+Homepage = "https://rlogger.github.io/bayes-hdc/"
+Documentation = "https://rlogger.github.io/bayes-hdc/"
 Repository = "https://github.com/rlogger/bayes-hdc"
-"Bug Tracker" = "https://github.com/rlogger/bayes-hdc/issues"
+"Source Code" = "https://github.com/rlogger/bayes-hdc"
+Issues = "https://github.com/rlogger/bayes-hdc/issues"
+Discussions = "https://github.com/rlogger/bayes-hdc/discussions"
+Changelog = "https://github.com/rlogger/bayes-hdc/blob/main/CHANGELOG.md"
+"Design notes" = "https://github.com/rlogger/bayes-hdc/blob/main/DESIGN.md"
+Originality = "https://github.com/rlogger/bayes-hdc/blob/main/ORIGINALITY.md"
+Benchmarks = "https://github.com/rlogger/bayes-hdc/blob/main/BENCHMARKS.md"
+Citation = "https://github.com/rlogger/bayes-hdc/blob/main/CITATION.cff"
 
 [tool.setuptools.packages.find]
 where = ["."]

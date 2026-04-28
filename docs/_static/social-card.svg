@@ -1,0 +1,79 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="bayes-hdc — Probabilistic hyperdimensional computing in JAX">
+  <defs>
+    <radialGradient id="posterior" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f08a4b" stop-opacity="0.95"/>
+      <stop offset="55%" stop-color="#f08a4b" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#f08a4b" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" x="0" y="0" width="36" height="36" patternUnits="userSpaceOnUse">
+      <circle cx="18" cy="18" r="1.2" fill="#1e1e3f" opacity="0.06"/>
+    </pattern>
+  </defs>
+
+  <!-- Background. -->
+  <rect width="1200" height="630" fill="#fafafc"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+
+  <!-- Logo on left side, vertically centred. -->
+  <g transform="translate(80, 175)">
+    <circle cx="140" cy="140" r="124" fill="none" stroke="#1e1e3f" stroke-width="4"/>
+    <circle cx="140" cy="140" r="86" fill="url(#posterior)"/>
+    <g stroke="#1e1e3f" stroke-width="1.4" opacity="0.18">
+      <line x1="140" y1="20"  x2="140" y2="260"/>
+      <line x1="20"  y1="140" x2="260" y2="140"/>
+      <line x1="55"  y1="55"  x2="225" y2="225"/>
+      <line x1="225" y1="55"  x2="55"  y2="225"/>
+    </g>
+    <g fill="#1e1e3f">
+      <circle cx="160" cy="120" r="3.5"/>
+      <circle cx="120" cy="160" r="3.5"/>
+      <circle cx="166" cy="160" r="3"/>
+      <circle cx="116" cy="116" r="3"/>
+      <circle cx="151" cy="146" r="3"/>
+    </g>
+    <circle cx="140" cy="140" r="8" fill="#1e1e3f"/>
+  </g>
+
+  <!-- Wordmark. -->
+  <text x="430" y="290"
+        font-family="ui-monospace, 'SF Mono', 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace"
+        font-size="100"
+        font-weight="700"
+        fill="#1e1e3f"
+        letter-spacing="-2">bayes-hdc</text>
+
+  <!-- Tagline. -->
+  <text x="432" y="345"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="32"
+        font-weight="500"
+        fill="#3a3a55">Probabilistic hyperdimensional computing in JAX</text>
+
+  <!-- Sub-tagline -->
+  <text x="432" y="385"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="22"
+        font-weight="400"
+        fill="#6a6a85">Closed-form moments · group-theoretic equivariance · conformal prediction</text>
+
+  <!-- Algebraic motif at the bottom -->
+  <g font-family="ui-monospace, 'SF Mono', 'JetBrains Mono', monospace"
+     font-size="20" fill="#1e1e3f" opacity="0.55">
+    <text x="432" y="460">z = bind_gaussian(x, y)         # exact moment propagation</text>
+    <text x="432" y="490">conf = ConformalClassifier(α=0.1)  # P(y ∈ S) ≥ 0.9</text>
+    <text x="432" y="520">jax.jit, jax.vmap, jax.grad, jax.pmap, jax.shard_map</text>
+  </g>
+
+  <!-- URL footer -->
+  <text x="80" y="595"
+        font-family="ui-monospace, 'SF Mono', 'JetBrains Mono', monospace"
+        font-size="22"
+        fill="#6a6a85"
+        opacity="0.7">github.com/rlogger/bayes-hdc</text>
+  <text x="1120" y="595"
+        font-family="ui-monospace, 'SF Mono', 'JetBrains Mono', monospace"
+        font-size="22"
+        fill="#6a6a85"
+        opacity="0.7"
+        text-anchor="end">MIT</text>
+</svg>

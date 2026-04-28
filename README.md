@@ -1,6 +1,15 @@
+<!--
+  bayes-hdc — Probabilistic hyperdimensional computing in JAX.
+  Closed-form Gaussian and Dirichlet hypervectors, group-theoretic equivariance verifiers,
+  calibrated probabilities, conformal prediction sets. Pytree-native, end-to-end differentiable.
+  Keywords: hyperdimensional computing, vector symbolic architectures, VSA, HDC, JAX,
+  Bayesian machine learning, conformal prediction, calibration, uncertainty quantification,
+  Kanerva, HRR, BSC, MAP, neuromorphic, edge ML, Hopfield networks, sparse distributed memory.
+-->
+
 <p align="center">
   <a href="https://github.com/rlogger/bayes-hdc">
-    <img src="assets/banner.svg" alt="bayes-hdc — Probabilistic hyperdimensional computing in JAX" width="100%" />
+    <img src="assets/banner.svg" alt="bayes-hdc — Probabilistic hyperdimensional computing in JAX. Closed-form moments, group-theoretic equivariance, conformal prediction." width="100%" />
   </a>
 </p>
 
@@ -19,12 +28,19 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/rlogger/bayes-hdc/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/rlogger/bayes-hdc?style=social" /></a>
+  <a href="https://github.com/rlogger/bayes-hdc/discussions"><img alt="GitHub Discussions" src="https://img.shields.io/github/discussions/rlogger/bayes-hdc" /></a>
+  <a href="https://github.com/rlogger/bayes-hdc/issues?q=is%3Aopen+label%3A%22good+first+issue%22"><img alt="Good first issues" src="https://img.shields.io/github/issues/rlogger/bayes-hdc/good%20first%20issue?label=good%20first%20issues" /></a>
+</p>
+
+<p align="center">
   <a href="https://rlogger.github.io/bayes-hdc/"><strong>Documentation</strong></a> ·
   <a href="DESIGN.md">Design notes</a> ·
   <a href="examples/">Examples</a> ·
   <a href="docs/workshop_paper.tex">Paper</a> ·
   <a href="ORIGINALITY.md">Originality</a> ·
   <a href="BENCHMARKS.md">Benchmarks</a> ·
+  <a href="COMMUNITY.md">Community</a> ·
   <a href="https://github.com/rlogger/bayes-hdc/discussions">Discussions</a>
 </p>
 
@@ -32,11 +48,13 @@
 
 ## About
 
-bayes-hdc is a JAX library for hyperdimensional computing (HDC) with a probabilistic layer on top — **PVSA**, Probabilistic Vector Symbolic Architectures. Every hypervector is an element of a small, well-designed algebra: a commutative binding, an associative bundling, a cyclic group action, a cosine measure, and a posterior distribution over the whole thing. Every type is a JAX pytree, so `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with every operation. The API is small, the moments under bind and bundle are closed-form, and the algebraic and coverage claims are property-tested.
+**bayes-hdc** is a [JAX](https://github.com/google/jax) library for **hyperdimensional computing (HDC)** and **vector symbolic architectures (VSA)** with a built-in probabilistic layer — **PVSA**, *Probabilistic Vector Symbolic Architectures*. It provides Gaussian and Dirichlet hypervector types with closed-form moment propagation under `bind`, `bundle`, and `permute`; explicit cyclic-shift group actions with property-based equivariance verifiers; calibrated probabilities via temperature scaling (Guo 2017); and coverage-guaranteed prediction sets via split-conformal prediction with APS scores (Romano 2020). The deterministic substrate ships eight classical VSA models — **BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB** — implemented directly from the primary research papers (Kanerva 2009; Plate 1995; Gayler 2003; Kleyko et al. 2022). Every type is a JAX pytree, so `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with every operation, on CPU, GPU, and TPU.
 
-The library is legibly useful at the intersection of three active research programmes: **transformer weight-space learning**, **equivariant neural functionals (NFNs)**, and **meta-RL with structured representations**. See [`DESIGN.md`](DESIGN.md) for the long-form story.
+The library is built for, and legibly useful to, three active research programmes: **transformer weight-space learning**, **equivariant neural functionals (NFNs)**, and **meta-RL with structured representations**. See [`DESIGN.md`](DESIGN.md) for the long-form story.
 
-📖 **Documentation:** [rlogger.github.io/bayes-hdc](https://rlogger.github.io/bayes-hdc/) — full API reference, user guide, and design notes (auto-deployed from `main` via GitHub Pages).
+📖 **Documentation:** [rlogger.github.io/bayes-hdc](https://rlogger.github.io/bayes-hdc/) — full API reference, user guide, and design notes, auto-deployed from `main` via GitHub Pages.<br/>
+💬 **Discuss:** [GitHub Discussions](https://github.com/rlogger/bayes-hdc/discussions) for Q&A, ideas, and show-and-tell.<br/>
+🤝 **Contribute:** see [`COMMUNITY.md`](COMMUNITY.md) for paths from ten-minute fixes to co-authorship.
 
 ### Highlights
 
@@ -237,27 +255,42 @@ See [`CHANGELOG.md`](CHANGELOG.md) for what's shipped and [`DESIGN.md`](DESIGN.m
 
 ## Community and contributing
 
-- **Questions** — [GitHub Discussions → Q&A](https://github.com/rlogger/bayes-hdc/discussions/categories/q-a)
-- **Bugs** — [open an issue](https://github.com/rlogger/bayes-hdc/issues/new?template=bug_report.yml) with a reproducer
-- **Feature ideas** — [GitHub Discussions → Ideas](https://github.com/rlogger/bayes-hdc/discussions/categories/ideas)
-- **Security** — see [`SECURITY.md`](SECURITY.md); do not open a public issue
-- **Contributing** — read [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, style, and release process. All interactions are governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+bayes-hdc is built to outgrow any single lab. Five distinct ways to participate, sorted from "ten minutes" to "co-author":
+
+- **Ten minutes** — star the repo, post a [show-and-tell Discussion](https://github.com/rlogger/bayes-hdc/discussions/categories/show-and-tell), fix a typo
+- **One hour** — claim a [`good first issue`](https://github.com/rlogger/bayes-hdc/labels/good%20first%20issue), add a docstring example, write a benchmark
+- **Half a day** — build a new application example, port a dataset loader, add a VSA model
+- **Multi-day** — add a probabilistic primitive, wire bayes-hdc into a downstream library (flax / equinox / blackjax / dynamax), run a benchmark study
+- **Co-author** — bring a closed-form result, a tighter capacity bound, or a new theorem; we work with you on the publication
+
+Full pathway with mentor-tagged issues, paths to maintainership, and recognition in [`COMMUNITY.md`](COMMUNITY.md). Setup, style, and release process in [`CONTRIBUTING.md`](CONTRIBUTING.md). All interactions follow the [Code of Conduct](CODE_OF_CONDUCT.md). Security disclosures: [`SECURITY.md`](SECURITY.md).
+
+**Channels:** [Discussions](https://github.com/rlogger/bayes-hdc/discussions) for Q&A, ideas, RFCs · [Issues](https://github.com/rlogger/bayes-hdc/issues) for confirmed bugs and concrete tasks · email `rajdeeps@usc.edu` for security and private collaboration.
 
 ## Citation
 
-If you use bayes-hdc in research, please cite:
+If you use bayes-hdc in research, please cite both the software and (once accepted) the accompanying paper.
+
+**BibTeX (software):**
 
 ```bibtex
 @software{bayes_hdc,
-  author = {Singh, Rajdeep},
-  title  = {{bayes-hdc: Probabilistic Vector Symbolic Architectures
-             for Hyperdimensional Computing}},
-  year   = {2026},
-  url    = {https://github.com/rlogger/bayes-hdc},
+  author       = {Singh, Rajdeep},
+  title        = {{bayes-hdc: Probabilistic Vector Symbolic Architectures
+                   for Hyperdimensional Computing in JAX}},
+  year         = {2026},
+  version      = {0.4.0a0},
+  url          = {https://github.com/rlogger/bayes-hdc},
+  howpublished = {\url{https://rlogger.github.io/bayes-hdc/}},
+  license      = {MIT},
 }
 ```
 
-A machine-readable [`CITATION.cff`](CITATION.cff) is at the repository root; the GitHub "Cite this repository" button reads from it. See [`ORIGINALITY.md`](ORIGINALITY.md) for per-component primary-source attribution.
+**APA:**
+
+> Singh, R. (2026). *bayes-hdc: Probabilistic Vector Symbolic Architectures for Hyperdimensional Computing in JAX* (Version 0.4.0a0) [Computer software]. https://github.com/rlogger/bayes-hdc
+
+A machine-readable [`CITATION.cff`](CITATION.cff) is at the repository root; GitHub's "Cite this repository" button reads from it. See [`ORIGINALITY.md`](ORIGINALITY.md) for per-component primary-source attribution.
 
 ## References
 
