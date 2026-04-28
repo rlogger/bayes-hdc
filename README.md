@@ -8,7 +8,7 @@
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml/badge.svg?branch=main" /></a>
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml/badge.svg?branch=main" /></a>
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml/badge.svg?branch=main" /></a>
-  <a href="https://bayes-hdc.readthedocs.io/en/latest/"><img alt="Read the Docs" src="https://img.shields.io/readthedocs/bayes-hdc?logo=readthedocs&logoColor=white" /></a>
+  <a href="https://rlogger.github.io/bayes-hdc/"><img alt="Documentation" src="https://img.shields.io/badge/docs-online-1e1e3f?logo=readthedocs&logoColor=white" /></a>
   <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://img.shields.io/badge/coverage-97%25-brightgreen.svg" /></a>
   <img alt="Tests" src="https://img.shields.io/badge/tests-480%20passing-brightgreen.svg" />
   <img alt="Python" src="https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12%20|%203.13-blue.svg" />
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://bayes-hdc.readthedocs.io/en/latest/"><strong>Documentation</strong></a> ·
+  <a href="https://rlogger.github.io/bayes-hdc/"><strong>Documentation</strong></a> ·
   <a href="DESIGN.md">Design notes</a> ·
   <a href="examples/">Examples</a> ·
   <a href="docs/workshop_paper.tex">Paper</a> ·
@@ -36,6 +36,8 @@ bayes-hdc is a JAX library for hyperdimensional computing (HDC) with a probabili
 
 The library is legibly useful at the intersection of three active research programmes: **transformer weight-space learning**, **equivariant neural functionals (NFNs)**, and **meta-RL with structured representations**. See [`DESIGN.md`](DESIGN.md) for the long-form story.
 
+📖 **Documentation:** [rlogger.github.io/bayes-hdc](https://rlogger.github.io/bayes-hdc/) — full API reference, user guide, and design notes (auto-deployed from `main` via GitHub Pages).
+
 ### Highlights
 
 - **Pytree-native.** `jit` / `vmap` / `grad` / `pmap` / `shard_map` compose with every operation unconditionally.
@@ -45,7 +47,7 @@ The library is legibly useful at the intersection of three active research progr
 - **Differentiable end-to-end.** Reparameterisation samplers on every distributional op; `jax.grad` composes through everything.
 - **Scales.** From a laptop CPU to a TPU pod with the same code via `pmap` / `shard_map` wrappers.
 - **Deterministic VSA foundation.** Eight classical VSA models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB) implemented from the primary papers; nothing ported.
-- **475 tests, 97 % coverage.** Property-based tests for every algebraic identity. CI on Ubuntu + macOS × Python 3.9–3.13 on every push.
+- **480 tests, 97 % coverage.** Property-based tests for every algebraic identity. CI on Ubuntu + macOS × Python 3.9–3.13 on every push.
 
 ## Quick tour
 
