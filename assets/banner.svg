@@ -1,0 +1,61 @@
+<svg width="1280" height="320" viewBox="0 0 1280 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="bayes-hdc — Probabilistic hyperdimensional computing in JAX">
+  <defs>
+    <radialGradient id="posterior" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f08a4b" stop-opacity="0.95"/>
+      <stop offset="55%" stop-color="#f08a4b" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#f08a4b" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Faint dot grid suggesting a high-dim ambient space. -->
+    <pattern id="grid" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="16" cy="16" r="1.1" fill="#1e1e3f" opacity="0.07"/>
+    </pattern>
+  </defs>
+
+  <!-- Background. -->
+  <rect width="1280" height="320" fill="#fafafc"/>
+  <rect width="1280" height="320" fill="url(#grid)"/>
+
+  <!-- Logo on left, vertically centred. -->
+  <g transform="translate(80, 60)">
+    <circle cx="100" cy="100" r="88" fill="none" stroke="#1e1e3f" stroke-width="3"/>
+    <circle cx="100" cy="100" r="62" fill="url(#posterior)"/>
+    <g stroke="#1e1e3f" stroke-width="1" opacity="0.18">
+      <line x1="100" y1="20"  x2="100" y2="180"/>
+      <line x1="20"  y1="100" x2="180" y2="100"/>
+      <line x1="43"  y1="43"  x2="157" y2="157"/>
+      <line x1="157" y1="43"  x2="43"  y2="157"/>
+    </g>
+    <g fill="#1e1e3f">
+      <circle cx="115" cy="86"  r="2.5"/>
+      <circle cx="86"  cy="113" r="2.5"/>
+      <circle cx="119" cy="115" r="2"/>
+      <circle cx="83"  cy="83"  r="2"/>
+      <circle cx="108" cy="105" r="2"/>
+    </g>
+    <circle cx="100" cy="100" r="6" fill="#1e1e3f"/>
+  </g>
+
+  <!-- Wordmark. -->
+  <text x="320" y="170"
+        font-family="ui-monospace, 'SF Mono', 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace"
+        font-size="84"
+        font-weight="700"
+        fill="#1e1e3f"
+        letter-spacing="-1">bayes-hdc</text>
+
+  <!-- Tagline. -->
+  <text x="322" y="220"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="24"
+        font-weight="400"
+        fill="#3a3a55">Probabilistic hyperdimensional computing in JAX</text>
+
+  <!-- Algebraic motif on the right (just three primitives, monospace). -->
+  <g font-family="ui-monospace, 'SF Mono', 'JetBrains Mono', monospace"
+     font-size="18" fill="#1e1e3f" opacity="0.55">
+    <text x="900" y="148">bind_gaussian(x, y)</text>
+    <text x="900" y="178">bundle_gaussian(xs)</text>
+    <text x="900" y="208">expected_cosine(x, y)</text>
+  </g>
+</svg>

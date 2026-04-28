@@ -1,16 +1,16 @@
-<h1 align="center">bayes-hdc</h1>
-
 <p align="center">
-  <strong>Probabilistic hyperdimensional computing in JAX.</strong><br/>
-  Hypervectors as a pytree-native algebra. Closed-form moments. Group actions.<br/>
-  Equivariant bilinear operators. Reparameterisation gradients end-to-end.
+  <a href="https://github.com/rlogger/bayes-hdc">
+    <img src="assets/banner.svg" alt="bayes-hdc — Probabilistic hyperdimensional computing in JAX" width="100%" />
+  </a>
 </p>
 
 <p align="center">
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml/badge.svg?branch=main" /></a>
+  <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml/badge.svg?branch=main" /></a>
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml/badge.svg?branch=main" /></a>
+  <a href="https://bayes-hdc.readthedocs.io/en/latest/"><img alt="Read the Docs" src="https://img.shields.io/readthedocs/bayes-hdc?logo=readthedocs&logoColor=white" /></a>
   <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://img.shields.io/badge/coverage-97%25-brightgreen.svg" /></a>
-  <img alt="Tests" src="https://img.shields.io/badge/tests-475%20passing-brightgreen.svg" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-480%20passing-brightgreen.svg" />
   <img alt="Python" src="https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12%20|%203.13-blue.svg" />
   <img alt="JAX" src="https://img.shields.io/badge/JAX-%E2%89%A5%200.4.20-orange.svg" />
   <a href="https://github.com/rlogger/bayes-hdc/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
@@ -19,6 +19,7 @@
 </p>
 
 <p align="center">
+  <a href="https://bayes-hdc.readthedocs.io/en/latest/"><strong>Documentation</strong></a> ·
   <a href="DESIGN.md">Design notes</a> ·
   <a href="examples/">Examples</a> ·
   <a href="docs/workshop_paper.tex">Paper</a> ·

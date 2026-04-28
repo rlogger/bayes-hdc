@@ -47,7 +47,7 @@ LVQClassifier
    :undoc-members:
 
 RegularizedLSClassifier
-----------------------
+-----------------------
 
 .. autoclass:: bayes_hdc.models.RegularizedLSClassifier
    :members:

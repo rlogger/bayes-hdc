@@ -1,0 +1,36 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="bayes-hdc logo">
+  <defs>
+    <!-- Posterior cloud: a soft Gaussian-like falloff from the mean. -->
+    <radialGradient id="posterior" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f08a4b" stop-opacity="0.95"/>
+      <stop offset="55%" stop-color="#f08a4b" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#f08a4b" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Outer ring: the unit sphere on which hypervectors live. -->
+  <circle cx="100" cy="100" r="88" fill="none" stroke="#1e1e3f" stroke-width="3"/>
+
+  <!-- Posterior distribution. -->
+  <circle cx="100" cy="100" r="62" fill="url(#posterior)"/>
+
+  <!-- Faint radial axes suggesting high-dimensionality. -->
+  <g stroke="#1e1e3f" stroke-width="1" opacity="0.18">
+    <line x1="100" y1="20"  x2="100" y2="180"/>
+    <line x1="20"  y1="100" x2="180" y2="100"/>
+    <line x1="43"  y1="43"  x2="157" y2="157"/>
+    <line x1="157" y1="43"  x2="43"  y2="157"/>
+  </g>
+
+  <!-- Posterior samples scattered around the mean. -->
+  <g fill="#1e1e3f">
+    <circle cx="115" cy="86"  r="2.5"/>
+    <circle cx="86"  cy="113" r="2.5"/>
+    <circle cx="119" cy="115" r="2"/>
+    <circle cx="83"  cy="83"  r="2"/>
+    <circle cx="108" cy="105" r="2"/>
+  </g>
+
+  <!-- Mean point: the canonical "vector". -->
+  <circle cx="100" cy="100" r="6" fill="#1e1e3f"/>
+</svg>
