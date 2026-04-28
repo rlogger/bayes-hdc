@@ -7,25 +7,17 @@ programmes the design is in conversation with.
 
 ## 1. The algebra
 
-A Vector Symbolic Architecture (VSA) is a compact algebraic object on
-:math:`\mathbb{R}^d`: a commutative binding :math:`\star`, an associative
-bundling :math:`\oplus`, a cyclic group action :math:`T_k`, and a similarity
-measure (cosine). The choice of binding selects the VSA family — MAP uses
-element-wise product, HRR uses circular convolution, BSC uses XOR — but the
-interface is uniform.
+A Vector Symbolic Architecture (VSA) is a compact algebraic object on $\mathbb{R}^d$: a commutative binding $\star$, an associative bundling $\oplus$, a cyclic group action $T_k$, and a similarity measure (cosine). The choice of binding selects the VSA family — MAP uses element-wise product, HRR uses circular convolution, BSC uses XOR — but the interface is uniform.
 
 ### What the laws say
 
-For any hypervectors :math:`x, y, z \in \mathbb{R}^d`:
+For any hypervectors $x, y, z \in \mathbb{R}^d$:
 
-- **Commutative bind:** :math:`x \star y = y \star x`.
-- **Associative bundle:** :math:`(x \oplus y) \oplus z = x \oplus (y \oplus z)`.
-- **Distributivity:** :math:`x \star (y \oplus z) \approx (x \star y) \oplus (x \star z)`
-  (exact in HRR, approximate after normalisation in MAP).
-- **Self-inverse bind (MAP/BSC):** :math:`x \star x \approx \mathbf{1}` up to
-  the codebook.
-- **Quasi-orthogonality:** For random :math:`x, y`, :math:`\mathbb{E}[\cos(x, y)] \approx 0`
-  with variance :math:`1/d`.
+- **Commutative bind:** $x \star y = y \star x$.
+- **Associative bundle:** $(x \oplus y) \oplus z = x \oplus (y \oplus z)$.
+- **Distributivity:** $x \star (y \oplus z) \approx (x \star y) \oplus (x \star z)$ (exact in HRR, approximate after normalisation in MAP).
+- **Self-inverse bind (MAP/BSC):** $x \star x \approx \mathbf{1}$ up to the codebook.
+- **Quasi-orthogonality:** for random $x, y$, $\mathbb{E}[\cos(x, y)] \approx 0$ with variance $1/d$.
 
 `tests/test_functional.py` checks these at realistic dimensions. The ones
 that hold exactly are checked with `jnp.allclose`; the ones that hold up
@@ -34,19 +26,17 @@ flag violations without being flaky.
 
 ### The group action
 
-For fixed :math:`d`, cyclic shift by :math:`k` defines an action of
-:math:`\mathbb{Z}/d` on :math:`\mathbb{R}^d`:
+For fixed $d$, cyclic shift by $k$ defines an action of $\mathbb{Z}/d$ on $\mathbb{R}^d$:
 
-.. math::
-
-    T_k : \mathbb{R}^d \to \mathbb{R}^d, \qquad T_k(x)_i = x_{(i - k) \bmod d}.
+$$
+T_k : \mathbb{R}^d \to \mathbb{R}^d, \qquad T_k(x)_i = x_{(i - k) \bmod d}.
+$$
 
 The action is faithful, additive, and isometric:
 
-- :math:`T_k(x) = x \ \forall x \iff k \equiv 0 \pmod{d}` (faithful).
-- :math:`T_j \circ T_k = T_{j+k}` (additive).
-- :math:`\|T_k(x)\| = \|x\|` and :math:`\langle T_k(x), T_k(y)\rangle = \langle x, y\rangle`
-  (isometric).
+- $T_k(x) = x \ \forall x \iff k \equiv 0 \pmod{d}$ (faithful).
+- $T_j \circ T_k = T_{j+k}$ (additive).
+- $\|T_k(x)\| = \|x\|$ and $\langle T_k(x), T_k(y)\rangle = \langle x, y\rangle$ (isometric).
 
 The HDC primitives have two flavours of equivariance with respect to this
 action, and conflating them is a common mistake:
@@ -63,53 +53,42 @@ Test file: `tests/test_equivariance.py`.
 
 ## 2. PVSA: lifting to measures
 
-The probabilistic layer replaces each hypervector :math:`x \in \mathbb{R}^d`
-with a posterior distribution :math:`X`. A `GaussianHV` carries a mean
-:math:`\mu \in \mathbb{R}^d` and a per-dimension variance
-:math:`\sigma^2 \in \mathbb{R}_{\ge 0}^d`.
+The probabilistic layer replaces each hypervector $x \in \mathbb{R}^d$ with a posterior distribution $X$. A `GaussianHV` carries a mean $\mu \in \mathbb{R}^d$ and a per-dimension variance $\sigma^2 \in \mathbb{R}_{\ge 0}^d$.
 
 ### Closed-form moments
 
-For independent :math:`X \sim \mathcal{N}(\mu_x, \mathrm{diag}(\sigma_x^2))`
-and :math:`Y \sim \mathcal{N}(\mu_y, \mathrm{diag}(\sigma_y^2))`, the
-first and second moments of the element-wise product :math:`Z = X \cdot Y`
-are exact:
+For independent $X \sim \mathcal{N}(\mu_x, \mathrm{diag}(\sigma_x^2))$ and $Y \sim \mathcal{N}(\mu_y, \mathrm{diag}(\sigma_y^2))$, the first and second moments of the element-wise product $Z = X \cdot Y$ are exact:
 
-.. math::
+$$
+\begin{aligned}
+\mathbb{E}[Z]   &= \mu_x \cdot \mu_y, \\
+\mathrm{Var}[Z] &= \mu_x^2 \sigma_y^2 + \mu_y^2 \sigma_x^2 + \sigma_x^2 \sigma_y^2.
+\end{aligned}
+$$
 
-    \mathbb{E}[Z]   &= \mu_x \cdot \mu_y, \\
-    \mathrm{Var}[Z] &= \mu_x^2 \sigma_y^2 + \mu_y^2 \sigma_x^2 + \sigma_x^2 \sigma_y^2.
-
-`bind_gaussian` returns a `GaussianHV` with exactly these moments. It is
-not a Monte Carlo estimate. It is not a delta-method approximation. It is
-the analytic answer.
+`bind_gaussian` returns a `GaussianHV` with exactly these moments. It is not a Monte Carlo estimate. It is not a delta-method approximation. It is the analytic answer.
 
 The sum (bundle) is trivial under independence:
 
-.. math::
+$$
+\begin{aligned}
+\mathbb{E}\!\left[\textstyle\sum_i X_i\right]   &= \textstyle\sum_i \mu_i, \\
+\mathrm{Var}\!\left[\textstyle\sum_i X_i\right] &= \textstyle\sum_i \sigma_i^2.
+\end{aligned}
+$$
 
-    \mathbb{E}\big[\textstyle\sum_i X_i\big] &= \textstyle\sum_i \mu_i, \\
-    \mathrm{Var}\big[\textstyle\sum_i X_i\big] &= \textstyle\sum_i \sigma_i^2.
-
-Normalisation onto the unit sphere uses the delta method for the variance
-term, which is the dominant source of approximation in `bundle_gaussian` —
-the cost of insisting the library always returns objects on the manifold
-classical HDC uses.
+Normalisation onto the unit sphere uses the delta method for the variance term, which is the dominant source of approximation in `bundle_gaussian` — the cost of insisting the library always returns objects on the manifold classical HDC uses.
 
 ### KL divergences
 
-Gaussian-Gaussian and Dirichlet-Dirichlet KL divergences have closed forms:
+Gaussian–Gaussian and Dirichlet–Dirichlet KL divergences have closed forms:
 
-.. math::
+$$
+D_{\mathrm{KL}}\!\bigl(\mathcal{N}(\mu_0, \Sigma_0) \,\|\, \mathcal{N}(\mu_1, \Sigma_1)\bigr)
+= \tfrac{1}{2}\!\left[\mathrm{tr}(\Sigma_1^{-1}\Sigma_0) + (\mu_1 - \mu_0)^\top \Sigma_1^{-1} (\mu_1 - \mu_0) - d + \ln\tfrac{|\Sigma_1|}{|\Sigma_0|}\right].
+$$
 
-    D_{\mathrm{KL}}(\mathcal{N}(\mu_0, \Sigma_0) \,\|\, \mathcal{N}(\mu_1, \Sigma_1))
-        = \tfrac{1}{2}\Big[\mathrm{tr}(\Sigma_1^{-1}\Sigma_0) +
-          (\mu_1 - \mu_0)^\top \Sigma_1^{-1} (\mu_1 - \mu_0) - d +
-          \ln\tfrac{|\Sigma_1|}{|\Sigma_0|}\Big].
-
-`kl_gaussian` and `kl_dirichlet` return this analytically. They are
-differentiable end-to-end under `jax.grad`, which is what makes them
-useful in a variational objective.
+`kl_gaussian` and `kl_dirichlet` return this analytically. They are differentiable end-to-end under `jax.grad`, which is what makes them useful in a variational objective.
 
 ### Reparameterisation
 
@@ -184,10 +163,7 @@ than MLP-based.
 
 ### Equivariant neural functionals (NFNs)
 
-NFN-style architectures build layers that are equivariant under the
-symmetries of weight-space. Two of those symmetries are already first-class
-here: the cyclic shift action of `Z/d`, and the channel permutation that
-acts on :math:`\mathbb{R}^{K \times d}`.
+NFN-style architectures build layers that are equivariant under the symmetries of weight-space. Two of those symmetries are already first-class here: the cyclic-shift action of $\mathbb{Z}/d$, and the channel permutation that acts on $\mathbb{R}^{K \times d}$.
 
 - `hrr_equivariant_bilinear` is the canonical single-argument
   shift-equivariant bilinear layer — the operator you want at the bottom
@@ -225,7 +201,7 @@ The library's classifier line-up maps onto standard meta-RL primitives:
 - It is not a drop-in replacement for classical HDC on large vision tasks.
   The universal approximation of a transformer is not on the menu.
 - It is not a port. Every component is implemented from the primary paper;
-  see [`ORIGINALITY.md`](ORIGINALITY.md).
+  see [`ORIGINALITY.md`](https://github.com/rlogger/bayes-hdc/blob/main/ORIGINALITY.md).
 - It is not a research platform where correctness is aspirational. Every
   theorem in the docs is a property-based test in `tests/`.
 

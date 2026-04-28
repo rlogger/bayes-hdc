@@ -97,6 +97,7 @@ User guide
    quickstart
    classification
    examples
+   design
 
 API reference
 -------------
