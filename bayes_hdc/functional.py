@@ -25,6 +25,7 @@ def bind_bsc(x: jax.Array, y: jax.Array) -> jax.Array:
     """Bind two hypervectors using XOR for Binary Spatter Codes.
 
     Binding creates a new hypervector that is dissimilar to both inputs.
+    XOR is its own inverse, so unbinding is identical to binding.
 
     Args:
         x: Binary hypervector of shape (..., d)
@@ -32,6 +33,11 @@ def bind_bsc(x: jax.Array, y: jax.Array) -> jax.Array:
 
     Returns:
         Bound hypervector of shape (..., d), dissimilar to both x and y
+
+    References
+    ----------
+    Kanerva, P. (1997). Fully Distributed Representation. In Proc. RWC '97,
+    pp. 358-365.
     """
     return jnp.logical_xor(x, y)
 
@@ -40,7 +46,11 @@ def bundle_bsc(vectors: jax.Array, axis: int = 0) -> jax.Array:
     """Bundle hypervectors using majority rule for Binary Spatter Codes.
 
     Bundling creates a new hypervector similar to all inputs by taking
-    the majority vote at each dimension.
+    the majority vote at each dimension. For an even number of input
+    vectors, ties at exactly half the count are mapped to ``False`` (a
+    deterministic bias toward 0); see the audit note in
+    ``docs/LITERATURE_AUDIT.md`` SF-2 for the comparison with Kanerva's
+    stochastic / fixed-tiebreaker conventions.
 
     Args:
         vectors: Binary hypervectors of shape with axis containing vectors to bundle
@@ -48,6 +58,11 @@ def bundle_bsc(vectors: jax.Array, axis: int = 0) -> jax.Array:
 
     Returns:
         Bundled hypervector, similar to all inputs
+
+    References
+    ----------
+    Kanerva, P. (1997). Fully Distributed Representation. In Proc. RWC '97,
+    pp. 358-365.
     """
     counts = jnp.sum(vectors, axis=axis)
     shape_size = vectors.shape[axis]
@@ -179,8 +194,14 @@ def cleanup(
 ) -> Union[jax.Array, tuple[jax.Array, jax.Array]]:
     """Find the most similar vector in memory to the query.
 
-    Cleanup (or resonator) is used to retrieve the closest known hypervector
-    from memory, useful for error correction and symbol retrieval.
+    Cleanup is used to retrieve the closest known hypervector from
+    memory, useful for error correction and symbol retrieval after a
+    bind / unbind sequence has introduced approximation noise. This is
+    the abstract-vector cleanup operation of Kanerva (2009); for the
+    spiking-neuron implementation see Stewart, Tang & Eliasmith (2010,
+    *Cognitive Systems Research* 12: 84-92), which is out of scope here.
+    Resonator networks (Frady et al. 2020) are a related but distinct
+    factorisation algorithm built on top of cleanup.
 
     Args:
         query: Query hypervector of shape (..., d)
@@ -190,6 +211,11 @@ def cleanup(
 
     Returns:
         Most similar vector from memory, or (vector, similarity) if return_similarity=True
+
+    References
+    ----------
+    Kanerva, P. (2009). Hyperdimensional Computing: An Introduction.
+    Cognitive Computation 1(2): 139-159.
     """
     similarities = jax.vmap(lambda m: similarity_fn(query, m))(memory)
     best_idx = jnp.argmax(similarities)
@@ -212,7 +238,10 @@ def bind_hrr(x: jax.Array, y: jax.Array) -> jax.Array:
     """Bind two hypervectors using circular convolution for HRR.
 
     Circular convolution in the spatial domain is equivalent to element-wise
-    multiplication in the Fourier domain, making it efficient to compute.
+    multiplication in the Fourier domain, making it efficient to compute via
+    the FFT. This is the canonical HRR binding of Plate (1995, 1994/2003);
+    Jones & Mewhort (2007) is the canonical cognitive-science application
+    (the BEAGLE composite holographic lexicon).
 
     Args:
         x: Real-valued hypervector of shape (..., d)
@@ -220,6 +249,16 @@ def bind_hrr(x: jax.Array, y: jax.Array) -> jax.Array:
 
     Returns:
         Bound hypervector via circular convolution
+
+    References
+    ----------
+    Plate, T. A. (1995). Holographic Reduced Representations. IEEE
+    Transactions on Neural Networks 6(3): 623-641.
+    Plate, T. A. (2003). Holographic Reduced Representation: Distributed
+    Representation for Cognitive Structures. CSLI Publications.
+    Jones, M. N., Mewhort, D. J. K. (2007). Representing Word Meaning
+    and Order Information in a Composite Holographic Lexicon.
+    Psychological Review 114(1): 1-37.
     """
     x_fft = jnp.fft.fft(x, axis=-1)
     y_fft = jnp.fft.fft(y, axis=-1)
@@ -229,15 +268,31 @@ def bind_hrr(x: jax.Array, y: jax.Array) -> jax.Array:
 
 @jax.jit
 def inverse_hrr(x: jax.Array) -> jax.Array:
-    """Compute inverse for HRR (reverse the circular convolution).
+    """Approximate inverse for HRR — Plate's *involution* ``x*``.
 
-    For HRR, the inverse reverses the order of elements (except the first).
+    The involution is the vector ``x*`` with ``(x*)_i = x_{(-i) mod d}`` — i.e.
+    the first element is preserved and the remaining ``d - 1`` elements are
+    reversed. For a length-4 example ``[c_0, c_1, c_2, c_3]`` this returns
+    ``[c_0, c_3, c_2, c_1]``, matching Plate (1995, §II.F) verbatim.
+
+    The involution is an *approximate* inverse: ``bind_hrr(x, inverse_hrr(x))``
+    is approximately the unit impulse, with the approximation tightening as
+    the dimension grows. It differs from the *exact* inverse
+    ``F^{-1}(1 / F(x))``, which exists only when no Fourier coefficient of
+    ``x`` vanishes; the library uses the involution because it is
+    cheap, always defined, and the standard choice in HRR libraries.
 
     Args:
         x: Real-valued hypervector of shape (..., d)
 
     Returns:
-        Inverse hypervector
+        The involution ``x*``, shape (..., d).
+
+    References
+    ----------
+    Plate, T. A. (1995). Holographic Reduced Representations. IEEE
+    Transactions on Neural Networks 6(3): 623-641. (See §II.F for the
+    involution definition.)
     """
     return jnp.concatenate([x[..., :1], jnp.flip(x[..., 1:], axis=-1)], axis=-1)
 

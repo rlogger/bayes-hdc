@@ -91,7 +91,14 @@ intersphinx_mapping = {
 # ----------------------------------------------------------------------
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    # Per-paper audit artefacts (readable on GitHub, not part of the docs site).
+    "LITERATURE_AUDIT.md",
+    "audit/*",
+]
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"
 

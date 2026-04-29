@@ -19,6 +19,13 @@ Text is encoded as a bundle of position-bound character trigrams
     text_hv = bundle_i [ char_hv[ci] * permute(char_hv[ci+1], 1) * permute(char_hv[ci+2], 2) ]
 which turns an arbitrary-length string into a single fixed-size hypervector.
 
+The "permute-by-position, bind, bundle" family of order-encoding schemes
+goes back to BEAGLE (Jones & Mewhort 2007, *Psychological Review* 114(1):
+1-37), where it was applied to word n-grams using HRR circular convolution
+and a fixed placeholder vector. The Joshi-Halseth-Kanerva (2016) encoder
+used here applies the same idea to character n-grams with MAP-style
+elementwise binding.
+
 Run::
 
     python examples/language_identification.py

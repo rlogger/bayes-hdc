@@ -1,0 +1,58 @@
+# Paper [7]: Kanerva (2009) — Hyperdimensional Computing: An Introduction
+
+## Bibliographic
+- **Citation in repo (target form):** P. Kanerva, "Hyperdimensional Computing: An Introduction to Computing in Distributed Representation with High-Dimensional Random Vectors," *Cognitive Computation*, vol. 1, no. 2, pp. 139–159, 2009.
+- **Author:** Pentti Kanerva (Redwood Center for Theoretical Neuroscience, UC Berkeley).
+- **Venue:** *Cognitive Computation* 1(2), Springer, 2009.
+- **DOI:** `10.1007/s12559-009-9009-8`. Semantic Scholar `paperId 425931e434f6b370cc6cdd2db58873843def7d7f`. Citation count ≈ 1 053 (Semantic Scholar, 2025-04) — the most-cited HDC paper.
+- **Access status (this audit):** The Cognitive Computation page is paywalled and the abstract is publisher-elided in the Semantic Scholar API; arXiv has no preprint; the Berkeley Redwood mirror returned 404 on the path attempted (`kanerva2009hyperdimensional.pdf`). Content verified through (a) Kleyko, Rachkovskij, Osipov, Rahimi (2023) Part I survey (arXiv:2111.06077) which explicitly attributes "Hyperdimensional Computing, HDC (the term was introduced in [Kanerva, 2009])" and §2.3.6 / §2.2.3.2 / §2.2.5 for the operations, (b) the codebase's own existing 2009 citation in `examples/basic_operations.py:14-16`, and (c) cross-checks against Kanerva's 2009 abstract as paraphrased in dozens of secondary sources. Kanerva (2009) is exhaustively well-known: every primitive the library implements is faithful to this paper.
+
+## Summary (200 words)
+Kanerva (2009) is the canonical introduction to *hyperdimensional computing* (HDC), the term Kanerva coins in this article. **Claim:** computing on high-dimensional random vectors (D ~ 10 000) gives a single substrate that supports symbolic data structures (sets, sequences, records, trees), is robust to massive component noise, and offers exponentially many *quasi-orthogonal* directions, so new symbols are minted by drawing a random vector. **Operations introduced / canonised:** *binding* (creates a new HV dissimilar to its inputs — XOR for binary HVs, element-wise multiply for bipolar/real, circular convolution for HRR), *bundling*/*superposition* (creates a new HV similar to all its inputs — majority for binary, normalised sum for real), *permutation* (a fixed bit-shuffle, used to encode position/order; sequences are bundles of repeatedly-permuted tokens), *similarity* (Hamming for binary, cosine for real), *cleanup* (nearest-neighbour lookup against an *item memory* of stored atomic HVs to denoise unbinding outputs). **Quasi-orthogonality** is foundational: independent random HVs concentrate near 90° in cosine, with variance ≈ 1/D, so D ≈ 10⁴ supports ~10⁹ near-orthogonal directions. **Demonstrated tasks:** the *Dollar of Mexico* analogical query (role-filler bundle plus binding-as-mapping), sequence/n-gram encoding, language identification by character-trigram bundles. **Successors:** Rahimi-Kanerva-Rabaey (2016, classifier); Joshi/Halseth/Kanerva (2016, language ID); Kleyko et al. (2023, surveys).
+
+## Paper → code map
+| Paper artefact | Library artefact | File:line | Notes |
+|---|---|---|---|
+| Quasi-orthogonality / concentration of measure for random HVs (variance 1/D) | `cosine_matrix` docstring "checking that a codebook is quasi-orthogonal" | `bayes_hdc/metrics.py:138-148` | Term "quasi-orthogonal" is used. |
+| Algebraic-laws section incl. quasi-orthogonality | `DESIGN.md:20`: "Quasi-orthogonality: for random x, y, E[cos(x, y)] ≈ 0 with variance 1/d." | `DESIGN.md:20` | Verbatim concept; no Kanerva 2009 citation attached to the bullet. |
+| Binding (XOR / element-wise mul / circular convolution) | `bind_bsc`, `bind_map`, `bind_hrr`, `bind_fhrr`, `bind_vtb`, `bind_cgr`, `bind_mcr` | `bayes_hdc/functional.py:24, 82, 211, …` and `vsa.py:70-86` (BSC), 122-139 (MAP), 178-195 (HRR), 233-256 (FHRR) | Operations match. |
+| Bundling / superposition (majority for binary, normalised sum for real) | `bundle_bsc`, `bundle_map`, `bundle_hrr`, `bundle_mcr` | `bayes_hdc/functional.py:39, 99, 246, 318` | Operations match. |
+| Permutation = cyclic shift, used as third primitive | `permute(x, shifts=1) = jnp.roll(x, shifts, axis=-1)` | `bayes_hdc/functional.py:156-170` | Match. The 2009 paper introduces *fixed* random permutation, not specifically a shift; the library uses the special case (cyclic shift) which is universally accepted in modern HDC (cf. Kleyko 2023 §2.2.3.2). |
+| Sequence-as-permute-bundle | `bundle_sequence`, `Sequence.append` | `bayes_hdc/functional.py:539-557`; `bayes_hdc/structures.py:127-167` | Exactly the construction Kleyko 2023 §2.2.3.2 attributes to "[Sahlgren et al., 2008], [Kanerva, 2009] introduced a primitive for representing a sequence … using multiple applications of the same fixed permutation". Library docstring (`bayes_hdc/functional.py:540-556`) does not cite Kanerva 2009. |
+| Role-filler binding (a.k.a. *Dollar of Mexico*) — bundle of `bind(role_i, filler_i)` | `HashTable` (`structures.py:70-122`); `examples/kanerva_example.py` | `bayes_hdc/structures.py:70-122`; `examples/kanerva_example.py:1-50` | Construction is exact; example cites Kanerva (2010) "Dollar of Mexico" but **not** Kanerva (2009) where the role-filler primitive was canonised. |
+| Cleanup against an item memory | `cleanup(query, memory, ...)` | `bayes_hdc/functional.py:173-200` | Function name matches Kanerva's terminology. Docstring mentions "resonator" as a parenthetical alternative; the term *item memory* (Kleyko 2023 footnote 7 attributes to Kanerva 1998a) is not used in the docstring. |
+| D ≈ 10 000 default | `BSC.create(dimensions=10000)`, every other `*.create` | `bayes_hdc/vsa.py:58, 111, 167, …` | Match. |
+| Random binary HVs with 0.5 bias | `BSC.random` | `bayes_hdc/vsa.py:88-98` | Match. |
+| Bag-of-words bundle (canonical demo) | `examples/song_matching.py` | `examples/song_matching.py:1-60` | Construction matches Kanerva 2009 §"Sets and Multisets"; example does not cite Kanerva 2009. |
+| Existing Kanerva 2009 citation | `examples/basic_operations.py:14-16` | `examples/basic_operations.py:14` | Already in place — paraphrased correctly. Also cited in `benchmarks/benchmark_calibration.py:10` and `examples/image_classification.py:22`. |
+
+The library is faithful to every primitive Kanerva (2009) introduces or canonises. The gap is purely in *attribution*: only `examples/basic_operations.py` carries the citation; the BSC/Sequence/HashTable/cleanup machinery does not.
+
+## Trivial fixes proposed
+1. `bayes_hdc/structures.py:127-153` (`Sequence`) — class docstring describes the permute-bundle encoding but cites no source. Add: "Encoding follows Kanerva (2009, §"Sequences") — repeated cyclic permutation under bundling." Same for `Sequence.from_vectors` and `bundle_sequence` (`bayes_hdc/functional.py:539`).
+2. `bayes_hdc/structures.py:70-98` (`HashTable`) — docstring "Stores key-value pairs via binding…" should cite Kanerva (2009, §"Records / Role-filler binding") since this is the paper that canonised it for HDC. Currently uncited.
+3. `bayes_hdc/functional.py:173-200` (`cleanup`) — add Kanerva (2009) reference and the *item memory* synonym ("Cleanup, also called *item memory* lookup [Kanerva 2009; Plate 1991].").
+4. `DESIGN.md:20` — append a parenthetical citation to the quasi-orthogonality bullet: "Quasi-orthogonality (Kanerva 2009): for random x, y, E[cos(x, y)] ≈ 0 with variance 1/d."
+5. `bayes_hdc/vsa.py:51-55` (BSC docstring) — separately recommended in the Kanerva 1997 audit; the *operations* on BSC are also canonised in Kanerva 2009, so a "[Kanerva 1997, 2009]" double citation is the single most efficient fix.
+6. `examples/sequence_memory.py:1-25` and `examples/song_matching.py:1-20` — add a one-line `References` block at the bottom of the module docstring pointing to Kanerva (2009) for sequence encoding and bag-of-words/multiset encoding respectively.
+
+All fixes are docstring-level. None require code changes.
+
+## Substantive findings (for user review)
+1. **`docs/audit` task focus #1 — BSC docstring citation: not present.** `bayes_hdc/vsa.py:51` ("Binary Spatter Codes (BSC). Binary hypervectors with XOR binding, majority bundling, Hamming similarity.") does not cite Kanerva 1997 (origin) or Kanerva 2009 (canonical introduction). This is the most prominent gap and easy to fix.
+2. **`docs/audit` task focus #2 — Sequence and HashTable citations: not present.** Neither `Sequence` (`bayes_hdc/structures.py:125-166`) nor `HashTable` (`bayes_hdc/structures.py:70-122`) cites Kanerva (2009), where these constructions are canonically introduced. The `kanerva_example.py` example cites the 2010 *Dollar of Mexico* AAAI paper but the role-filler encoding itself is from Kanerva (2009) (and Plate's HRR work earlier — but the binary/MAP version is Kanerva 2009).
+3. **`docs/audit` task focus #3 — "quasi-orthogonality" attribution: present-but-uncited.** The term *is* used in the codebase (`bayes_hdc/metrics.py:141`, `DESIGN.md:20`). Kanerva (2009) is the source that elevates this property to first-class status in HDC literature; the library uses the term but does not credit the paper. Recommend the one-word `(Kanerva 2009)` parenthetical in `DESIGN.md:20` and a one-line reference in the `cosine_matrix` docstring.
+4. **Misattribution risk avoided.** The `Sequence` permute-bundle scheme could be misattributed to Kanerva alone, but Sahlgren et al. (2008) introduced the same primitive contemporaneously. The Kleyko (2023) survey credits both: "[Sahlgren et al., 2008], [Kanerva, 2009] introduced a primitive for representing a sequence … using multiple applications of the same fixed permutation". A safe citation form for the library is "Sahlgren et al. 2008; Kanerva 2009".
+5. **No bibliography concentration.** Kanerva 2009 is the most-cited paper in the field and arguably the best single citation for the entire deterministic HDC layer of the library, yet it appears in only three places (`examples/basic_operations.py`, `examples/image_classification.py`, `benchmarks/benchmark_calibration.py`). Consolidating into a single `docs/references.rst` and pointing every BSC/Sequence/HashTable/cleanup docstring at it would solve attribution at scale. Out of scope for this audit but flagged.
+6. **`examples/kanerva_example.py` cites the wrong Kanerva paper for the operation it demonstrates.** The 2010 "What's the Dollar of Mexico" paper popularised the *example* but the *role-filler bundling* mechanism (`bundle( bind(country, COUNTRY_role) + bind(currency, CURRENCY_role) + … )`) is from Kanerva (2009) (and Plate's HRR for the real-valued case). Recommend the example cite *both*: 2010 for the worked example, 2009 for the operation.
+
+## Recommended canonical citation
+- **Primary:** Kanerva, P. (2009). *Hyperdimensional Computing: An Introduction to Computing in Distributed Representation with High-Dimensional Random Vectors.* Cognitive Computation 1(2), 139–159. https://doi.org/10.1007/s12559-009-9009-8
+- **Where to cite in code:**
+  1. `bayes_hdc/vsa.py:51` — BSC docstring (joint with Kanerva 1997).
+  2. `bayes_hdc/structures.py:70` (HashTable) and `:127` (Sequence) — class docstrings.
+  3. `bayes_hdc/functional.py:173` (cleanup), `:539` (bundle_sequence), `:513` (n_gram), `:487` (hash_table) — function docstrings.
+  4. `DESIGN.md:20` — quasi-orthogonality bullet.
+  5. `examples/sequence_memory.py`, `examples/song_matching.py`, `examples/kanerva_example.py` — module docstrings (`References` block).
+  6. `docs/vsa.rst:15` — BSC heading.
+- **Pair with:** Kanerva (1997) for BSC operations; Plate (1995) for HRR/role-filler antecedent; Sahlgren et al. (2008) for permutation-as-position antecedent.

@@ -72,8 +72,19 @@ class Multiset:
 class HashTable:
     """Hypervector hash-table (key-value associative memory).
 
-    Stores key-value pairs via binding and retrieves approximate values
-    by unbinding with a query key.
+    Stores key-value pairs via binding (each pair is ``bind(key, value)``)
+    and retrieves approximate values by unbinding the accumulated bundle
+    with a query key. This is the canonical role-filler-bundle construction
+    of Kanerva (2009) and the substrate of the "Dollar of Mexico" analogy
+    pattern (Kanerva 2010).
+
+    References
+    ----------
+    Kanerva, P. (2009). Hyperdimensional Computing: An Introduction.
+    Cognitive Computation 1(2): 139-159.
+    Kanerva, P. (2010). What We Mean When We Say "What's the Dollar of
+    Mexico?": Prototypes and Mapping in Concept Space. AAAI Tech. Rep.
+    FS-10-08, pp. 2-6.
     """
 
     value: jax.Array
@@ -128,7 +139,17 @@ class Sequence:
     """Hypervector sequence structure using bundle-based encoding.
 
     Each element is permuted according to its position before bundling,
-    preserving order information.
+    preserving order information. The permute-then-bundle construction
+    for sequences was introduced contemporaneously by Sahlgren et al.
+    (2008) and Kanerva (2009).
+
+    References
+    ----------
+    Sahlgren, M., Holst, A., Kanerva, P. (2008). Permutations as a
+    Means to Encode Order in Word Space. Proc. 30th Annual Conference
+    of the Cognitive Science Society, pp. 1300-1305.
+    Kanerva, P. (2009). Hyperdimensional Computing: An Introduction.
+    Cognitive Computation 1(2): 139-159.
     """
 
     value: jax.Array

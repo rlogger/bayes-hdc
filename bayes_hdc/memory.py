@@ -69,7 +69,27 @@ class SparseDistributedMemory:
 @register_dataclass
 @dataclass
 class HopfieldMemory:
-    """Modern Hopfield network for associative memory."""
+    """Modern continuous Hopfield network (Ramsauer et al. 2020).
+
+    One-step softmax-attention retrieval over stored patterns. Distinct
+    from the classical sign-thresholded recurrent Hopfield network
+    (Hopfield 1982) — which settles via repeated application of a sign
+    update — and from the spiking-neuron cleanup memories of Stewart,
+    Tang & Eliasmith (2010), which run on populations of leaky-
+    integrate-and-fire neurons via the Neural Engineering Framework.
+    Retrieval here is a single feed-forward softmax over cosine
+    similarities to the stored patterns; no recurrent settling.
+
+    References
+    ----------
+    Ramsauer, H. et al. (2020). Hopfield Networks is All You Need.
+    arXiv:2008.02217.
+    Hopfield, J. J. (1982). Neural networks and physical systems with
+    emergent collective computational abilities. PNAS 79(8): 2554-2558.
+    Stewart, T. C., Tang, Y., Eliasmith, C. (2010). A Biologically
+    Realistic Cleanup Memory: Autoassociation in Spiking Neurons.
+    Cognitive Systems Research 12: 84-92.
+    """
 
     patterns: jax.Array  # (num_patterns, dimensions)
     dimensions: int = field(metadata=dict(static=True))

@@ -4,6 +4,12 @@ Runnable end-to-end examples. Each one is self-contained, prints a short
 header describing what it does, runs in under a minute on a laptop CPU,
 and reports numbers you can sanity-check against the docstring.
 
+The application set covers the most-cited HDC/VSA tasks in the recent
+literature; see Kleyko, Rachkovskij, Osipov & Rahimi (2023), *A Survey
+on HDC aka VSA, Part II: Applications, Cognitive Models, and Challenges*,
+ACM Computing Surveys 55(9): Article 175 ([arXiv:2112.15424](https://arxiv.org/abs/2112.15424)),
+for the broader landscape.
+
 ## Quick start
 
 ```bash

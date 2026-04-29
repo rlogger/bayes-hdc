@@ -46,7 +46,9 @@
 
 ## About
 
-**bayes-hdc** is a [JAX](https://github.com/google/jax) library for **hyperdimensional computing (HDC)** and **vector symbolic architectures (VSA)** with a built-in probabilistic layer — **PVSA**, *Probabilistic Vector Symbolic Architectures*. It provides Gaussian and Dirichlet hypervector types with closed-form moment propagation under `bind`, `bundle`, and `permute`; explicit cyclic-shift group actions with property-based equivariance verifiers; calibrated probabilities via temperature scaling; and coverage-guaranteed prediction sets via split-conformal prediction. The deterministic substrate ships eight classical VSA models — **BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB** — with a uniform API. Every type is a JAX pytree, so `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with every operation, on CPU, GPU, and TPU.
+**bayes-hdc** is a [JAX](https://github.com/google/jax) library for **hyperdimensional computing (HDC)** and **vector symbolic architectures (VSA)** ([Gayler 2003](https://arxiv.org/abs/cs/0412059); [Kanerva 2009](https://doi.org/10.1007/s12559-009-9009-8)) with a built-in probabilistic layer — **PVSA**, *Probabilistic Vector Symbolic Architectures*. It provides Gaussian and Dirichlet hypervector types with closed-form moment propagation under `bind`, `bundle`, and `permute`; explicit cyclic-shift group actions with property-based equivariance verifiers; calibrated probabilities via temperature scaling; and coverage-guaranteed prediction sets via split-conformal prediction. The deterministic substrate ships eight classical VSA models — **BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB** — with a uniform API. Every type is a JAX pytree, so `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with every operation, on CPU, GPU, and TPU.
+
+For the broader landscape of HDC/VSA applications, see Kleyko, Rachkovskij, Osipov & Rahimi (2023), *[A Survey on HDC aka VSA, Part II: Applications, Cognitive Models, and Challenges](https://arxiv.org/abs/2112.15424)*, ACM Computing Surveys 55(9): Article 175.
 
 ### Highlights
 

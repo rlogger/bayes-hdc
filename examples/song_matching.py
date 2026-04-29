@@ -14,6 +14,14 @@ overlap of shared words drives the similarity. No hidden layers, no learned
 features, no backprop. Add a new song = bundle its words. Add a new word =
 add one row to the codebook.
 
+The bundle-then-cosine pattern is the same single-document context-vector
+operation BEAGLE (Jones & Mewhort 2007, *Psychological Review* 114(1): 1-37)
+uses to form per-sentence context vectors before accumulating them into
+per-word memory; this example stops at the first step. The general
+multiset / bag construction is canonised in Kanerva (2009),
+*Hyperdimensional Computing: An Introduction*, Cognitive Computation
+1(2): 139-159.
+
 Run::
 
     python examples/song_matching.py

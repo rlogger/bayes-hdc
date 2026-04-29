@@ -7,7 +7,9 @@ understand the trade-offs behind the API.
 
 ## 1. The algebra
 
-A Vector Symbolic Architecture (VSA) is a compact algebraic object on $\mathbb{R}^d$: a commutative binding $\star$, an associative bundling $\oplus$, a cyclic group action $T_k$, and a similarity measure (cosine). The choice of binding selects the VSA family — MAP uses element-wise product, HRR uses circular convolution, BSC uses XOR — but the interface is uniform.
+Why an algebra at all? Fodor & Pylyshyn (1988) argued that any architecture aspiring to model cognition must support combinatorial syntax-and-semantics and structure-sensitive processes — the two commitments that distinguish "Classical" symbol systems from spreading-activation networks. VSAs answer that critique with a connectionist substrate that is nonetheless a closed algebra over a fixed-dimensional vector space.
+
+A *Vector Symbolic Architecture* (Gayler 2003) is a compact algebraic object on $\mathbb{R}^d$: a commutative binding $\star$, an associative bundling $\oplus$, a cyclic group action $T_k$, and a similarity measure (cosine). The choice of binding selects the VSA family — MAP uses element-wise product, HRR uses circular convolution, BSC uses XOR — but the interface is uniform. All three are fixed-dimensional compressions of Smolensky's (1990) tensor-product binding, which produces a $d^2$-dimensional output and which the modern VSA family deliberately avoids.
 
 ### What the laws say
 
@@ -17,7 +19,7 @@ For any hypervectors $x, y, z \in \mathbb{R}^d$:
 - **Associative bundle:** $(x \oplus y) \oplus z = x \oplus (y \oplus z)$.
 - **Distributivity:** $x \star (y \oplus z) \approx (x \star y) \oplus (x \star z)$ (exact in HRR, approximate after normalisation in MAP).
 - **Self-inverse bind (MAP/BSC):** $x \star x \approx \mathbf{1}$ up to the codebook.
-- **Quasi-orthogonality:** for random $x, y$, $\mathbb{E}[\cos(x, y)] \approx 0$ with variance $1/d$.
+- **Quasi-orthogonality** (Kanerva 2009): for random $x, y$, $\mathbb{E}[\cos(x, y)] \approx 0$ with variance $1/d$.
 
 `tests/test_functional.py` checks these at realistic dimensions. The ones
 that hold exactly are checked with `jnp.allclose`; the ones that hold up
@@ -167,3 +169,15 @@ Reach for something else when the task calls for deep end-to-end learning
 on natural images at ImageNet scale, or when the uncertainty in your model
 is irreducibly aleatoric and no amount of Bayesian machinery will surface
 it.
+
+## 7. Related approaches not implemented
+
+Several well-known research lines sit alongside this library; we cite them so that readers know the right adjacent literature without expecting bayes-hdc to provide it.
+
+- **Tensor-product binding** (Smolensky 1990; Mizraji 1989). Dimension-expanding binding via outer / Kronecker product. The library implements only fixed-dimensional compressed bindings (Hadamard for MAP; XOR for BSC; circular convolution for HRR). HRR/MAP/BSC are the compressions of TPR; we do not provide the uncompressed ancestor.
+- **Spiking-neuron VSA / Semantic Pointer Architecture / Neural Engineering Framework** (Stewart & Eliasmith 2011, *Oxford Handbook of Compositionality*; Stewart, Bekolay & Eliasmith 2011, *Connection Science* 23(2): 145-153; Stewart, Tang & Eliasmith 2010, *Cognitive Systems Research* 12: 84-92; Rasmussen & Eliasmith 2011, *Topics in Cognitive Science* 3: 140-153). A neighbouring research line implements the same VSA primitives on populations of leaky-integrate-and-fire spiking neurons via the NEF, with cleanup as attractor dynamics on a population. bayes-hdc operates on `jax.Array` hypervectors with deterministic JAX ops; spike trains, tuning curves, population decoding, and Nengo integration are out of scope. The HRR/MAP primitives here can serve as building blocks for that line, but the library does not provide the neural-implementation layer.
+- **Robot behaviour hierarchies via VSA** (Levy, Bajracharya & Gayler 2013, AAAI 2013 Workshop on Learning Rich Representations from Low-Level Sensors). The library supplies the same MAP primitives but no robot-control loop, simulator integration, or behaviour-hierarchy module.
+- **VSA-based graph-isomorphism analogical mapping** (Gayler & Levy 2009). The replicator-iteration mechanism with the holistic vector-intersection primitive is not implemented; the reference MATLAB code is at <https://github.com/simondlevy/GraphIsomorphism>.
+- **Random Indexing / corpus-trained context vectors** (Hecht-Nielsen 1994; Sahlgren 2005; the BEAGLE training loop of Jones & Mewhort 2007). The library provides random-projection encoders and bag-of-words bundling but no corpus-pass training loop that updates per-token vectors from co-occurrence statistics.
+
+For the broader application landscape, see Kleyko, Rachkovskij, Osipov & Rahimi (2023), *A Survey on HDC aka VSA, Part II: Applications, Cognitive Models, and Challenges*, ACM Computing Surveys 55(9), Article 175.

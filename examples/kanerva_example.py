@@ -6,11 +6,22 @@
 This example implements the classic HDC demonstration from:
 "What We Mean When We Say 'What's the Dollar of Mexico?':
 Prototypes and Mapping in Concept Space"
-by Pentti Kanerva (2010)
+by Pentti Kanerva (2010).
 
 Paper: https://redwood.berkeley.edu/wp-content/uploads/2020/05/kanerva2010what.pdf
-Citation: P. Kanerva, "What We Mean When We Say 'What's the Dollar of Mexico?':
-          Prototypes and Mapping in Concept Space," 2010 AAAI Fall Symposium Series.
+Citation: P. Kanerva, "What We Mean When We Say 'What's the Dollar of
+          Mexico?': Prototypes and Mapping in Concept Space,"
+          *Quantum Informatics for Cognitive, Social, and Semantic
+          Processes: Papers from the AAAI Fall Symposium*, AAAI
+          Technical Report FS-10-08, AAAI Press, 2010, pp. 2-6.
+
+The role-filler binding mechanism itself was introduced for HDC in
+Kanerva (2009) — see *Hyperdimensional Computing: An Introduction*,
+Cognitive Computation 1(2): 139-159 — which is the operation this
+example demonstrates. The "Dollar of Mexico" 2010 paper is the
+worked-example presentation. The graph-isomorphism / replicator-
+iteration generalisation of this pattern is in Gayler & Levy (2009),
+*A Distributed Basis for Analogical Mapping*, ANALOGY-2009.
 
 Demonstrates structured knowledge representation and analogical reasoning.
 
@@ -20,7 +31,7 @@ The key insight: mappings between structured representations can answer analogic
 queries like "What's the dollar of Mexico?" (answer: Mexican Peso).
 
 Concepts demonstrated:
-- Role-filler binding to create structured representations
+- Role-filler binding to create structured representations (Kanerva 2009)
 - Bundle to combine multiple role-filler pairs
 - Inverse binding to create mappings between structures
 - Similarity search over memory to answer queries
