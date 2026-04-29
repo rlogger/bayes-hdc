@@ -80,8 +80,7 @@ class HopfieldMemory:
     Retrieval here is a single feed-forward softmax over cosine
     similarities to the stored patterns; no recurrent settling.
 
-    References
-    ----------
+    References:
     Ramsauer, H. et al. (2020). Hopfield Networks is All You Need.
     arXiv:2008.02217.
     Hopfield, J. J. (1982). Neural networks and physical systems with

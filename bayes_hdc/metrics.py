@@ -101,8 +101,7 @@ def required_dimension(
     Returns:
         Required hypervector dimension (rounded up to the next int).
 
-    References
-    ----------
+    References:
     Plate, T. A. (2003). Holographic Reduced Representation: Distributed
     Representation for Cognitive Structures. CSLI Publications. (Eq. 1
     of the capacity analysis chapter.)

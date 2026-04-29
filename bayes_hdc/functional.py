@@ -34,8 +34,7 @@ def bind_bsc(x: jax.Array, y: jax.Array) -> jax.Array:
     Returns:
         Bound hypervector of shape (..., d), dissimilar to both x and y
 
-    References
-    ----------
+    References:
     Kanerva, P. (1997). Fully Distributed Representation. In Proc. RWC '97,
     pp. 358-365.
     """
@@ -76,8 +75,7 @@ def bundle_bsc(
     Returns:
         Bundled hypervector, similar to all inputs
 
-    References
-    ----------
+    References:
     Kanerva, P. (1997). Fully Distributed Representation. In Proc. RWC '97,
     pp. 358-365.
     """
@@ -202,8 +200,7 @@ def vector_intersect(
         Hypervector of shape ``(d,)`` representing ``x ∧ y`` —
         the atoms shared by both bundles, weighted by joint similarity.
 
-    References
-    ----------
+    References:
     Gayler, R. W., Levy, S. D. (2009). A Distributed Basis for Analogical
     Mapping. In Proc. 2nd Int. Conf. on Analogy (ANALOGY-2009),
     pp. 165-174.
@@ -242,8 +239,7 @@ def transformation_vector(a: jax.Array, b: jax.Array) -> jax.Array:
         MAP convention; element-wise reciprocal of ``a`` followed by
         element-wise product with ``b``).
 
-    References
-    ----------
+    References:
     Kanerva, P. (2010). What We Mean When We Say "What's the Dollar of
     Mexico?": Prototypes and Mapping in Concept Space.
     Rasmussen, D., Eliasmith, C. (2011). A Neural Model of Rule Generation
@@ -316,8 +312,7 @@ def cleanup(
     Returns:
         Most similar vector from memory, or (vector, similarity) if return_similarity=True
 
-    References
-    ----------
+    References:
     Kanerva, P. (2009). Hyperdimensional Computing: An Introduction.
     Cognitive Computation 1(2): 139-159.
     """
@@ -354,8 +349,7 @@ def bind_hrr(x: jax.Array, y: jax.Array) -> jax.Array:
     Returns:
         Bound hypervector via circular convolution
 
-    References
-    ----------
+    References:
     Plate, T. A. (1995). Holographic Reduced Representations. IEEE
     Transactions on Neural Networks 6(3): 623-641.
     Plate, T. A. (2003). Holographic Reduced Representation: Distributed
@@ -392,8 +386,7 @@ def inverse_hrr(x: jax.Array) -> jax.Array:
     Returns:
         The involution ``x*``, shape (..., d).
 
-    References
-    ----------
+    References:
     Plate, T. A. (1995). Holographic Reduced Representations. IEEE
     Transactions on Neural Networks 6(3): 623-641. (See §II.F for the
     involution definition.)

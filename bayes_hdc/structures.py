@@ -78,8 +78,7 @@ class HashTable:
     of Kanerva (2009) and the substrate of the "Dollar of Mexico" analogy
     pattern (Kanerva 2010).
 
-    References
-    ----------
+    References:
     Kanerva, P. (2009). Hyperdimensional Computing: An Introduction.
     Cognitive Computation 1(2): 139-159.
     Kanerva, P. (2010). What We Mean When We Say "What's the Dollar of
@@ -143,8 +142,7 @@ class Sequence:
     for sequences was introduced contemporaneously by Sahlgren et al.
     (2008) and Kanerva (2009).
 
-    References
-    ----------
+    References:
     Sahlgren, M., Holst, A., Kanerva, P. (2008). Permutations as a
     Means to Encode Order in Word Space. Proc. 30th Annual Conference
     of the Cognitive Science Society, pp. 1300-1305.

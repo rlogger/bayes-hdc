@@ -11,8 +11,7 @@ an umbrella for the family of fixed-dimensional algebraic models (HRR,
 BSC, MAP, ...) that descend from Smolensky's tensor-product binding
 (Smolensky 1990) but compress it to a fixed dimension.
 
-References
-----------
+References:
 Gayler, R. W. (2003). Vector Symbolic Architectures answer Jackendoff's
 challenges for cognitive neuroscience. In Proc. ICCS/ASCS-2003,
 pp. 133-138. arXiv:cs/0412059.
@@ -74,8 +73,7 @@ class BSC(VSAModel):
     Part I §2.3.6). The canonical introduction to the operations is
     Kanerva (2009).
 
-    References
-    ----------
+    References:
     Kanerva, P. (1997). Fully Distributed Representation. In Proc. RWC '97,
     pp. 358-365.
     Kanerva, P. (2009). Hyperdimensional Computing: An Introduction.
@@ -136,8 +134,7 @@ class MAP(VSAModel):
     Gayler (1998) and is the running example in Gayler (2003) where the
     term "Vector Symbolic Architecture" itself is coined.
 
-    References
-    ----------
+    References:
     Gayler, R. W. (1998). Multiplicative binding, representation operators
     and analogy. In K. Holyoak, D. Gentner, B. Kokinov (eds.), Advances in
     Analogy Research, pp. 1-4. New Bulgarian University Press.
@@ -204,8 +201,7 @@ class HRR(VSAModel):
     convolution is the canonical single-argument shift-equivariant
     bilinear operator on R^d (see ``bayes_hdc.equivariance``).
 
-    References
-    ----------
+    References:
     Plate, T. A. (1995). Holographic Reduced Representations. IEEE
     Transactions on Neural Networks 6(3): 623-641.
     Plate, T. A. (2003). Holographic Reduced Representation: Distributed
@@ -270,8 +266,7 @@ class FHRR(VSAModel):
     domain becomes element-wise complex multiplication in the Fourier
     domain.
 
-    References
-    ----------
+    References:
     Plate, T. A. (2003). Holographic Reduced Representation: Distributed
     Representation for Cognitive Structures. CSLI Publications. (FHRR is
     treated alongside HRR; see chapters on the Fourier-domain formulation.)
@@ -338,8 +333,7 @@ class BSBC(VSAModel):
     1997); the sparse-block construction follows the line traced in
     Kleyko et al. (2023) Part I §2.3.7 (sparse binary HDC family).
 
-    References
-    ----------
+    References:
     Kanerva, P. (1997). Fully Distributed Representation. In Proc. RWC '97,
     pp. 358-365.
     Kleyko, D., Rachkovskij, D. A., Osipov, E., Rahimi, A. (2023).
