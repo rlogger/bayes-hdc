@@ -28,12 +28,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/rlogger/bayes-hdc/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/rlogger/bayes-hdc?style=social" /></a>
-  <a href="https://github.com/rlogger/bayes-hdc/discussions"><img alt="GitHub Discussions" src="https://img.shields.io/github/discussions/rlogger/bayes-hdc" /></a>
-  <a href="https://github.com/rlogger/bayes-hdc/issues?q=is%3Aopen+label%3A%22good+first+issue%22"><img alt="Good first issues" src="https://img.shields.io/github/issues/rlogger/bayes-hdc/good%20first%20issue?label=good%20first%20issues" /></a>
-</p>
-
-<p align="center">
   <a href="https://rlogger.github.io/bayes-hdc/"><strong>Documentation</strong></a> ·
   <a href="examples/">Examples</a> ·
   <a href="DESIGN.md">Design notes</a> ·
