@@ -256,6 +256,37 @@ Detailed paths, paths to maintainership, and recognition in [`COMMUNITY.md`](COM
 
 **Channels:** [Discussions](https://github.com/rlogger/bayes-hdc/discussions) · [Issues](https://github.com/rlogger/bayes-hdc/issues) · email `rajdeeps@usc.edu` for security.
 
+## In the HDC library landscape
+
+`bayes-hdc` occupies an empty lane in the open-source HDC ecosystem.
+
+| Library | Backend | VSA models | Probabilistic / UQ | Differentiable | Group-theoretic verifiers |
+|---|---|---:|---|---|---|
+| [TorchHD](https://github.com/hyperdimensional-computing/torchhd) | PyTorch | 8 | — | partial | — |
+| [hdlib](https://github.com/cumbof/hdlib) | NumPy | generic | — | — | — |
+| [vsapy](https://github.com/vsapy/vsapy) | NumPy | 5 | — | — | — |
+| [NengoSPA](https://github.com/nengo/nengo-spa) | Nengo (spiking) | HRR, VTB | — | — | — |
+| **bayes-hdc** | **JAX** | **8** | **GaussianHV / DirichletHV / conformal sets** | **`jit` / `vmap` / `grad` / `pmap` end-to-end** | **`Z/d` cyclic-shift verifiers** |
+
+Independent of speed comparisons, no other HDC library exposes (a) a JAX backend that composes with the BlackJAX / Flax / Equinox / Optax / Dynamax stack, (b) closed-form moment propagation for Gaussian hypervectors, (c) reparameterisation gradients for end-to-end variational codebook learning, or (d) split-conformal prediction sets with formal coverage guarantees. See [`BENCHMARKS.md`](BENCHMARKS.md) for accuracy and timing numbers.
+
+## How to cite
+
+If `bayes-hdc` is useful in your research, please cite both the software and the accompanying short paper:
+
+```bibtex
+@software{singh2026bayeshdc,
+  author  = {Rajdeep Singh},
+  title   = {bayes-hdc: Probabilistic Vector Symbolic Architectures and
+             Calibrated Hyperdimensional Computing in {JAX}},
+  year    = {2026},
+  url     = {https://github.com/rlogger/bayes-hdc},
+  version = {0.4.0a0}
+}
+```
+
+A machine-readable [`CITATION.cff`](CITATION.cff) is provided for the GitHub "Cite this repository" widget. The short paper draft is at [`paper/paper.md`](paper/paper.md) with its bibliography at [`paper/paper.bib`](paper/paper.bib). DOI minting on tagged release follows the metadata in [`.zenodo.json`](.zenodo.json).
+
 ## License
 
 [MIT](LICENSE).

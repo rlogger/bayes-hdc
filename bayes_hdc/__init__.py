@@ -33,6 +33,7 @@ from bayes_hdc import (
     models,
     resonator,
     structures,
+    training,
     uncertainty,
     utils,
     vsa,
@@ -149,6 +150,13 @@ from bayes_hdc.models import (
 )
 from bayes_hdc.resonator import ResonatorResult, probabilistic_resonator
 from bayes_hdc.structures import Graph, HashTable, Multiset, Sequence
+from bayes_hdc.training import (
+    AdamState,
+    TrainResult,
+    adam_init,
+    adam_update,
+    train_variational_codebook,
+)
 from bayes_hdc.uncertainty import ConformalClassifier, TemperatureCalibrator
 from bayes_hdc.vsa import BSBC, BSC, CGR, FHRR, HRR, MAP, MCR, VTB
 
@@ -171,6 +179,7 @@ __all__ = [
     "diagnostics",
     "equivariance",
     "resonator",
+    "training",
     # Group-theoretic structure
     "shift",
     "compose_shifts",
@@ -185,6 +194,12 @@ __all__ = [
     # Variational inference
     "elbo_gaussian",
     "reconstruction_log_likelihood_mc",
+    # Variational training
+    "AdamState",
+    "TrainResult",
+    "adam_init",
+    "adam_update",
+    "train_variational_codebook",
     # Probabilistic resonator
     "probabilistic_resonator",
     "ResonatorResult",

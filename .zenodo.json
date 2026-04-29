@@ -1,0 +1,44 @@
+{
+  "title": "bayes-hdc: Probabilistic Vector Symbolic Architectures and Calibrated Hyperdimensional Computing in JAX",
+  "description": "A JAX-native library for hyperdimensional computing (HDC) and vector symbolic architectures (VSA) with a built-in probabilistic layer (PVSA): Gaussian and Dirichlet hypervector types with closed-form moment propagation under bind, bundle, permute and cleanup; reparameterisation gradients for variational codebook learning; first-class group actions with property-based equivariance verifiers; temperature-scaling calibration; and split-conformal prediction sets with finite-sample coverage guarantees. Eight classical VSA models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB) under a uniform API.",
+  "license": "MIT",
+  "upload_type": "software",
+  "access_right": "open",
+  "creators": [
+    {
+      "name": "Singh, Rajdeep",
+      "affiliation": "Department of Computer Science, University of Southern California",
+      "orcid": "0000-0000-0000-0000"
+    }
+  ],
+  "keywords": [
+    "hyperdimensional computing",
+    "vector symbolic architectures",
+    "Bayesian machine learning",
+    "JAX",
+    "uncertainty quantification",
+    "conformal prediction",
+    "calibration",
+    "probabilistic computing",
+    "variational inference",
+    "equivariance",
+    "HDC",
+    "VSA",
+    "PVSA"
+  ],
+  "communities": [],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/rlogger/bayes-hdc",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://rlogger.github.io/bayes-hdc/",
+      "relation": "isDocumentedBy",
+      "scheme": "url"
+    }
+  ],
+  "language": "eng",
+  "notes": "If you use this software, please cite the accompanying JOSS paper (paper/paper.md) and the CITATION.cff entry."
+}

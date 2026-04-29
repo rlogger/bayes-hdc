@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Publishability push: JOSS / JMLR-MLOSS submission artefacts and SOTA features
+
+- **`paper/paper.md`** — JOSS-format short paper (1107 words) with frontmatter,
+  Summary, Statement of Need, State of the Field, Software Design,
+  Research Impact Statement, AI Usage Disclosure, Acknowledgements, and
+  References. Positions bayes-hdc as the differentiable, uncertainty-aware
+  HDC stack — the empty lane in the open-source HDC ecosystem.
+- **`paper/paper_mloss.md`** — longer JMLR-MLOSS-format paper (1686
+  words, 7 sections) emphasising novel contributions: PVSA algebra,
+  end-to-end variational training, conformal prediction, equivariance
+  verifiers, and 8-VSA-model coverage.
+- **`paper/paper.bib`** — BibTeX bibliography for both papers,
+  20 entries spanning foundational HDC/VSA work, calibration /
+  conformal prediction, the JAX numerical stack, and the four competing
+  HDC libraries (TorchHD, hdlib, vsapy, NengoSPA).
+- **`.zenodo.json`** — DOI archival metadata, ready for tagged-release
+  Zenodo integration.
+- **README "How to cite" + "In the HDC library landscape" table** —
+  explicit positioning vs TorchHD / hdlib / vsapy / NengoSPA on the
+  five differentiating axes, plus a BibTeX block for citation.
+- **`bayes_hdc.training`** — new module with a minimal, dependency-free
+  Adam optimiser (`adam_init` / `adam_update` / `AdamState`) and a
+  high-level `train_variational_codebook` loop that compiles via
+  `jax.lax.scan` so the full training trajectory lowers to one XLA
+  program. The `TrainResult` is a registered JAX pytree, so the
+  trainer can be wrapped in `jax.jit`. To our knowledge no other
+  open-source HDC/VSA library exposes a comparable end-to-end
+  variational training API. 8 unit tests, 98 % line coverage on the
+  new module.
+- **`examples/variational_codebook_learning.py`** — concrete
+  demonstration: a 1024-d `GaussianHV` posterior initialised at
+  μ = 0, σ² = 1 recovers a target μ-direction at cosine similarity
+  0.9999 in 500 Adam steps under a -ELBO loss with a 32-sample MC
+  reconstruction term. Verifies that `jax.grad` composes through every
+  PVSA primitive end-to-end.
+- **`examples/hopfield_cleanup_hdc.py`** — modern continuous Hopfield
+  retrieval (Ramsauer et al. 2020) as a soft cleanup step in an HDC
+  pipeline, contrasted against classical hard nearest-neighbour
+  cleanup over the same codebook.
+- **Wall-clock micro-benchmark vs TorchHD** in `BENCHMARKS.md`:
+  pointwise ops on CPU at `d = 10 000`, 200 trials. Cosine similarity
+  is **4.07× faster** under JAX-`jit` than TorchHD's eager kernels;
+  `bind` and `bundle` are 1.54× and 1.89× respectively. Reproducible
+  via `python benchmarks/benchmark_compare.py`.
+- Test count grew from 498 to **506 passing**, line coverage 93 %
+  on 23 modules.
+
 ### Added — Group-theoretic structure module and research-connection framing
 
 - `bayes_hdc.equivariance` — new module exposing the cyclic-shift action of
