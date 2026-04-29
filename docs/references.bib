@@ -1,0 +1,445 @@
+% bayes-hdc — canonical bibliography
+% =================================
+%
+% This file is the single source of truth for the canonical citations
+% used throughout the codebase. Every primary HDC/VSA paper that the
+% library cites in a docstring, design note, or example points back to
+% one of the entries below by BibTeX key. The keys follow the
+% lastname-year-shortword convention so they are stable across renames.
+%
+% The literature audit at docs/LITERATURE_AUDIT.md ties each paper to
+% the specific file:line locations where it is cited and records the
+% recommended canonical citation form. If you add a new citation,
+% extend this file and reference it from the docstring rather than
+% inlining the BibTeX inside the source.
+
+% =============================================================
+% Foundational VSA / HDC framework
+% =============================================================
+
+@article{fodor1988connectionism,
+  author  = {Jerry A. Fodor and Zenon W. Pylyshyn},
+  title   = {Connectionism and Cognitive Architecture: A Critical Analysis},
+  journal = {Cognition},
+  volume  = {28},
+  number  = {1--2},
+  pages   = {3--71},
+  year    = {1988},
+  doi     = {10.1016/0010-0277(88)90031-5},
+  note    = {Foundational connectionism critique; the systematicity-and-
+             productivity challenge that Vector Symbolic Architectures
+             aim to answer.}
+}
+
+@article{smolensky1990tensor,
+  author  = {Paul Smolensky},
+  title   = {Tensor Product Variable Binding and the Representation of
+             Symbolic Structures in Connectionist Systems},
+  journal = {Artificial Intelligence},
+  volume  = {46},
+  number  = {1--2},
+  pages   = {159--216},
+  year    = {1990},
+  doi     = {10.1016/0004-3702(90)90007-M},
+  note    = {The dimension-expanding tensor-product binding that HRR/MAP/BSC
+             compress to fixed dimension.}
+}
+
+@inproceedings{gayler2003vsa,
+  author    = {Ross W. Gayler},
+  title     = {Vector Symbolic Architectures Answer {J}ackendoff's Challenges
+               for Cognitive Neuroscience},
+  booktitle = {Joint International Conference on Cognitive Science (ICCS/ASCS-2003)},
+  editor    = {Peter Slezak},
+  address   = {Sydney, Australia},
+  publisher = {University of New South Wales},
+  pages     = {133--138},
+  year      = {2003},
+  eprint    = {cs/0412059},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  doi       = {10.48550/arXiv.cs/0412059},
+  note      = {Coining citation for the term "Vector Symbolic Architecture".}
+}
+
+% =============================================================
+% Plate's HRR — circular convolution binding
+% =============================================================
+
+@article{plate1995hrr,
+  author  = {Tony A. Plate},
+  title   = {Holographic Reduced Representations},
+  journal = {IEEE Transactions on Neural Networks},
+  volume  = {6},
+  number  = {3},
+  pages   = {623--641},
+  year    = {1995},
+  doi     = {10.1109/72.377968},
+  note    = {Open-access primary source for HRR algebra; the involution and
+             FFT-based convolution definitions used by bind_hrr / inverse_hrr.}
+}
+
+@book{plate2003hrr,
+  author    = {Tony A. Plate},
+  title     = {Holographic Reduced Representation: Distributed Representation
+               for Cognitive Structures},
+  publisher = {CSLI Publications},
+  address   = {Stanford, CA},
+  year      = {2003},
+  isbn      = {978-1-57586-430-9},
+  series    = {CSLI Lecture Notes},
+  note      = {Book-length treatment of HRR; expanded restatement of Plate
+               (1995, IEEE TNN). Also contains the capacity-bound formula
+               required_dimension() in bayes_hdc.metrics implements.}
+}
+
+% =============================================================
+% Kanerva — BSC, HDC, role-filler binding
+% =============================================================
+
+@inproceedings{kanerva1997fdr,
+  author    = {Pentti Kanerva},
+  title     = {Fully Distributed Representation},
+  booktitle = {Proceedings of the Real World Computing Symposium (RWC '97)},
+  address   = {Tokyo, Japan},
+  pages     = {358--365},
+  year      = {1997},
+  note      = {Origin paper for what later became known as the Binary
+               Spatter Code (BSC). Defines XOR binding, majority bundling,
+               Hamming similarity.}
+}
+
+@article{kanerva2009hyperdimensional,
+  author  = {Pentti Kanerva},
+  title   = {Hyperdimensional Computing: An Introduction to Computing in
+             Distributed Representation with High-Dimensional Random Vectors},
+  journal = {Cognitive Computation},
+  volume  = {1},
+  number  = {2},
+  pages   = {139--159},
+  year    = {2009},
+  doi     = {10.1007/s12559-009-9009-8},
+  note    = {The canonical HDC introduction. Coins "Hyperdimensional
+               Computing"; canonises bind / bundle / permute / similarity /
+               cleanup primitives plus the role-filler-binding pattern that
+               Kanerva (2010) demonstrates as "Dollar of Mexico".}
+}
+
+@inproceedings{kanerva2010dollar,
+  author    = {Pentti Kanerva},
+  title     = {What We Mean When We Say ``What's the Dollar of Mexico?'':
+               Prototypes and Mapping in Concept Space},
+  booktitle = {Quantum Informatics for Cognitive, Social, and Semantic
+               Processes: Papers from the AAAI Fall Symposium},
+  series    = {AAAI Technical Report FS-10-08},
+  publisher = {AAAI Press},
+  year      = {2010},
+  pages     = {2--6},
+  url       = {https://redwood.berkeley.edu/wp-content/uploads/2020/05/kanerva2010what.pdf},
+  note      = {Worked-example exposition of role-filler binding for
+               analogical mapping; the substrate operation is from
+               Kanerva (2009).}
+}
+
+% =============================================================
+% Hecht-Nielsen / Jones-Mewhort — context vectors and BEAGLE
+% =============================================================
+
+@incollection{hechtnielsen1994contextvectors,
+  author    = {Robert Hecht-Nielsen},
+  title     = {Context Vectors: General Purpose Approximate Meaning
+               Representations Self-organized from Raw Data},
+  booktitle = {Computational Intelligence: Imitating Life},
+  editor    = {Jacek M. Zurada and Robert J. Marks II and Charles J. Robinson},
+  publisher = {IEEE Press},
+  year      = {1994},
+  pages     = {43--56},
+  isbn      = {0-7803-1104-3},
+  note      = {Historical anchor for the corpus-trained context-vector
+               idea; ancestor of Random Indexing and BEAGLE.}
+}
+
+@article{jones2007beagle,
+  author    = {Michael N. Jones and Douglas J. K. Mewhort},
+  title     = {Representing Word Meaning and Order Information in a
+               Composite Holographic Lexicon},
+  journal   = {Psychological Review},
+  volume    = {114},
+  number    = {1},
+  pages     = {1--37},
+  year      = {2007},
+  doi       = {10.1037/0033-295X.114.1.1},
+  pmid      = {17227180},
+  note      = {BEAGLE: the canonical "permute + bind to encode word
+               order" pattern in HDC/VSA cognitive science.}
+}
+
+% =============================================================
+% Stewart-Eliasmith line — spiking-neuron VSA via NEF/SPA
+% Out of scope for bayes-hdc; cited in DESIGN.md §7 "Related approaches".
+% =============================================================
+
+@incollection{stewart2011compositionality,
+  author    = {Terrence C. Stewart and Chris Eliasmith},
+  title     = {Compositionality and Biologically Plausible Models},
+  booktitle = {The Oxford Handbook of Compositionality},
+  editor    = {Markus Werning and Wolfram Hinzen and Edouard Machery},
+  publisher = {Oxford University Press},
+  year      = {2011},
+  pages     = {596--615},
+  doi       = {10.1093/oxfordhb/9780199541072.013.0029}
+}
+
+@article{stewart2011neural,
+  author  = {Terrence C. Stewart and Trevor Bekolay and Chris Eliasmith},
+  title   = {Neural Representations of Compositional Structures: Representing
+             and Manipulating Vector Spaces with Spiking Neurons},
+  journal = {Connection Science},
+  volume  = {23},
+  number  = {2},
+  pages   = {145--153},
+  year    = {2011},
+  doi     = {10.1080/09540091.2011.571761},
+  note    = {Volume corrected to 23(2); some bibliographies list 22(3),
+               which does not match the DOI.}
+}
+
+@article{stewart2011biologically,
+  author  = {Terrence C. Stewart and Yichuan Tang and Chris Eliasmith},
+  title   = {A Biologically Realistic Cleanup Memory: Autoassociation in
+             Spiking Neurons},
+  journal = {Cognitive Systems Research},
+  volume  = {12},
+  pages   = {84--92},
+  year    = {2011},
+  doi     = {10.1016/j.cogsys.2010.06.006},
+  note    = {Some bibliographies date this 2010 (the journal cover date);
+               the published volume is 2011 per the DOI / DBLP record.}
+}
+
+@article{rasmussen2011neural,
+  author  = {Daniel Rasmussen and Chris Eliasmith},
+  title   = {A Neural Model of Rule Generation in Inductive Reasoning},
+  journal = {Topics in Cognitive Science},
+  volume  = {3},
+  number  = {1},
+  pages   = {140--153},
+  year    = {2011},
+  doi     = {10.1111/j.1756-8765.2010.01127.x},
+  note    = {The repo's reading-list entry calls the venue "Cognitive
+               Science"; the actual venue is "Topics in Cognitive Science"
+               (TopiCS), the affiliated short-form journal.}
+}
+
+% =============================================================
+% Gayler-Levy and applied VSA
+% =============================================================
+
+@inproceedings{gayler2009distributed,
+  author    = {Ross W. Gayler and Simon D. Levy},
+  title     = {A Distributed Basis for Analogical Mapping},
+  booktitle = {New Frontiers in Analogy Research: Proceedings of the Second
+               International Conference on Analogy (ANALOGY-2009)},
+  editor    = {Boicho Kokinov and Keith J. Holyoak and Dedre Gentner},
+  publisher = {New Bulgarian University Press},
+  address   = {Sofia, Bulgaria},
+  year      = {2009},
+  pages     = {165--174},
+  url       = {https://redwood.berkeley.edu/wp-content/uploads/2021/08/Gayler2009.pdf},
+  note      = {Origin of the holistic vector-intersection primitive
+               (bayes_hdc.vector_intersect) and the replicator-iteration
+               formulation of VSA-based graph-isomorphism analogical
+               mapping; demonstrated in examples/gayler_levy_analogy.py.}
+}
+
+@inproceedings{levy2013learning,
+  author    = {Simon D. Levy and Suraj Bajracharya and Ross W. Gayler},
+  title     = {Learning Behavior Hierarchies via High-Dimensional Sensor
+               Projection},
+  booktitle = {Learning Rich Representations from Low-Level Sensors:
+               Papers from the AAAI 2013 Workshop},
+  series    = {AAAI Technical Report WS-13-15},
+  pages     = {25--27},
+  year      = {2013},
+  publisher = {AAAI Press},
+  url       = {https://cdn.aaai.org/ocs/ws/ws1006/7075-30615-1-PB.pdf},
+  note      = {The repo's reading-list entry attributes the paper to the
+               AAAI main conference; it actually appeared in the co-located
+               AAAI 2013 workshop track. Pages 25-27 in the workshop
+               volume.}
+}
+
+% =============================================================
+% Mizraji — matrix-vector logic and context-dependent associations
+% Out of scope for bayes-hdc; not cited in code.
+% =============================================================
+
+@article{mizraji1989context,
+  author  = {Eduardo Mizraji},
+  title   = {Context-Dependent Associations in Linear Distributed Memories},
+  journal = {Bulletin of Mathematical Biology},
+  volume  = {51},
+  number  = {2},
+  pages   = {195--205},
+  year    = {1989},
+  doi     = {10.1007/BF02458441},
+  pmid    = {2924018}
+}
+
+@article{mizraji1992vector,
+  author  = {Eduardo Mizraji},
+  title   = {Vector Logics: The Matrix-Vector Representation of Logical
+             Calculus},
+  journal = {Fuzzy Sets and Systems},
+  volume  = {50},
+  number  = {2},
+  pages   = {179--185},
+  year    = {1992},
+  doi     = {10.1016/0165-0114(92)90216-Q}
+}
+
+% =============================================================
+% Survey
+% =============================================================
+
+@article{kleyko2023survey1,
+  author  = {Denis Kleyko and Dmitri A. Rachkovskij and Evgeny Osipov and
+             Abbas Rahimi},
+  title   = {A Survey on Hyperdimensional Computing aka Vector Symbolic
+             Architectures, Part I: Models and Data Transformations},
+  journal = {ACM Computing Surveys},
+  volume  = {55},
+  number  = {6},
+  pages   = {1--40},
+  year    = {2023},
+  doi     = {10.1145/3538531},
+  eprint  = {2111.06077},
+  archivePrefix = {arXiv}
+}
+
+@article{kleyko2023survey2,
+  author  = {Denis Kleyko and Dmitri A. Rachkovskij and Evgeny Osipov and
+             Abbas Rahimi},
+  title   = {A Survey on Hyperdimensional Computing aka Vector Symbolic
+             Architectures, Part II: Applications, Cognitive Models, and
+             Challenges},
+  journal = {ACM Computing Surveys},
+  volume  = {55},
+  number  = {9},
+  pages   = {1--52},
+  year    = {2023},
+  articleno = {175},
+  doi       = {10.1145/3558000},
+  eprint    = {2112.15424},
+  archivePrefix = {arXiv},
+  note      = {Cite as 2023 (journal year). The arXiv v3 is also dated
+               2023; only v1 (Dec 2021) and v2 timestamps predate it.
+               Earlier shorthand "Kleyko et al. 2022 survey" referred to
+               the v1 preprint and is no longer canonical.}
+}
+
+% =============================================================
+% Calibration / conformal prediction (used by bayes_hdc.uncertainty)
+% =============================================================
+
+@inproceedings{guo2017calibration,
+  author    = {Chuan Guo and Geoff Pleiss and Yu Sun and Kilian Q. Weinberger},
+  title     = {On Calibration of Modern Neural Networks},
+  booktitle = {Proceedings of the 34th International Conference on Machine
+               Learning (ICML)},
+  pages     = {1321--1330},
+  year      = {2017},
+  url       = {https://proceedings.mlr.press/v70/guo17a.html}
+}
+
+@article{romano2020classification,
+  author  = {Yaniv Romano and Matteo Sesia and Emmanuel J. Cand{\`e}s},
+  title   = {Classification with Valid and Adaptive Coverage},
+  journal = {Advances in Neural Information Processing Systems},
+  volume  = {33},
+  year    = {2020}
+}
+
+% =============================================================
+% Modern Hopfield / associative memory
+% =============================================================
+
+@article{ramsauer2020hopfield,
+  author  = {Hubert Ramsauer and Bernhard Sch{\"a}fl and Johannes Lehner and
+             Philipp Seidl and Michael Widrich and Lukas Gruber and
+             Markus Holzleitner and Thomas Adler and David Kreil and
+             Michael K. Kopp and Günter Klambauer and Johannes Brandstetter and
+             Sepp Hochreiter},
+  title   = {Hopfield Networks is All You Need},
+  journal = {arXiv preprint arXiv:2008.02217},
+  year    = {2020},
+  url     = {https://arxiv.org/abs/2008.02217},
+  note    = {The "modern continuous Hopfield network" implemented by
+             bayes_hdc.memory.HopfieldMemory; one-step softmax-attention
+             retrieval, distinct from Hopfield (1982).}
+}
+
+@article{hopfield1982neural,
+  author  = {John J. Hopfield},
+  title   = {Neural networks and physical systems with emergent collective
+             computational abilities},
+  journal = {Proceedings of the National Academy of Sciences},
+  volume  = {79},
+  number  = {8},
+  pages   = {2554--2558},
+  year    = {1982},
+  doi     = {10.1073/pnas.79.8.2554},
+  note    = {Classical sign-thresholded recurrent Hopfield network;
+             distinct from Ramsauer et al. (2020) and from spiking-
+             neuron cleanup memories.}
+}
+
+% =============================================================
+% Sequence / random-indexing antecedents
+% =============================================================
+
+@inproceedings{sahlgren2008permutations,
+  author    = {Magnus Sahlgren and Anders Holst and Pentti Kanerva},
+  title     = {Permutations as a Means to Encode Order in Word Space},
+  booktitle = {Proceedings of the 30th Annual Conference of the Cognitive
+               Science Society},
+  pages     = {1300--1305},
+  year      = {2008},
+  note      = {Permute-then-bundle sequence encoding; introduced
+               contemporaneously with Kanerva (2009).}
+}
+
+% =============================================================
+% Resonator networks (factorisation)
+% =============================================================
+
+@article{frady2020resonator,
+  author  = {E. Paxon Frady and Spencer J. Kent and Bruno A. Olshausen and
+             Friedrich T. Sommer},
+  title   = {Resonator Networks, 1: An Efficient Solution for Factoring
+             High-Dimensional, Distributed Representations of Data
+             Structures},
+  journal = {Neural Computation},
+  volume  = {32},
+  number  = {12},
+  pages   = {2311--2331},
+  year    = {2020},
+  doi     = {10.1162/neco_a_01331}
+}
+
+% =============================================================
+% Calibration metrics, etc. — domain references for HDC applications
+% =============================================================
+
+@inproceedings{rahimi2016hdc,
+  author    = {Abbas Rahimi and Pentti Kanerva and Jan M. Rabaey},
+  title     = {A Robust and Energy-Efficient Classifier Using Brain-Inspired
+               Hyperdimensional Computing},
+  booktitle = {Proceedings of the 2016 International Symposium on Low Power
+               Electronics and Design (ISLPED)},
+  pages     = {64--69},
+  year      = {2016},
+  doi       = {10.1145/2934583.2934624},
+  note      = {The canonical sEMG hand-gesture classification application;
+               see examples/emg_gesture_recognition.py.}
+}

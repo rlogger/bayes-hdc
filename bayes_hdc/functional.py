@@ -42,19 +42,36 @@ def bind_bsc(x: jax.Array, y: jax.Array) -> jax.Array:
     return jnp.logical_xor(x, y)
 
 
-def bundle_bsc(vectors: jax.Array, axis: int = 0) -> jax.Array:
+def bundle_bsc(
+    vectors: jax.Array,
+    axis: int = 0,
+    key: jax.Array | None = None,
+) -> jax.Array:
     """Bundle hypervectors using majority rule for Binary Spatter Codes.
 
     Bundling creates a new hypervector similar to all inputs by taking
-    the majority vote at each dimension. For an even number of input
-    vectors, ties at exactly half the count are mapped to ``False`` (a
-    deterministic bias toward 0); see the audit note in
-    ``docs/LITERATURE_AUDIT.md`` SF-2 for the comparison with Kanerva's
-    stochastic / fixed-tiebreaker conventions.
+    the majority vote at each dimension.
+
+    For an even number of input vectors, ties at exactly half the count
+    are broken according to ``key``:
+
+    * ``key is None`` (default) — deterministic: ties map to ``False``.
+      This is fast, JIT-friendly, and matches the historical behaviour
+      of this library.
+    * ``key`` is a ``jax.random.PRNGKey`` — stochastic: ties are broken
+      by independent fair coin flips per component, matching Kanerva
+      (1997)'s prescription for an unbiased majority rule under even
+      input counts.
+
+    For an odd number of input vectors there is no tie and ``key`` has
+    no effect.
 
     Args:
         vectors: Binary hypervectors of shape with axis containing vectors to bundle
         axis: Axis along which to bundle (default: 0)
+        key: Optional ``jax.random.PRNGKey``. When provided, ties are
+            broken by stochastic coin flip; when ``None``, ties map
+            deterministically to ``False``.
 
     Returns:
         Bundled hypervector, similar to all inputs
@@ -67,7 +84,12 @@ def bundle_bsc(vectors: jax.Array, axis: int = 0) -> jax.Array:
     counts = jnp.sum(vectors, axis=axis)
     shape_size = vectors.shape[axis]
     threshold = shape_size / 2.0
-    return counts > threshold
+    if key is None:
+        return counts > threshold
+    # Stochastic tie-break: where counts == threshold, return a random bit.
+    is_tie = counts == threshold
+    coin = jax.random.bernoulli(key, p=0.5, shape=counts.shape)
+    return jnp.where(is_tie, coin, counts > threshold)
 
 
 @jax.jit
@@ -146,6 +168,88 @@ def inverse_map(x: jax.Array, eps: float = EPS) -> jax.Array:
     """
     safe_inv = jnp.where(jnp.abs(x) > eps, 1.0 / x, 0.0)
     return safe_inv
+
+
+def vector_intersect(
+    x: jax.Array,
+    y: jax.Array,
+    atoms: jax.Array,
+) -> jax.Array:
+    r"""Holistic vector intersection (Gayler & Levy 2009).
+
+    Given two bundle hypervectors ``x`` and ``y`` and a known atom set
+    ``atoms`` of shape ``(N, d)``, return a bundle hypervector that
+    contains *only* the atoms present in both ``x`` and ``y``,
+    weighted by their joint projection.
+
+    For each atom ``a_i`` we compute ``s_i = max(cos(x, a_i), 0) *
+    max(cos(y, a_i), 0)`` — a non-negative joint-membership weight that
+    is large when ``a_i`` is similar to both inputs and zero when it is
+    absent from either. The output is :math:`\sum_i s_i \cdot a_i`.
+
+    This is the explicit-atom-set realisation of the cleanup-memory
+    construction in Gayler & Levy (2009, §"Distributed Implementation"
+    Figure 2). It is a soft logical AND on bundles, the primitive that
+    makes VSA-based graph isomorphism / analogical mapping possible.
+
+    Args:
+        x: First bundle hypervector of shape ``(d,)``.
+        y: Second bundle hypervector of shape ``(d,)``.
+        atoms: Known atom set of shape ``(N, d)``. The intersection is
+            constrained to lie in the span of these atoms.
+
+    Returns:
+        Hypervector of shape ``(d,)`` representing ``x ∧ y`` —
+        the atoms shared by both bundles, weighted by joint similarity.
+
+    References
+    ----------
+    Gayler, R. W., Levy, S. D. (2009). A Distributed Basis for Analogical
+    Mapping. In Proc. 2nd Int. Conf. on Analogy (ANALOGY-2009),
+    pp. 165-174.
+    """
+    # Per-atom cosine to each input.
+    sim_x = jax.vmap(lambda a: cosine_similarity(x, a))(atoms)  # (N,)
+    sim_y = jax.vmap(lambda a: cosine_similarity(y, a))(atoms)  # (N,)
+    # Joint membership: capped at 0, multiplied. Atoms absent from either
+    # input contribute nothing to the result.
+    joint = jnp.maximum(sim_x, 0.0) * jnp.maximum(sim_y, 0.0)  # (N,)
+    # Bundle of atoms weighted by joint membership.
+    return jnp.sum(atoms * joint[:, None], axis=0)
+
+
+@jax.jit
+def transformation_vector(a: jax.Array, b: jax.Array) -> jax.Array:
+    r"""Construct a transformation hypervector :math:`T = a^{-1} \star b`.
+
+    The transformation vector encodes "the rule that maps :math:`a` to
+    :math:`b`": applying it via :func:`bind_map` recovers :math:`b` from
+    :math:`a`, and bundles of transformation vectors over many example
+    pairs serve as a learned rule under the Rasmussen-Eliasmith (2011)
+    inductive-reasoning recipe and Kanerva's (2010) "Dollar of Mexico"
+    analogical-mapping construction.
+
+    For Binary Spatter Codes (where XOR is self-inverse and
+    ``inverse_bsc`` is the identity) this collapses to ``bind_bsc(a, b)``;
+    for MAP it is ``bind_map(inverse_map(a), b)``.
+
+    Args:
+        a: Source hypervector of shape ``(..., d)``.
+        b: Target hypervector of shape ``(..., d)``.
+
+    Returns:
+        The transformation hypervector ``inverse(a) * b`` (real-valued
+        MAP convention; element-wise reciprocal of ``a`` followed by
+        element-wise product with ``b``).
+
+    References
+    ----------
+    Kanerva, P. (2010). What We Mean When We Say "What's the Dollar of
+    Mexico?": Prototypes and Mapping in Concept Space.
+    Rasmussen, D., Eliasmith, C. (2011). A Neural Model of Rule Generation
+    in Inductive Reasoning. Topics in Cognitive Science 3(1): 140-153.
+    """
+    return bind_map(inverse_map(a), b)
 
 
 @jax.jit

@@ -116,7 +116,9 @@ from bayes_hdc.functional import (
     select_map,
     soft_quantize,
     threshold,
+    transformation_vector,
     tversky_similarity,
+    vector_intersect,
     window,
 )
 from bayes_hdc.inference import elbo_gaussian, reconstruction_log_likelihood_mc
@@ -131,6 +133,7 @@ from bayes_hdc.metrics import (
     maximum_calibration_error,
     negative_log_likelihood,
     reliability_curve,
+    required_dimension,
     retrieval_confidence,
     saturation,
     sharpness,
@@ -231,6 +234,8 @@ __all__ = [
     "multibind_map",
     "multibind_bsc",
     "cross_product",
+    "transformation_vector",
+    "vector_intersect",
     # Composite encodings
     "hash_table",
     "ngrams",
@@ -280,6 +285,7 @@ __all__ = [
     # Metrics — capacity / diagnostics
     "bundle_snr",
     "bundle_capacity",
+    "required_dimension",
     "effective_dimensions",
     "sparsity",
     "signal_energy",

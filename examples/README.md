@@ -36,7 +36,10 @@ python examples/pvsa_quickstart.py
 | [`sequence_memory.py`](sequence_memory.py) | Position-addressable sequence memory: encode a 12-token sentence as one HV, retrieve each token by un-permuting + cleanup, confidence from top-1/top-2 gap. |
 | [`weight_space_posterior.py`](weight_space_posterior.py) | A `BayesianCentroidClassifier`'s weights as a `GaussianHV` posterior. Sample from it, predict with each draw, read off epistemic uncertainty, and verify the posterior commutes with the cyclic-shift action. |
 | [`song_matching.py`](song_matching.py) | Bag-of-words song similarity. The sum of word hypervectors is legible by eye; cosine similarity recovers theme pairs and the overlap of shared words is visible on every match. |
-| [`kanerva_example.py`](kanerva_example.py) | "Dollar of Mexico" — role-filler binding and analogical reasoning. |
+| [`kanerva_example.py`](kanerva_example.py) | "Dollar of Mexico" — role-filler binding and analogical reasoning, in BSC (XOR is self-inverse, the algebra is exact, the analogy decodes cleanly). |
+| [`eeg_seizure_detection.py`](eeg_seizure_detection.py) | iEEG seizure detection — log-RMS-per-channel + ordinal levels + channel-value binding + bundle + `BayesianCentroidClassifier` + conformal sets. Reproduces the Burrello-Schindler-Benini-Rahimi 2018-2021 pipeline structure on synthetic 8-channel EEG. |
+| [`gayler_levy_analogy.py`](gayler_levy_analogy.py) | Pelillo-style graph-isomorphism analogical mapping using Gayler & Levy (2009) holistic vector intersection. Recovers the canonical `A→P, B→Q, C→R, D→S` correspondence on a 4-cycle pair via replicator iteration with Sinkhorn projection. |
+| [`resonator_factorisation.py`](resonator_factorisation.py) | Multi-restart MCMC factorisation of a composite hypervector via `bayes_hdc.probabilistic_resonator`. Recovers the index triple of three random factors from a 3-codebook bind, with alignment-vs-iteration trajectory. |
 
 ## Requirements
 

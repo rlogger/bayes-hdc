@@ -68,6 +68,59 @@ def bundle_capacity(d: int, delta: float = 0.05) -> jax.Array:
     return jnp.sqrt(d / (2.0 * jnp.log(1.0 / delta)))
 
 
+def required_dimension(
+    chunk_size: int,
+    codebook_size: int,
+    q: float = 0.99,
+) -> jax.Array:
+    r"""Plate's HRR capacity bound — minimum dimension for reliable cleanup.
+
+    Implements the formula given in Stewart, Tang & Eliasmith (2010,
+    Eq. 1, citing Plate 2003):
+
+    .. math::
+        D \approx 4.5 (k + 0.7) \ln \!\left( \frac{M}{30 q^4} \right)
+
+    where ``k = chunk_size`` is the number of role-filler pairs bundled
+    into a single composite hypervector, ``M = codebook_size`` is the
+    number of atomic items in the cleanup memory, and ``q`` is the
+    target fraction of correct retrievals (usually close to 1).
+
+    The bound is approximate: the constants ``4.5`` and ``0.7`` come
+    from a Gaussian-tail analysis of HRR cleanup and assume Plate's
+    standard ``N(0, 1/d)`` codebook initialisation. In practice the
+    library's unit-sphere normalisation yields very similar capacity at
+    large ``d``; the bound is most useful for an order-of-magnitude
+    sanity check before sizing a deployment.
+
+    Args:
+        chunk_size: Number of role-filler pairs in each composite (k).
+        codebook_size: Number of atomic items in cleanup memory (M).
+        q: Target fraction of correct retrievals in [0, 1] (default 0.99).
+
+    Returns:
+        Required hypervector dimension (rounded up to the next int).
+
+    References
+    ----------
+    Plate, T. A. (2003). Holographic Reduced Representation: Distributed
+    Representation for Cognitive Structures. CSLI Publications. (Eq. 1
+    of the capacity analysis chapter.)
+    Stewart, T. C., Tang, Y., Eliasmith, C. (2010). A Biologically
+    Realistic Cleanup Memory: Autoassociation in Spiking Neurons.
+    Cognitive Systems Research 12: 84-92.
+    """
+    if chunk_size < 1:
+        raise ValueError(f"chunk_size must be >= 1; got {chunk_size}")
+    if codebook_size < 1:
+        raise ValueError(f"codebook_size must be >= 1; got {codebook_size}")
+    if not 0.0 < q < 1.0:
+        raise ValueError(f"q must be in (0, 1); got {q}")
+    log_arg = jnp.maximum(codebook_size / (30.0 * q**4), 1.0)
+    d = 4.5 * (chunk_size + 0.7) * jnp.log(log_arg)
+    return jnp.ceil(d).astype(jnp.int32)
+
+
 @jax.jit
 def effective_dimensions(x: jax.Array) -> jax.Array:
     """Participation ratio measuring how many dimensions carry signal.

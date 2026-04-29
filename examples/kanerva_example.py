@@ -40,8 +40,8 @@ Concepts demonstrated:
 import jax
 import jax.numpy as jnp
 
-from bayes_hdc import MAP
-from bayes_hdc.functional import cosine_similarity
+from bayes_hdc import BSC
+from bayes_hdc.functional import hamming_similarity
 
 
 def main():
@@ -50,10 +50,15 @@ def main():
     print("Kanerva's 'Dollar of Mexico' Example")
     print("=" * 70)
 
-    # Initialize
+    # Initialize. Kanerva (2010) demonstrates the analogy in the Binary
+    # Spatter Code (BSC) substrate, where XOR binding is self-inverse and
+    # the algebra `F = X * Y, then F * X ≈ Y` is exact. We use BSC here
+    # to match the paper faithfully; the same construction expressed in
+    # MAP works in principle but is noisier because real-valued binding
+    # is not self-inverse.
     d = 10000  # number of dimensions
     key = jax.random.PRNGKey(42)
-    model = MAP.create(dimensions=d)
+    model = BSC.create(dimensions=d)
 
     print(f"\nUsing {d}-dimensional hypervectors")
 
@@ -109,10 +114,15 @@ def main():
 
     # Create mapping from US to Mexico
     print("\nCreating mapping: US → Mexico")
-    print("  Mapping = bind(inverse(US), MX)")
+    print("  Mapping = bind(US, MX)   (BSC: XOR is self-inverse, so no")
+    print("                            explicit inverse is needed)")
 
-    us_inv = model.inverse(us)
-    us_to_mx = model.bind(us_inv, mx)
+    # In BSC, inverse(x) == x (XOR is self-inverse), so the canonical
+    # Kanerva-2010 mapping `F_UM = USTATES * MEXICO` is just `bind(us, mx)`.
+    # We retain the more general `bind(inverse(us), mx)` form so the same
+    # code works for MAP when the model is swapped, and BSC's identity
+    # inverse simplifies it back to bind(us, mx).
+    us_to_mx = model.bind(model.inverse(us), mx)
 
     # Query: What's the dollar of Mexico?
     print("\n" + "=" * 70)
@@ -146,7 +156,7 @@ def main():
     print("\nComputing similarity with all known concepts:")
     print("-" * 70)
 
-    similarities = jax.vmap(lambda m: cosine_similarity(usd_of_mex, m))(memory)
+    similarities = jax.vmap(lambda m: hamming_similarity(usd_of_mex, m))(memory)
 
     # Sort by similarity
     sorted_indices = jnp.argsort(similarities)[::-1]
@@ -176,14 +186,47 @@ def main():
     print("=" * 70)
 
     # Query: What's the capital of Mexico?
+    #
+    # Direct unbinding: bind the bundle with the inverse of the role-key, and
+    # the matching filler (the capital) emerges as the dominant component.
+    # In Kanerva-2009 / 2010 notation: given H = bind(country, MEX) +
+    # bind(capital, MXC) + bind(currency, MXN), the recovery of the capital
+    # is bind(H, inverse(capital)) ≈ MXC. This is the textbook one-step form;
+    # the "double-binding" idiom that previously appeared here was algebraically
+    # incorrect for real-valued MAP (it left an extra capital^2 / country
+    # factor) even though it printed the right answer empirically at d=10000.
     print("\nQuery: What's the capital of Mexico?")
-    capital_query = model.bind(mx, model.inverse(country_key))
-    capital_query = model.bind(capital_query, capital_key)
+    capital_query = model.bind(mx, model.inverse(capital_key))
 
-    capital_sims = jax.vmap(lambda m: cosine_similarity(capital_query, m))(memory)
+    capital_sims = jax.vmap(lambda m: hamming_similarity(capital_query, m))(memory)
     capital_match = jnp.argmax(capital_sims)
 
     print(f"Answer: {memory_labels[capital_match]} (similarity: {capital_sims[capital_match]:.4f})")
+
+    # ------------------------------------------------------------------
+    # Gayler 2003 frame and substitution recipes (one-liners).
+    #
+    # Gayler's response to Jackendoff's "problem of 2" — multiple instances
+    # of the same type — uses a *frame* construction:
+    #
+    #     make_frame(a) = bind(permute(a), a)
+    #
+    # Each frame is unique even when its internal structure is shared.
+    # His response to the "problem of variables" (productivity) treats
+    # substitution as a binding-of-structures:
+    #
+    #     apply_substitution(sub, struct) = bind(sub, struct)
+    #
+    # where ``sub = transformation_vector(x, y)`` (i.e. ``bind(inverse(x), y)``)
+    # encodes the rule "replace x with y". In Kanerva-2010 / BSC notation,
+    # ``us_to_mx`` constructed above is exactly such a substitution: applying
+    # it to ``usd`` substitutes USA→MX and yields the Mexican Peso.
+    #
+    # We do not expose `make_frame` or `apply_substitution` as named
+    # primitives because the one-line recipes above are clearer than a
+    # renamed wrapper would be. See ``bayes_hdc.transformation_vector`` if
+    # you want a named helper for the substitution case.
+    # ------------------------------------------------------------------
 
     print("\n" + "=" * 70)
     print("Example Complete")
