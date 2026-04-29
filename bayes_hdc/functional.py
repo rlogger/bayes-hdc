@@ -12,7 +12,7 @@ This module provides the fundamental operations for manipulating hypervectors:
 """
 
 import functools
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import jax
 import jax.numpy as jnp
@@ -45,7 +45,7 @@ def bind_bsc(x: jax.Array, y: jax.Array) -> jax.Array:
 def bundle_bsc(
     vectors: jax.Array,
     axis: int = 0,
-    key: jax.Array | None = None,
+    key: Optional[jax.Array] = None,
 ) -> jax.Array:
     """Bundle hypervectors using majority rule for Binary Spatter Codes.
 
