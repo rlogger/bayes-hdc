@@ -55,3 +55,6 @@ docs/_build/
 
 # Benchmarks
 benchmarks/benchmark_results.json
+
+# Internal — not for public repo
+KESTREL.md
