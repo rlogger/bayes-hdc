@@ -150,6 +150,7 @@ from bayes_hdc.models import (
     AdaptiveHDC,
     CentroidClassifier,
     ClusteringModel,
+    HDRegressor,
     LVQClassifier,
     RegularizedLSClassifier,
 )
@@ -162,7 +163,11 @@ from bayes_hdc.training import (
     adam_update,
     train_variational_codebook,
 )
-from bayes_hdc.uncertainty import ConformalClassifier, TemperatureCalibrator
+from bayes_hdc.uncertainty import (
+    ConformalClassifier,
+    ConformalRegressor,
+    TemperatureCalibrator,
+)
 from bayes_hdc.vsa import BSBC, BSC, CGR, FHRR, HRR, MAP, MCR, VTB
 
 __all__ = [
@@ -239,6 +244,7 @@ __all__ = [
     # Uncertainty quantification
     "TemperatureCalibrator",
     "ConformalClassifier",
+    "ConformalRegressor",
     # Core operations
     "bind_bsc",
     "bundle_bsc",
@@ -300,6 +306,7 @@ __all__ = [
     "AdaptiveHDC",
     "LVQClassifier",
     "RegularizedLSClassifier",
+    "HDRegressor",
     "ClusteringModel",
     # Memory
     "SparseDistributedMemory",

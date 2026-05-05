@@ -3,8 +3,8 @@
 
 """Uncertainty quantification and calibration for HDC classifiers.
 
-This module ships two wrappers that convert any classifier producing
-pre-softmax scores or class probabilities into an uncertainty-aware one:
+This module ships three wrappers that convert any classifier or
+regressor into an uncertainty-aware one:
 
 - :class:`TemperatureCalibrator` — a one-parameter post-hoc calibrator
   that rescales logits by a learned temperature :math:`T > 0` before the
@@ -17,12 +17,21 @@ pre-softmax scores or class probabilities into an uncertainty-aware one:
   nonconformity score from Romano et al. (2020), which produces
   class-balanced sets and handles multi-class natively.
 
-Both are JAX pytrees: ``jit``, ``vmap``, and ``grad`` compose through
-them without special handling. They wrap any classifier that exposes raw
-scores — :class:`~bayes_hdc.models.CentroidClassifier.similarity`,
-:class:`~bayes_hdc.models.RegularizedLSClassifier.predict`, or a
-user-supplied model — so existing pipelines get calibration without
-retraining.
+- :class:`ConformalRegressor` — a split-conformal wrapper for
+  *continuous*-output predictors. Returns symmetric prediction
+  intervals :math:`[\\hat y - q, \\hat y + q]` where :math:`q` is the
+  appropriate empirical quantile of the calibration absolute residuals,
+  with a finite-sample marginal-coverage guarantee
+  :math:`\\mathbb{P}(y \\in [\\hat y - q, \\hat y + q]) \\geq 1 - \\alpha`
+  on exchangeable data. Pairs naturally with
+  :class:`~bayes_hdc.models.HDRegressor`.
+
+All three are JAX pytrees: ``jit``, ``vmap``, and ``grad`` compose
+through them without special handling. They wrap any model that
+exposes raw scores or predictions — :class:`~bayes_hdc.models.CentroidClassifier.similarity`,
+:class:`~bayes_hdc.models.RegularizedLSClassifier.predict`,
+:class:`~bayes_hdc.models.HDRegressor.predict`, or a user-supplied
+model — so existing pipelines get calibration without retraining.
 """
 
 from __future__ import annotations
@@ -274,7 +283,189 @@ class ConformalClassifier:
         return jnp.mean(jnp.sum(mask.astype(jnp.float32), axis=-1))
 
 
+# ----------------------------------------------------------------------
+# Conformal regression — split-conformal absolute-residual intervals
+# ----------------------------------------------------------------------
+
+
+@register_dataclass
+@dataclass
+class ConformalRegressor:
+    r"""Split-conformal regression with finite-sample coverage.
+
+    For a regressor :math:`\hat f` and a calibration set
+    :math:`\{(x_i, y_i)\}_{i=1}^{n}` exchangeable with the test point,
+    the absolute-residual nonconformity score is
+    :math:`s_i = |y_i - \hat f(x_i)|`. Sort the calibration scores and
+    take the empirical
+    :math:`\lceil (n+1)(1-\alpha) \rceil / n` quantile :math:`q`. The
+    prediction interval at a new point :math:`x` is
+    :math:`[\hat f(x) - q, \hat f(x) + q]`. Lei et al. (2018,
+    *Distribution-Free Predictive Inference for Regression*) prove
+    that, under exchangeability,
+
+    .. math::
+        \mathbb{P}\bigl(y_{\mathrm{test}} \in [\hat f(x) - q, \hat f(x) + q]\bigr)
+        \;\geq\; 1 - \alpha,
+
+    independent of the regressor's quality, the data distribution, or
+    the dimension. Loss of regressor accuracy widens the intervals; it
+    does not break the coverage guarantee.
+
+    For multi-output targets, an interval is produced per output
+    dimension by computing one quantile per output column. (A joint
+    coverage guarantee at the *vector* level requires Bonferroni or a
+    multivariate nonconformity score; this implementation gives
+    marginal coverage per output dimension.)
+
+    Concurrent algorithmic work in HDC: Liang et al. (2026)
+    *ConformalHDC* (arXiv:2602.21446) develops adaptive nonconformity
+    scores tailored to prototype geometry. ``ConformalRegressor`` is
+    the simpler absolute-residual variant — sufficient for the
+    calibrated-regression use case but composable with any user-
+    supplied score.
+
+    Attributes:
+        quantile: Empirical quantile of calibration residuals, of
+            shape ``(output_dim,)`` (one per output column).
+        alpha: Target miscoverage rate; the guaranteed marginal
+            coverage is ``1 - alpha``.
+        output_dim: Number of regression output dimensions.
+        n_calibration: Number of calibration points used to fit the
+            quantile.
+    """
+
+    quantile: jax.Array  # (output_dim,)
+    alpha: float = field(metadata=dict(static=True))
+    output_dim: int = field(metadata=dict(static=True))
+    n_calibration: int = field(metadata=dict(static=True), default=0)
+
+    @staticmethod
+    def create(alpha: float = 0.1, output_dim: int = 1) -> ConformalRegressor:
+        if not (0.0 < alpha < 1.0):
+            raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+        if output_dim < 1:
+            raise ValueError(f"output_dim must be >= 1, got {output_dim}")
+        return ConformalRegressor(
+            quantile=jnp.zeros((output_dim,)),
+            alpha=alpha,
+            output_dim=output_dim,
+            n_calibration=0,
+        )
+
+    def fit(
+        self,
+        predictions_cal: jax.Array,
+        targets_cal: jax.Array,
+    ) -> ConformalRegressor:
+        """Compute the conformal quantile from calibration residuals.
+
+        Args:
+            predictions_cal: Predicted outputs on the calibration set,
+                shape ``(n,)``, ``(n, k)``, or scalar-per-row.
+            targets_cal: True targets on the calibration set, same
+                shape as ``predictions_cal``.
+
+        Returns:
+            A fitted ``ConformalRegressor`` whose ``quantile`` field
+            holds the empirical
+            :math:`\\lceil (n+1)(1-\\alpha) \\rceil / n` residual quantile
+            per output column.
+        """
+        preds = predictions_cal
+        targets = targets_cal
+        if preds.ndim == 1:
+            preds = preds[:, None]
+        if targets.ndim == 1:
+            targets = targets[:, None]
+        if preds.shape != targets.shape:
+            raise ValueError(
+                f"predictions_cal and targets_cal must have the same shape; "
+                f"got {predictions_cal.shape} and {targets_cal.shape}"
+            )
+        if preds.shape[1] != self.output_dim:
+            raise ValueError(
+                f"calibration data has {preds.shape[1]} output columns "
+                f"but the regressor was created with output_dim={self.output_dim}"
+            )
+
+        n = preds.shape[0]
+        if n < 2:
+            raise ValueError(
+                f"Need at least 2 calibration points to fit a conformal quantile; got {n}"
+            )
+
+        residuals = jnp.abs(targets - preds)  # (n, k)
+        # Per-column quantile at level ⌈(n+1)(1−α)⌉ / n. Clamp to [0, 1]
+        # so that absurdly small n behaves sensibly.
+        level = jnp.ceil((n + 1) * (1.0 - self.alpha)) / n
+        level = jnp.clip(level, 0.0, 1.0)
+        q = jnp.quantile(residuals, level, axis=0)  # (k,)
+
+        return ConformalRegressor(
+            quantile=q,
+            alpha=self.alpha,
+            output_dim=self.output_dim,
+            n_calibration=int(n),
+        )
+
+    @jax.jit
+    def predict_interval(
+        self,
+        predictions: jax.Array,
+    ) -> tuple[jax.Array, jax.Array]:
+        """Return symmetric ``(lower, upper)`` interval bounds.
+
+        Args:
+            predictions: Predicted outputs of shape ``(k,)`` or
+                ``(n, k)``.
+
+        Returns:
+            Tuple ``(lower, upper)`` of the same shape as
+            ``predictions``, with
+            ``lower = predictions - quantile``,
+            ``upper = predictions + quantile``.
+        """
+        return predictions - self.quantile, predictions + self.quantile
+
+    @jax.jit
+    def coverage(
+        self,
+        predictions: jax.Array,
+        targets: jax.Array,
+    ) -> jax.Array:
+        """Empirical coverage of the produced intervals on a test set.
+
+        Per-output-dim coverage = fraction of calibration points whose
+        true target falls inside the corresponding interval. The
+        finite-sample guarantee from Lei et al. (2018) ensures the
+        expectation is at least ``1 - alpha`` under exchangeability;
+        the empirical fraction is a Monte-Carlo estimate of that
+        expectation.
+
+        Returns:
+            Per-output coverage of shape ``(output_dim,)``.
+        """
+        preds = predictions if predictions.ndim > 1 else predictions[None, :]
+        tgts = targets if targets.ndim > 1 else targets[None, :]
+        lower = preds - self.quantile
+        upper = preds + self.quantile
+        in_interval = (tgts >= lower) & (tgts <= upper)
+        return jnp.mean(in_interval.astype(jnp.float32), axis=0)
+
+    @jax.jit
+    def interval_width(self) -> jax.Array:
+        """Width of the prediction interval (constant under absolute-residual CP).
+
+        Returns:
+            Per-output interval width ``2 * quantile`` of shape
+            ``(output_dim,)``.
+        """
+        return 2.0 * self.quantile
+
+
 __all__ = [
     "TemperatureCalibrator",
     "ConformalClassifier",
+    "ConformalRegressor",
 ]

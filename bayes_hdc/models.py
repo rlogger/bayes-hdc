@@ -485,6 +485,136 @@ class RegularizedLSClassifier:
 
 @register_dataclass
 @dataclass
+class HDRegressor:
+    r"""Continuous-output ridge regression on hypervector features.
+
+    Where :class:`RegularizedLSClassifier` solves the ridge problem
+    against one-hot class targets, :class:`HDRegressor` solves it
+    against an arbitrary continuous target matrix
+    :math:`Y \in \mathbb{R}^{n \times k}`. This is the natural HDC
+    primitive for predicting continuous quantities — joint angles in
+    a robot policy, position deltas in a tracking head, regression
+    targets in a calibration table.
+
+    The closed-form solution is the same as the classifier's, applied
+    to a real-valued :math:`Y`:
+
+    - **Primal** (:math:`n \geq d`):
+      :math:`W = (X^\top X + \lambda I_d)^{-1} X^\top Y`.
+    - **Dual** (:math:`n < d`):
+      :math:`W = X^\top (X X^\top + \lambda I_n)^{-1} Y`.
+
+    For a downstream split-conformal regression pipeline, pair this
+    with :class:`~bayes_hdc.uncertainty.ConformalRegressor` to wrap
+    the point predictions in finite-sample-coverage intervals.
+
+    Attributes:
+        weights: Coefficient matrix of shape ``(dimensions, output_dim)``.
+        dimensions: Hypervector dimensionality :math:`d`.
+        output_dim: Output dimensionality :math:`k`.
+        reg: Tikhonov regularisation strength :math:`\lambda`.
+    """
+
+    weights: jax.Array  # (dimensions, output_dim)
+    dimensions: int = field(metadata=dict(static=True))
+    output_dim: int = field(metadata=dict(static=True))
+    reg: float = field(metadata=dict(static=True))
+
+    @staticmethod
+    def create(
+        dimensions: int,
+        output_dim: int,
+        reg: float = 1.0,
+    ) -> "HDRegressor":
+        return HDRegressor(
+            weights=jnp.zeros((dimensions, output_dim)),
+            dimensions=dimensions,
+            output_dim=output_dim,
+            reg=reg,
+        )
+
+    def fit(self, train_hvs: jax.Array, train_targets: jax.Array) -> "HDRegressor":
+        """Fit by solving regularised least squares on continuous targets.
+
+        Args:
+            train_hvs: Training hypervectors of shape ``(n, d)``.
+            train_targets: Training targets of shape ``(n, k)`` or
+                ``(n,)`` (rank-1 reshaped automatically to ``(n, 1)``).
+
+        Returns:
+            A fitted ``HDRegressor`` (immutable update; the original is
+            unchanged).
+        """
+        n = train_hvs.shape[0]
+        if n == 0:
+            raise ValueError("Cannot fit HDRegressor: training data is empty")
+
+        Y = train_targets
+        if Y.ndim == 1:
+            Y = Y[:, None]
+        if Y.shape[0] != n:
+            raise ValueError(
+                f"train_hvs and train_targets disagree on n: {train_hvs.shape[0]} vs {Y.shape[0]}"
+            )
+        if Y.shape[1] != self.output_dim:
+            raise ValueError(
+                f"train_targets has output_dim={Y.shape[1]} but the regressor "
+                f"was created with output_dim={self.output_dim}"
+            )
+
+        if n >= self.dimensions:
+            # Primal form: (d × d) system.
+            XtX = train_hvs.T @ train_hvs + self.reg * jnp.eye(self.dimensions)
+            XtY = train_hvs.T @ Y
+            weights = jnp.linalg.solve(XtX, XtY)
+        else:
+            # Dual form: (n × n) system, far better conditioned when d >> n.
+            K = train_hvs @ train_hvs.T + self.reg * jnp.eye(n)
+            alpha = jnp.linalg.solve(K, Y)  # (n, k)
+            weights = train_hvs.T @ alpha  # (d, k)
+
+        return self.replace(weights=weights)
+
+    @jax.jit
+    def predict(self, queries: jax.Array) -> jax.Array:
+        """Predict continuous outputs.
+
+        Args:
+            queries: Hypervectors of shape ``(d,)`` or ``(n, d)``.
+
+        Returns:
+            Predictions of shape ``(k,)`` or ``(n, k)`` matching the
+            input rank. If the regressor was created with
+            ``output_dim=1``, the trailing singleton is squeezed only
+            when the input was a single vector.
+        """
+        if queries.ndim == 1:
+            return queries @ self.weights  # (d,) @ (d, k) -> (k,)
+        return queries @ self.weights  # (n, d) @ (d, k) -> (n, k)
+
+    @jax.jit
+    def score(self, test_hvs: jax.Array, test_targets: jax.Array) -> jax.Array:
+        """Coefficient of determination R² on a test set.
+
+        Returns the multi-output R² computed as
+        :math:`1 - \\sum (y - \\hat y)^2 / \\sum (y - \\bar y)^2`,
+        where the variances are summed across all output dimensions.
+        Negative values indicate a fit worse than predicting the mean.
+        """
+        Y = test_targets
+        if Y.ndim == 1:
+            Y = Y[:, None]
+        preds = self.predict(test_hvs)
+        ss_res = jnp.sum((Y - preds) ** 2)
+        ss_tot = jnp.sum((Y - jnp.mean(Y, axis=0, keepdims=True)) ** 2)
+        return 1.0 - ss_res / (ss_tot + EPS)
+
+    def replace(self, **updates: Any) -> "HDRegressor":
+        return dataclass_replace(self, **updates)
+
+
+@register_dataclass
+@dataclass
 class ClusteringModel:
     """HDC-style k-means clustering.
 

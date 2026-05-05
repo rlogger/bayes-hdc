@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Tier-3 continuous-output regression stack (2026-05-05)
+
+Closes the first two of the four "blocking-for-VLA" gaps surfaced by
+the depth audit's Physical-Intelligence-applicability findings. The
+Tier-3 plan called for `HDRegressor` and `ConformalRegressor`; this
+batch ships both, end-to-end-tested, with a worked example that
+demonstrates calibrated continuous-output prediction with selective
+abstention.
+
+- **`bayes_hdc.models.HDRegressor`** — closed-form ridge regression
+  on hypervector features for continuous targets `Y ∈ R^{n×k}`.
+  Mirrors the existing `RegularizedLSClassifier` API: `create()`,
+  `fit()`, `predict()`, `score()` (multi-output R²). Auto-selects
+  primal (`d×d`) or dual (`n×n`) form by training-set size; small-`n`
+  high-`d` is the default HDC regime and the dual path is the better-
+  conditioned of the two there. `jax.grad`-differentiable through
+  `weights`, so the regression head plugs into a larger variational
+  loss without change.
+- **`bayes_hdc.uncertainty.ConformalRegressor`** — split-conformal
+  absolute-residual prediction intervals with a finite-sample marginal
+  coverage guarantee `P(y ∈ [ŷ - q, ŷ + q]) ≥ 1 - α` on exchangeable
+  data (Lei et al. 2018, *Distribution-Free Predictive Inference for
+  Regression*). One quantile per output column for multi-output
+  targets; concurrent algorithmic work in HDC at the prototype level
+  is Liang et al. 2026 *ConformalHDC*, cited explicitly. JIT-compiled
+  `predict_interval`, `coverage`, `interval_width`.
+- **`examples/calibrated_regression.py`** — end-to-end demo: a
+  RandomEncoder over 8 features × 16 values → `HDRegressor` →
+  `ConformalRegressor` → selective abstention rule. Verified output
+  on a synthetic 2-D continuous-action task at d=4096:
+  - test R² = 0.93,
+  - empirical coverage 0.91 vs target 0.90 (clear of finite-sample
+    slack),
+  - abstention rule (zero-in-interval) cleanly separates harder
+    cases: 63 % of test points acted on with relative error 0.22, 37 %
+    abstained with relative error 0.53.
+- **`tests/test_regression.py`** — 15 new tests across HDRegressor
+  shape / fit correctness / dual-form / 1-D target reshaping / R² /
+  gradient flow, ConformalRegressor alpha validation / quantile
+  monotonicity in residual scale / per-output-column quantile / shape
+  preservation / interval-width identity / minimum-calibration-size,
+  and an end-to-end pipeline integration test that asserts
+  multi-trial mean coverage clears `1 - α - 3·SE`.
+
+Test count: 540 → 555 passing (+15 new). Coverage holds at 93 %.
+ruff / format / Sphinx -W all clean.
+
 ### Added — Tier-2 test depth + code quality (audit follow-up, 2026-05-05)
 
 The 2026-05 depth audit's test-rigor finding ("the suite passes 506
