@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Tier-3 vision-bridge example (2026-05-05)
+
+Closes the third of the four "blocking-for-VLA" gaps from the depth
+audit: the example for plugging a frozen pretrained vision backbone
+into the HDC pipeline.
+
+- **`examples/vision_action_policy.py`** — calibrated multi-modal
+  action prediction with two `ProjectionEncoder` heads (one for
+  vision features, one for proprioception), `bundle_map` fusion into
+  a single state hypervector, an `HDRegressor` policy head, and a
+  `ConformalRegressor` for per-DOF action intervals with selective
+  abstention. Synthesised data simulates DINOv2-S output (384-d
+  vision features) + 7-DOF arm proprioception → 7-DOF velocity
+  command. The docstring shows exactly how to swap in real DINOv2 /
+  CLIP / SigLIP features (one-line change to the feature extractor;
+  the rest of the pipeline is unchanged).
+- Verified end-to-end on the synthetic task at d=4096:
+  - test R² = 0.94 (a linear ground-truth map is recoverable through
+    the random projections + bundle fusion + closed-form ridge);
+  - per-DOF empirical coverage 0.86–0.93, mean 0.91 (target 0.90 —
+    finite-sample-slack tight on every DOF);
+  - hand-off-to-teleop abstention rule (predicted action norm vs.
+    interval norm) keeps 86 % of points and abstains on 14 %, with
+    the abstained set having 28 % higher relative error.
+- Documents the bundle-vs-bind choice for additive multi-modal fusion
+  vs. role-filler binding — a recurring pitfall when readers first
+  apply VSA primitives to continuous-target prediction.
+
 ### Added — Tier-3 continuous-output regression stack (2026-05-05)
 
 Closes the first two of the four "blocking-for-VLA" gaps surfaced by

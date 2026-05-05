@@ -222,6 +222,13 @@ python examples/<name>.py
 | [`weight_space_posterior.py`](examples/weight_space_posterior.py) | A classifier's weights as a `GaussianHV` posterior — a distribution over weight vectors. Sample from it, predict with each draw, read off epistemic uncertainty. |
 | [`song_matching.py`](examples/song_matching.py) | Bag-of-words song similarity — the sum of word hypervectors is legible by eye. |
 | [`kanerva_example.py`](examples/kanerva_example.py) | "Dollar of Mexico" — role-filler binding and analogical reasoning. |
+| [`calibrated_regression.py`](examples/calibrated_regression.py) | `RandomEncoder` + `HDRegressor` + `ConformalRegressor` on a synthetic 2-D continuous-target task. Coverage ≥ 0.90 by construction; selective abstention separates harder cases by relative error. |
+| [`vision_action_policy.py`](examples/vision_action_policy.py) | Vision-language-action skeleton: simulated DINOv2-style 384-d features + 7-DOF proprioception → bundled state hypervector → `HDRegressor` → `ConformalRegressor` per-DOF intervals → hand-off-to-teleop abstention. Drop in a real frozen DINOv2/CLIP/SigLIP backbone unchanged. |
+| [`variational_codebook_learning.py`](examples/variational_codebook_learning.py) | End-to-end variational training of a `GaussianHV` codebook — `lax.scan`-fused Adam loop on a real Gaussian observation log-likelihood. Recovers a target μ-direction at cosine 0.95+. |
+| [`hopfield_cleanup_hdc.py`](examples/hopfield_cleanup_hdc.py) | Modern continuous Hopfield (Ramsauer et al. 2020) as a soft cleanup memory in a PVSA pipeline; contrasted with classical hard nearest-neighbour cleanup. |
+| [`gayler_levy_analogy.py`](examples/gayler_levy_analogy.py) | Distributed-basis analogical mapping (Gayler-Levy 2009) — recovers `A→P, B→Q, C→R, D→S` via vector-intersect + Sinkhorn replicator on a Pelillo 4-cycle. |
+| [`resonator_factorisation.py`](examples/resonator_factorisation.py) | Probabilistic resonator factorising a composite hypervector into its three constituent factors; deterministic Frady-Kent-Olshausen-Sommer (2020) is the zero-temperature limit. |
+| [`eeg_seizure_detection.py`](examples/eeg_seizure_detection.py) | Synthetic 8-channel iEEG seizure detection: 91.7 % accuracy, 100 % sensitivity, 83 % specificity. |
 
 ## Project status
 
