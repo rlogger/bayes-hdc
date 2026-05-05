@@ -184,13 +184,13 @@ cleanup memory, and a generic key-value attention memory.
 
 **Probabilistic factorisation.** `bayes_hdc.resonator` provides a
 multi-restart MCMC factorisation of a composite PVSA hypervector. The
-deterministic Frady–Kleyko resonator network [@frady2020resonator] is
-recovered exactly as the zero-temperature limit of this implementation:
-``probabilistic_resonator(temperature=0)`` is the canonical
-deterministic algorithm; positive temperatures interpolate
-continuously between MCMC and the original Frady–Kleyko update. To our
-knowledge this generalisation has not been packaged in a prior
-library.
+deterministic resonator network of Frady, Kent, Olshausen, and Sommer
+[@frady2020resonator] is recovered exactly as the zero-temperature
+limit of this implementation: ``probabilistic_resonator(temperature=0)``
+is the canonical deterministic algorithm; positive temperatures
+interpolate continuously between MCMC and the original Frady-et-al.
+update. To our knowledge this generalisation has not been packaged in
+a prior library.
 
 # 4 Empirical evaluation
 
