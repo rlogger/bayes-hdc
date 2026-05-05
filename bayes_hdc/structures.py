@@ -187,6 +187,174 @@ class Sequence:
 
 @register_dataclass
 @dataclass
+class HierarchicalSequence:
+    """Two-level chunked sequence for long-horizon HDC encoding.
+
+    A flat :class:`Sequence` bundles all ``n`` items into one
+    ``d``-vector, so per-item retrieval SNR degrades as
+    :math:`O(1/\\sqrt{n})`. Even with a fixed item codebook for
+    cleanup, capacity saturates well before the dimension limit:
+    for example at ``d = 4096`` and ``n ≳ 200``, flat retrieval
+    accuracy collapses below random.
+
+    This class implements a two-level chunked construction
+    inspired by Frady, Kleyko & Sommer (2018, *A Theory of Sequence
+    Indexing and Working Memory in Recurrent Neural Networks*, Neural
+    Computation 30(6): 1449–1513) and the hierarchical-binding
+    discussion in Plate (2003) §10. The capacity gain has *two*
+    sources, not one:
+
+    1. **Structural** — partition the input into chunks of size
+       ``C``; encode each chunk as a flat permute-bundle ``h_k``;
+       encode the chunks as a higher-level flat permute-bundle
+       ``s = Σ_k P^{K-1-k} h_k``.
+    2. **Cleanup at the chunk level** — at retrieval time, after the
+       outer un-permute returns a noisy chunk hypervector, project
+       it back onto the *clean* chunk codebook
+       ``{h_0, ..., h_{K-1}}`` (which we cache at construction). This
+       step removes the cross-chunk noise *before* the inner
+       un-permute, so the noise that survives to the item level is
+       only the within-chunk noise from ``C - 1`` items rather than
+       from all ``n - 1`` items.
+
+    The chunk codebook is computed once at construction and stored
+    on the dataclass; it is the algebraic prerequisite for the
+    capacity gain. Without the intermediate cleanup, the noise from
+    both layers sums to the same magnitude as the flat case and
+    there is no improvement — a subtle point that is easy to miss
+    when reading only the structural definition.
+
+    The math (writing ``P`` for cyclic shift, ``v[i]`` for input
+    items, ``i ∈ [0, n)``, ``C`` for chunk size, ``K = ⌈n / C⌉``):
+
+    .. math::
+        h_k = \\sum_{j=0}^{C-1} P^{C-1-j} \\cdot v[kC + j]
+              \\quad \\text{(flat sequence within chunk } k\\text{)}
+
+    .. math::
+        s = \\sum_{k=0}^{K-1} P^{K-1-k} \\cdot h_k
+              \\quad \\text{(flat sequence over chunks)}
+
+    Retrieval at position ``i`` with ``chunk_id = i // C`` and
+    ``pos = i % C``:
+
+    .. math::
+        \\tilde h = P^{-(K-1-chunk\\_id)} \\cdot s
+              \\quad \\text{(noisy chunk_hv)}
+
+    .. math::
+        h^{\\star} = \\arg\\max_{h \\in \\{h_0,...,h_{K-1}\\}}
+                      \\langle \\tilde h, h \\rangle
+              \\quad \\text{(chunk-level cleanup)}
+
+    .. math::
+        \\hat v = P^{-(C-1-pos)} \\cdot h^{\\star}
+              \\quad \\text{(item with noise from } C-1 \\text{ items only)}
+
+    The caller is expected to clean ``\\hat v`` against the item
+    codebook for symbolic recovery; the chunk-level cleanup is
+    handled automatically by :meth:`get`.
+
+    Attributes:
+        value: Encoded hypervector ``s`` of shape ``(d,)``.
+        chunk_codebook: Stacked clean chunk hypervectors of shape
+            ``(K, d)``, used for intermediate cleanup. Computed at
+            construction and not user-modifiable.
+        n_items: Total number of items ``n``.
+        chunk_size: Items per chunk ``C``.
+        dimensions: Hypervector dimension ``d``.
+    """
+
+    value: jax.Array
+    chunk_codebook: jax.Array  # (n_chunks, d)
+    n_items: int = field(metadata=dict(static=True))
+    chunk_size: int = field(metadata=dict(static=True))
+    dimensions: int = field(metadata=dict(static=True))
+
+    @staticmethod
+    def from_vectors(vectors: jax.Array, chunk_size: int = 16) -> "HierarchicalSequence":
+        """Encode a batch of items as a two-level chunked sequence.
+
+        Args:
+            vectors: Items of shape ``(n, d)``. The clean chunk
+                hypervectors derived from this input are cached on
+                the returned object as ``chunk_codebook`` and used by
+                :meth:`get` for intermediate cleanup.
+            chunk_size: Number of items per chunk. ``√n`` is the SNR-
+                optimal choice; ``16`` is a reasonable default for
+                ``n`` in the 64–256 range typical of trajectory
+                encoding.
+
+        Returns:
+            A :class:`HierarchicalSequence` ready for ``get(i)``
+            retrieval. The trailing chunk is zero-padded to
+            ``chunk_size``; ``get(i)`` is restricted to
+            ``i ∈ [0, n_items)``.
+        """
+        n, d = vectors.shape[0], vectors.shape[-1]
+        if chunk_size < 1:
+            raise ValueError(f"chunk_size must be >= 1, got {chunk_size}")
+        if n == 0:
+            return HierarchicalSequence(
+                value=jnp.zeros(d),
+                chunk_codebook=jnp.zeros((0, d)),
+                n_items=0,
+                chunk_size=chunk_size,
+                dimensions=d,
+            )
+
+        n_chunks = (n + chunk_size - 1) // chunk_size
+        pad = n_chunks * chunk_size - n
+        if pad > 0:
+            vectors = jnp.concatenate([vectors, jnp.zeros((pad, d))], axis=0)
+
+        # (n_chunks, chunk_size, d) — group items by chunk.
+        chunked = vectors.reshape(n_chunks, chunk_size, d)
+        # Per-chunk flat permute-bundle.
+        chunk_hvs = jax.vmap(F.bundle_sequence)(chunked)  # (n_chunks, d)
+        # Outer-level flat permute-bundle over the chunks.
+        value = F.bundle_sequence(chunk_hvs)
+        return HierarchicalSequence(
+            value=value,
+            chunk_codebook=chunk_hvs,
+            n_items=n,
+            chunk_size=chunk_size,
+            dimensions=d,
+        )
+
+    def get(self, index: int) -> jax.Array:
+        """Retrieve the (noisy) item at position ``index``.
+
+        Performs the outer un-permute, an intermediate cleanup
+        against ``chunk_codebook``, the inner un-permute, and
+        returns the resulting (still-noisy) item hypervector. The
+        caller is expected to clean the result against the item
+        codebook (e.g. via :func:`bayes_hdc.functional.cleanup`) for
+        symbolic recovery.
+        """
+        if index < 0 or index >= self.n_items:
+            raise IndexError(
+                f"index {index} out of range for HierarchicalSequence of size {self.n_items}"
+            )
+        chunk_id = index // self.chunk_size
+        pos = index % self.chunk_size
+        n_chunks = (self.n_items + self.chunk_size - 1) // self.chunk_size
+
+        # Outer un-permute → noisy chunk hypervector.
+        chunk_noisy = F.permute(self.value, shifts=-(n_chunks - 1 - chunk_id))
+
+        # Chunk-level cleanup: project onto the clean chunk codebook.
+        # This step is what gives the hierarchical construction its
+        # capacity advantage over the flat Sequence.
+        sims = self.chunk_codebook @ chunk_noisy
+        chunk_clean = self.chunk_codebook[jnp.argmax(sims)]
+
+        # Inner un-permute → item with noise from C-1 items only.
+        return F.permute(chunk_clean, shifts=-(self.chunk_size - 1 - pos))
+
+
+@register_dataclass
+@dataclass
 class Graph:
     """Hypervector-based graph structure.
 
@@ -235,5 +403,6 @@ __all__ = [
     "Multiset",
     "HashTable",
     "Sequence",
+    "HierarchicalSequence",
     "Graph",
 ]

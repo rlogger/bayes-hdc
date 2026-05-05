@@ -155,7 +155,7 @@ from bayes_hdc.models import (
     RegularizedLSClassifier,
 )
 from bayes_hdc.resonator import ResonatorResult, probabilistic_resonator
-from bayes_hdc.structures import Graph, HashTable, Multiset, Sequence
+from bayes_hdc.structures import Graph, HashTable, HierarchicalSequence, Multiset, Sequence
 from bayes_hdc.training import (
     AdamState,
     TrainResult,
@@ -333,5 +333,6 @@ __all__ = [
     "Multiset",
     "HashTable",
     "Sequence",
+    "HierarchicalSequence",
     "Graph",
 ]

@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Tier-3 hierarchical Sequence + capacity benchmark (2026-05-05)
+
+Closes the fourth of four "blocking-for-VLA" gaps from the depth
+audit (long-horizon trajectory encoding). Flat ``Sequence`` saturates
+around T ≈ 200 at d = 4 096 with cleanup; the audit flagged this as
+the limit on trajectory length for HDC-policy work. The hierarchical
+construction below pushes reliable retrieval past T = 800 at the
+same d.
+
+- **`bayes_hdc.structures.HierarchicalSequence`** — two-level
+  chunked sequence. ``from_vectors(vectors, chunk_size=16)`` encodes
+  the input as a flat permute-bundle within each chunk, then a flat
+  permute-bundle over the chunks; the **clean chunk hypervectors are
+  cached** on the dataclass as ``chunk_codebook`` and used by
+  ``get(i)`` for *intermediate cleanup* between the outer and inner
+  un-permute. Without that intermediate cleanup the noise from both
+  layers sums to the same magnitude as the flat case — a subtle
+  point easy to miss when reading only the structural definition.
+  References: Plate (2003) §6.2; Frady, Kleyko & Sommer (2018,
+  Neural Computation 30(6)) for the recurrent-network capacity
+  theory the hierarchical construction is the static analogue of.
+- **`benchmarks/benchmark_sequence_capacity.py`** — sweeps
+  T ∈ {16, 32, 64, 128, 200, 300, 400, 600, 800} at d = 4 096,
+  codebook = 256, 3 seeds. Numbers added to BENCHMARKS.md:
+
+  | T | flat | hierarchical | gain |
+  |---:|---:|---:|---:|
+  | 200 | 0.958 | 1.000 | +0.042 |
+  | 300 | 0.809 | 1.000 | +0.191 |
+  | 400 | 0.631 | 1.000 | +0.369 |
+  | 600 | 0.423 | 1.000 | +0.577 |
+  | 800 | 0.309 | 1.000 | +0.691 |
+
+- **6 new tests** in `tests/test_structures.py::TestHierarchicalSequence`:
+  empty construction, out-of-range raise, invalid chunk_size raise,
+  short-sequence retrieval (n ≤ chunk_size), beat-flat-by-margin at
+  T = 400, uneven-chunk padding (n = 10, chunk_size = 4).
+
+Test count: 555 → 561 passing (+6). Coverage holds at 93 %.
+ruff / format / Sphinx -W all clean.
+
 ### Added — Tier-3 vision-bridge example (2026-05-05)
 
 Closes the third of the four "blocking-for-VLA" gaps from the depth

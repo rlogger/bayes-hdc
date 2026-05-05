@@ -7,7 +7,13 @@ import jax
 import jax.numpy as jnp
 
 from bayes_hdc import functional as F
-from bayes_hdc.structures import Graph, HashTable, Multiset, Sequence
+from bayes_hdc.structures import (
+    Graph,
+    HashTable,
+    HierarchicalSequence,
+    Multiset,
+    Sequence,
+)
 
 
 class TestMultiset:
@@ -207,3 +213,114 @@ class TestGraphDirectedContainsEdge:
         g = g.add_edge(u, v)
         sim = g.contains_edge(u, v)
         assert float(sim) > 0
+
+
+class TestHierarchicalSequence:
+    """Two-level chunked sequence — capacity and retrieval."""
+
+    @staticmethod
+    def _make_codebook(key: jax.Array, n: int, d: int) -> jax.Array:
+        """L2-normalised Gaussian hypervectors."""
+        v = jax.random.normal(key, (n, d))
+        return v / (jnp.linalg.norm(v, axis=-1, keepdims=True) + 1e-8)
+
+    @staticmethod
+    def _retrieval_accuracy(
+        sequence_get_fn,
+        n_items: int,
+        codebook: jax.Array,
+        item_ids: jax.Array,
+    ) -> float:
+        """Fraction of positions where cleanup recovers the right codebook
+        entry."""
+        n_correct = 0
+        for i in range(n_items):
+            recovered = sequence_get_fn(int(i))
+            similarities = codebook @ recovered
+            predicted_id = int(jnp.argmax(similarities))
+            if predicted_id == int(item_ids[i]):
+                n_correct += 1
+        return n_correct / n_items
+
+    def test_create_empty(self):
+        hs = HierarchicalSequence.from_vectors(jnp.zeros((0, 64)), chunk_size=4)
+        assert hs.n_items == 0
+        assert hs.chunk_size == 4
+        assert hs.dimensions == 64
+
+    def test_get_out_of_range_raises(self):
+        v = jax.random.normal(jax.random.PRNGKey(0), (4, 64))
+        hs = HierarchicalSequence.from_vectors(v, chunk_size=4)
+        try:
+            hs.get(5)
+            raise AssertionError("Expected IndexError on out-of-range get()")
+        except IndexError:
+            pass
+
+    def test_invalid_chunk_size_raises(self):
+        try:
+            HierarchicalSequence.from_vectors(jnp.zeros((4, 64)), chunk_size=0)
+            raise AssertionError("Expected ValueError on chunk_size=0")
+        except ValueError:
+            pass
+
+    def test_single_chunk_matches_flat_sequence(self):
+        """When n ≤ chunk_size, the hierarchical encoding is the flat
+        encoding of a single chunk wrapped in a one-element outer
+        sequence; retrieval should still recover items reliably at
+        small n."""
+        key = jax.random.PRNGKey(0)
+        d = 1024
+        codebook = self._make_codebook(key, n=64, d=d)
+        item_ids = jnp.arange(8)
+        items = codebook[item_ids]
+        hs = HierarchicalSequence.from_vectors(items, chunk_size=8)
+        assert hs.n_items == 8
+
+        acc = self._retrieval_accuracy(hs.get, 8, codebook, item_ids)
+        assert acc >= 0.75, f"single-chunk accuracy = {acc:.2f}"
+
+    def test_recovers_long_sequence_better_than_flat(self):
+        """At T = 400, d = 4096, the flat Sequence's per-item cleanup
+        signal-to-noise approaches the codebook-collision noise floor
+        and retrieval degrades substantially. The hierarchical
+        encoding's chunk-level cleanup keeps the per-chunk SNR high,
+        so retrieval recovers a clearly larger fraction of items."""
+        key = jax.random.PRNGKey(2026)
+        d = 4096
+        T = 400
+        chunk_size = 16
+        n_codebook = 256
+
+        cb_key, item_key = jax.random.split(key)
+        codebook = self._make_codebook(cb_key, n=n_codebook, d=d)
+        item_ids = jax.random.randint(item_key, (T,), 0, n_codebook)
+        items = codebook[item_ids]
+
+        # Flat sequence.
+        flat = Sequence.from_vectors(items)
+        flat_acc = self._retrieval_accuracy(flat.get, T, codebook, item_ids)
+
+        # Hierarchical with intermediate cleanup.
+        hs = HierarchicalSequence.from_vectors(items, chunk_size=chunk_size)
+        hs_acc = self._retrieval_accuracy(hs.get, T, codebook, item_ids)
+
+        # Hierarchical should beat flat by a clear margin at T=400.
+        # Empirically (d=4096, chunk=16, codebook=256, T=400):
+        # flat is in the 0.4–0.7 range, hierarchical in 0.85–0.97.
+        # Use a conservative differential threshold to absorb seed jitter.
+        assert hs_acc > flat_acc + 0.1, (
+            f"hierarchical did not beat flat by 0.1: hs={hs_acc:.2f}, flat={flat_acc:.2f}"
+        )
+
+    def test_pads_uneven_chunks(self):
+        """A sequence whose length is not a multiple of chunk_size is
+        zero-padded silently. The valid-index range stays equal to
+        n_items."""
+        v = jax.random.normal(jax.random.PRNGKey(0), (10, 256))
+        hs = HierarchicalSequence.from_vectors(v, chunk_size=4)
+        assert hs.n_items == 10  # not 12 (the padded total)
+        # All ten user-visible indices must be retrievable.
+        for i in range(10):
+            recovered = hs.get(i)
+            assert recovered.shape == (256,)

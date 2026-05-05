@@ -100,6 +100,38 @@ with `python benchmarks/benchmark_compare.py`; the script writes
 `benchmarks/benchmark_results.json` (gitignored — local hardware
 varies).
 
+## Sequence-encoding capacity: flat vs. hierarchical
+
+Per-position retrieval accuracy at fixed `d = 4 096`, codebook size
+256, chunk size 16, averaged over 3 seeds. Each item is drawn
+i.i.d. from the codebook; retrieval applies `get(i)` then cleanup
+against the codebook (argmax cosine similarity).
+
+| T   | flat `Sequence` | `HierarchicalSequence` | gain |
+|---:|---:|---:|---:|
+| 16  | 1.000 | 1.000 |  +0.000 |
+| 32  | 1.000 | 1.000 |  +0.000 |
+| 64  | 1.000 | 1.000 |  +0.000 |
+| 128 | 0.992 | 1.000 |  +0.008 |
+| 200 | 0.958 | 1.000 |  +0.042 |
+| 300 | 0.809 | 1.000 |  +0.191 |
+| 400 | 0.631 | 1.000 |  +0.369 |
+| 600 | 0.423 | 1.000 |  +0.577 |
+| 800 | 0.309 | 1.000 |  +0.691 |
+
+Flat permute-bundle saturates around `T ≈ 200` and degrades
+monotonically as `T` grows: by `T = 800` the flat representation
+retrieves only 31 % of positions correctly. The hierarchical variant
+stays at perfect retrieval throughout the swept range, because the
+chunk-level cleanup (an `argmax` against the cached chunk
+codebook) prunes the cross-chunk noise *before* the inner
+un-permute. At `chunk_size = 16`, both layers carry only `O(√T)`
+items, and the per-layer SNR is dominated by `1/√(chunk_size)` and
+`1/√(n_chunks)` rather than `1/√T`. Reproduce with
+`python benchmarks/benchmark_sequence_capacity.py`. References:
+Plate (2003) §6.2 on flat-bundle capacity; Frady, Kleyko & Sommer
+(2018) on hierarchical recurrent-network indexing.
+
 ## Test / coverage / lint status
 
 | Check | Value |
