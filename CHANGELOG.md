@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Tier-3 TokenEncoder (2026-05-05)
+
+Closes the language-tokenizer gap from the depth audit's PI-applicability
+list. ``TokenEncoder`` is a tokenizer-agnostic vocabulary → hypervector
+codebook + permute-bundle sequence encoding.
+
+- **`bayes_hdc.embeddings.TokenEncoder`** — fresh codebook of
+  ``vocab_size`` random L2-normalised hypervectors, plus
+  ``encode(token_ids)`` (flat permute-bundle) and
+  ``encode_hierarchical(token_ids, chunk_size=16)`` (returns a
+  :class:`HierarchicalSequence` for T ≳ 200). Tokenizer choice is
+  left to the caller — pass integer IDs from HuggingFace,
+  SentencePiece, tiktoken, BPE, or character indices; the docstring
+  shows the HuggingFace one-liner. ``lookup`` / ``lookup_batch`` are
+  jitted for downstream pipelines that want raw per-token vectors.
+- **6 tests** in ``tests/test_embeddings.py::TestTokenEncoder``:
+  shape + unit-norm-rows, invalid-construction-args, lookup
+  consistency, flat encode + codebook cleanup recovers all 12
+  tokens of a length-12 sentence at d=2048, hierarchical encode
+  recovers ≥ 18/20 spot-checked positions at T=300, and codebook
+  determinism under seeded creation.
+
+Test count: 561 → 567 passing (+6). Coverage holds at 93 %.
+
 ### Added — Tier-3 hierarchical Sequence + capacity benchmark (2026-05-05)
 
 Closes the fourth of four "blocking-for-VLA" gaps from the depth

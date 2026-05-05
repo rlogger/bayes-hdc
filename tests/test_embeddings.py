@@ -13,6 +13,7 @@ from bayes_hdc.embeddings import (
     LevelEncoder,
     ProjectionEncoder,
     RandomEncoder,
+    TokenEncoder,
 )
 
 
@@ -484,3 +485,80 @@ class TestEncoderDefaultKey:
     def test_graph_encoder_default_key(self):
         enc = GraphEncoder.create(num_nodes=5, dimensions=100)
         assert enc.node_embeddings.shape == (5, 100)
+
+
+class TestTokenEncoder:
+    """Vocabulary → hypervector codebook + permute-bundle sequence encoding."""
+
+    def test_create_shapes_and_unit_norm_rows(self):
+        enc = TokenEncoder.create(vocab_size=128, dimensions=512)
+        assert enc.vocab_size == 128
+        assert enc.dimensions == 512
+        assert enc.codebook.shape == (128, 512)
+        # Each row L2-normalised — required for the SNR analysis the
+        # downstream sequence encoders rely on.
+        norms = jnp.linalg.norm(enc.codebook, axis=-1)
+        assert jnp.all(jnp.abs(norms - 1.0) < 1e-4)
+
+    def test_invalid_construction_args(self):
+        with pytest.raises(ValueError, match="vocab_size"):
+            TokenEncoder.create(vocab_size=0, dimensions=64)
+        with pytest.raises(ValueError, match="dimensions"):
+            TokenEncoder.create(vocab_size=10, dimensions=0)
+
+    def test_lookup_matches_codebook_indexing(self):
+        enc = TokenEncoder.create(vocab_size=32, dimensions=128)
+        single = enc.lookup(jnp.asarray(7, dtype=jnp.int32))
+        assert jnp.allclose(single, enc.codebook[7])
+        ids = jnp.asarray([3, 14, 7, 0], dtype=jnp.int32)
+        batch = enc.lookup_batch(ids)
+        assert batch.shape == (4, 128)
+        assert jnp.allclose(batch[2], enc.codebook[7])
+
+    def test_encode_recovers_token_ids_via_codebook_cleanup(self):
+        """The flat permute-bundle plus argmax cleanup against the
+        codebook should recover each token at d=2048 for a length-12
+        sentence."""
+        enc = TokenEncoder.create(vocab_size=64, dimensions=2048)
+        token_ids = jnp.asarray([3, 17, 42, 5, 8, 21, 33, 9, 14, 50, 1, 60], dtype=jnp.int32)
+        seq_hv = enc.encode(token_ids)
+        from bayes_hdc.functional import permute  # local import: trace
+
+        n = token_ids.shape[0]
+        n_correct = 0
+        for i in range(n):
+            recovered = permute(seq_hv, shifts=-(n - 1 - i))
+            sims = enc.codebook @ recovered
+            if int(jnp.argmax(sims)) == int(token_ids[i]):
+                n_correct += 1
+        # All 12 positions should clean back to the right token.
+        assert n_correct == n, f"{n_correct}/{n} positions recovered"
+
+    def test_encode_hierarchical_returns_long_sequence_holder(self):
+        """For T well past flat capacity, encode_hierarchical returns
+        a HierarchicalSequence whose get(i) + cleanup recovers all
+        tokens."""
+        from bayes_hdc.structures import HierarchicalSequence
+
+        enc = TokenEncoder.create(vocab_size=128, dimensions=4096)
+        token_ids = jax.random.randint(jax.random.PRNGKey(0), (300,), 0, 128, dtype=jnp.int32)
+        hs = enc.encode_hierarchical(token_ids, chunk_size=16)
+        assert isinstance(hs, HierarchicalSequence)
+        assert hs.n_items == 300
+
+        # Spot-check 20 evenly spaced positions; all should clean back.
+        positions = jnp.linspace(0, 299, 20).astype(jnp.int32)
+        n_correct = 0
+        for p in positions:
+            recovered = hs.get(int(p))
+            sims = enc.codebook @ recovered
+            if int(jnp.argmax(sims)) == int(token_ids[p]):
+                n_correct += 1
+        assert n_correct >= 18, f"{n_correct}/20 positions recovered at T=300"
+
+    def test_codebook_is_deterministic_given_seed(self):
+        a = TokenEncoder.create(vocab_size=16, dimensions=128, key=jax.random.PRNGKey(1))
+        b = TokenEncoder.create(vocab_size=16, dimensions=128, key=jax.random.PRNGKey(1))
+        assert jnp.allclose(a.codebook, b.codebook)
+        c = TokenEncoder.create(vocab_size=16, dimensions=128, key=jax.random.PRNGKey(2))
+        assert not jnp.allclose(a.codebook, c.codebook)

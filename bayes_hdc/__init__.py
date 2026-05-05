@@ -74,6 +74,7 @@ from bayes_hdc.embeddings import (
     LevelEncoder,
     ProjectionEncoder,
     RandomEncoder,
+    TokenEncoder,
 )
 from bayes_hdc.equivariance import (
     compose_shifts,
@@ -301,6 +302,7 @@ __all__ = [
     "ProjectionEncoder",
     "KernelEncoder",
     "GraphEncoder",
+    "TokenEncoder",
     # Classifiers
     "CentroidClassifier",
     "AdaptiveHDC",

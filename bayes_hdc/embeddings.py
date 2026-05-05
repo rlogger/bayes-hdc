@@ -482,10 +482,151 @@ class GraphEncoder:
         return F.bundle_map(jnp.stack(edge_hvs), axis=0)
 
 
+@register_dataclass
+@dataclass
+class TokenEncoder:
+    r"""Encode token-ID sequences as positional hypervectors.
+
+    A vocabulary-sized codebook of random unit-norm hypervectors:
+    each token ID :math:`t \in [0, V)` is assigned a fixed random
+    vector :math:`c_t \in \mathbb{R}^d`. A sequence of token IDs is
+    encoded by looking up each token's vector and applying the
+    standard permute-bundle sequence encoding (Sahlgren et al. 2008;
+    Kanerva 2009) — flat for short sequences, hierarchical
+    (:class:`~bayes_hdc.structures.HierarchicalSequence`) for long
+    horizons where the per-position SNR of the flat construction
+    becomes the bottleneck.
+
+    Tokenizer-agnostic: takes integer token IDs from any source
+    (HuggingFace tokenizers, SentencePiece, tiktoken, BPE, character
+    indices). Tokenisation itself is the caller's responsibility::
+
+        # HuggingFace example (the library is a runtime dep of the user, not us):
+        from transformers import AutoTokenizer
+        tok = AutoTokenizer.from_pretrained("openai-community/gpt2")
+        ids = tok.encode("the quick brown fox", return_tensors="jax")[0]
+        encoder = TokenEncoder.create(vocab_size=tok.vocab_size, dimensions=10000)
+        seq_hv = encoder.encode(ids)
+
+    Attributes:
+        codebook: Codebook of shape ``(vocab_size, dimensions)``.
+            Stable across calls; persist or save with
+            :func:`jax.numpy.save` for reproducible encodings.
+        vocab_size: Token-vocabulary cardinality :math:`V`.
+        dimensions: Hypervector dimension :math:`d`.
+    """
+
+    codebook: jax.Array  # (vocab_size, d)
+    vocab_size: int = field(metadata=dict(static=True))
+    dimensions: int = field(metadata=dict(static=True))
+
+    @staticmethod
+    def create(
+        vocab_size: int,
+        dimensions: int = 10_000,
+        vsa_model: Union[str, VSAModel] = "map",
+        key: Optional[jax.Array] = None,
+    ) -> "TokenEncoder":
+        """Build a fresh codebook of ``vocab_size`` random hypervectors.
+
+        Args:
+            vocab_size: Token-vocabulary cardinality.
+            dimensions: Hypervector dimension. Defaults to 10 000;
+                drop to ``4096`` for tighter memory at modest
+                capacity loss.
+            vsa_model: ``"map"`` (default — real-valued, unit-norm),
+                ``"hrr"``, ``"fhrr"``, etc. For HDC text pipelines
+                MAP is the conventional choice; the codebook is
+                drawn from the chosen model and L2-normalised so
+                ``permute_bundle_sequence`` retrieval works
+                downstream.
+            key: ``jax.random.PRNGKey``. Defaults to ``PRNGKey(0)``;
+                pass an explicit key for reproducible runs.
+
+        Returns:
+            A frozen :class:`TokenEncoder` ready for ``encode()``.
+        """
+        if vocab_size < 1:
+            raise ValueError(f"vocab_size must be >= 1, got {vocab_size}")
+        if dimensions < 1:
+            raise ValueError(f"dimensions must be >= 1, got {dimensions}")
+        if key is None:
+            key = jax.random.PRNGKey(0)
+
+        if isinstance(vsa_model, str):
+            vsa = create_vsa_model(vsa_model, dimensions)
+        else:
+            vsa = vsa_model
+        codebook = vsa.random(key, shape=(vocab_size, dimensions))
+
+        # L2-normalise per-row so each token's hypervector lives on
+        # the unit sphere — required for the permute-bundle SNR
+        # analysis the sequence encoders rely on.
+        norms = jnp.linalg.norm(codebook, axis=-1, keepdims=True)
+        codebook = codebook / (norms + EPS)
+
+        return TokenEncoder(
+            codebook=codebook,
+            vocab_size=vocab_size,
+            dimensions=dimensions,
+        )
+
+    @jax.jit
+    def lookup(self, token_id: jax.Array) -> jax.Array:
+        """Return the hypervector for a single token ID."""
+        return self.codebook[token_id]
+
+    @jax.jit
+    def lookup_batch(self, token_ids: jax.Array) -> jax.Array:
+        """Return the per-token hypervectors for a sequence of IDs.
+
+        Args:
+            token_ids: Integer IDs of shape ``(T,)``.
+
+        Returns:
+            Hypervectors of shape ``(T, d)``.
+        """
+        return self.codebook[token_ids]
+
+    @jax.jit
+    def encode(self, token_ids: jax.Array) -> jax.Array:
+        """Flat permute-bundle encoding of a token sequence.
+
+        Returns the flat :class:`~bayes_hdc.structures.Sequence`
+        representation: ``Σ_i P^{T-1-i} c_{t_i}``. For long sequences
+        (``T ≳ 200`` at ``d = 4 096``) prefer
+        :meth:`encode_hierarchical`; see ``BENCHMARKS.md`` for the
+        capacity table.
+        """
+        items = self.codebook[token_ids]
+        return F.bundle_sequence(items)
+
+    def encode_hierarchical(
+        self,
+        token_ids: jax.Array,
+        chunk_size: int = 16,
+    ):
+        """Two-level chunked encoding for long-horizon sequences.
+
+        Returns a :class:`~bayes_hdc.structures.HierarchicalSequence`
+        rather than a raw hypervector, because retrieval requires the
+        cached chunk codebook stored on that object. ``get(i)`` on
+        the result returns the (still-noisy) item hypervector at
+        position ``i``; clean against ``self.codebook`` for symbolic
+        recovery.
+        """
+        # Local import to avoid the structures ↔ embeddings import cycle.
+        from bayes_hdc.structures import HierarchicalSequence
+
+        items = self.codebook[token_ids]
+        return HierarchicalSequence.from_vectors(items, chunk_size=chunk_size)
+
+
 __all__ = [
     "RandomEncoder",
     "LevelEncoder",
     "ProjectionEncoder",
     "KernelEncoder",
     "GraphEncoder",
+    "TokenEncoder",
 ]
