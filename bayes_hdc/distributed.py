@@ -27,11 +27,12 @@ hosts without multiple devices.
 from __future__ import annotations
 
 import jax
+import jax.numpy as jnp
 
+from bayes_hdc.constants import EPS
 from bayes_hdc.distributions import (
     GaussianHV,
     bind_gaussian,
-    bundle_gaussian,
     expected_cosine_similarity,
 )
 
@@ -64,15 +65,46 @@ def pmap_bind_gaussian(x: GaussianHV, y: GaussianHV) -> GaussianHV:
     return jax.pmap(bind_gaussian)(x, y)
 
 
+def _sum_gaussian_hvs(hvs: GaussianHV) -> GaussianHV:
+    """Sum-only reduction over the leading axis. No normalisation.
+
+    Internal helper for :func:`pmap_bundle_gaussian`: each device sums
+    its local batch of hypervectors, the cross-device sum and the final
+    L2-norm normalisation happen exactly once on the host. This avoids
+    the algebraic mismatch that would arise from composing
+    ``bundle_gaussian`` twice (per-device, then over per-device
+    normalised results).
+    """
+    return GaussianHV(
+        mu=jnp.sum(hvs.mu, axis=0),
+        var=jnp.sum(hvs.var, axis=0),
+        dimensions=hvs.mu.shape[-1],
+    )
+
+
 def pmap_bundle_gaussian(hvs: GaussianHV) -> GaussianHV:
     """Bundle a sharded batch of Gaussian hypervectors across devices.
 
-    ``hvs`` must carry a leading device-axis; the innermost bundle is
-    performed per-device, then the per-device results are reduced on
-    the host via a plain Python ``bundle_gaussian`` call.
+    Computes the *globally* normalised bundle: per-device partial sums
+    are accumulated via ``pmap``, the cross-device reduction and the
+    final ``mu / ||sum_mu||`` normalisation happen once on the host.
+    This is algebraically identical to a single-device call to
+    :func:`~bayes_hdc.distributions.bundle_gaussian` on the un-sharded
+    batch — unlike a naive bundle-then-bundle composition, which would
+    normalise twice and break the equivalence.
+
+    ``hvs`` must carry a leading device-axis of size
+    ``jax.local_device_count()``.
     """
-    per_device = jax.pmap(bundle_gaussian)(hvs)
-    return bundle_gaussian(per_device)
+    per_device = jax.pmap(_sum_gaussian_hvs)(hvs)
+    summed_mu = jnp.sum(per_device.mu, axis=0)
+    summed_var = jnp.sum(per_device.var, axis=0)
+    norm = jnp.linalg.norm(summed_mu) + EPS
+    return GaussianHV(
+        mu=summed_mu / norm,
+        var=summed_var / (norm**2),
+        dimensions=summed_mu.shape[-1],
+    )
 
 
 def shard_map_bind_gaussian(x: GaussianHV, y: GaussianHV) -> GaussianHV:

@@ -10,7 +10,10 @@ import jax
 import jax.numpy as jnp
 
 from bayes_hdc.distributions import GaussianHV
-from bayes_hdc.inference import elbo_gaussian, reconstruction_log_likelihood_mc
+from bayes_hdc.inference import (
+    elbo_gaussian,
+    gaussian_reconstruction_log_likelihood_mc,
+)
 from bayes_hdc.training import (
     AdamState,
     TrainResult,
@@ -127,7 +130,13 @@ def test_train_composes_through_pvsa_elbo() -> None:
             var=jnp.exp(params["log_var"]),
             dimensions=DIMS,
         )
-        recon = reconstruction_log_likelihood_mc(post, target, key, n_samples=16)
+        # Real Gaussian log-density (in nats) so the ELBO is dimensionally
+        # consistent with kl_gaussian. Tight σ_obs = strong reconstruction
+        # pressure relative to KL, which is needed to recover the target on
+        # this small (d=64) problem.
+        recon = gaussian_reconstruction_log_likelihood_mc(
+            post, target, key, n_samples=16, observation_noise=0.05
+        )
         return -elbo_gaussian(post, prior, recon)
 
     init = {"mu": jnp.zeros(DIMS), "log_var": jnp.zeros(DIMS)}
@@ -135,8 +144,8 @@ def test_train_composes_through_pvsa_elbo() -> None:
         init_params=init,
         loss_fn=loss_fn,
         key=jax.random.fold_in(key, 1),
-        n_steps=200,
-        learning_rate=1e-1,
+        n_steps=400,
+        learning_rate=5e-2,
     )
     fitted_mu = out.params["mu"]
     cos = float(

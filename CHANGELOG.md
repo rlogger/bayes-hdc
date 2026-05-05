@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Audit-driven Tier-1 corrections (depth audit, 2026-05-05)
+
+A five-agent depth audit surfaced two semantic bugs, one unfair
+benchmark, and several overstated novelty claims. All Tier-1 items
+fixed in this batch.
+
+- **`pmap_bundle_gaussian` semantic bug** (`distributed.py`) — the old
+  implementation composed `bundle_gaussian` twice (per-device, then
+  host), which double-normalises and is *not* algebraically identical
+  to a single global normalised bundle. Replaced with a sum-only
+  per-device kernel + a single host-side normalisation. Added a
+  regression test `test_pmap_bundle_gaussian_matches_global_bundle`
+  that asserts equivalence to `bundle_gaussian` on the un-sharded
+  batch within float32 precision.
+- **`recon_log_likelihood_mc` was not a log-likelihood**
+  (`inference.py`). The old function returned a cosine-similarity
+  proxy bounded in [-1, 1], which made the ELBO `recon - KL`
+  dimensionally inconsistent (KL is in nats; cosine is unitless).
+  Renamed to `reconstruction_score_mc` (similarity proxy, honestly
+  labelled), and added a new
+  `gaussian_reconstruction_log_likelihood_mc(observation_noise=...)`
+  that computes the actual isotropic-Gaussian log-density. The legacy
+  name is preserved as a back-compat alias. Example
+  `examples/variational_codebook_learning.py` and the test in
+  `tests/test_training.py` switched to the real log-density;
+  cos-recovery on a 1024-d target reaches 0.95+ in 1500 Adam steps.
+- **Benchmark `.item()` asymmetry** (`benchmarks/benchmark_compare.py`).
+  TorchHD's cosine path called `.item()`, forcing a Tensor → Python-
+  float host transfer; the JAX path only `block_until_ready`-ed a 0-d
+  device array, so the two timers measured different operations.
+  Removed the asymmetric `.item()`. Honest numbers: bind 1.41× (was
+  1.54×), bundle 2.11× (was 1.89×), cosine 3.48× (was 4.07×), encoder
+  0.85× (was 0.81×). Updated `BENCHMARKS.md` and both papers.
+- **Five missing citations added** to `paper/paper.bib` and engaged
+  with in `paper/paper.md` and `paper/paper_mloss.md`:
+  Liang et al. 2026 *ConformalHDC* (arXiv:2602.21446) — concurrent
+  conformal-HDC algorithm; Furlong & Eliasmith 2024 (Cogn. Neurodyn.)
+  — probabilistic VSA via SSP / fractional binding; Rachkovskij 2024
+  (Cogn. Comp.) — shift-equivariance for HDC sequences; Bryant et al.
+  2024 *HDVQ-VAE* — static-codebook contrast to our trained-codebook
+  contribution; Nesy-GeMs ICLR'23 HD-VAE — workshop precedent.
+- **"First" claims softened throughout**. README, `paper/paper.md`
+  §State-of-the-field, `paper/paper_mloss.md` §2 + §7, and
+  `bayes_hdc/training.py` module docstring now distinguish "first
+  *comprehensive* JAX-native HDC library" from the bare claim (two
+  narrower JAX packages, `hyper-jax` and `hrr`, exist) and
+  "first *open-source library to ship*" from "first to think of"
+  (algorithmic priority on conformal HDC sits with Liang et al.).
+- **Test count reconciled to one canonical number (510)** across
+  README, BENCHMARKS, paper.md, paper_mloss.md (was 480/506/498/506).
+- **3 new tests** in `tests/test_inference_and_distributed.py` cover
+  the bounded-score property of `reconstruction_score_mc`, the
+  d-extensive scale of `gaussian_reconstruction_log_likelihood_mc`,
+  and the max-at-target property; +1 regression test for the
+  `pmap_bundle_gaussian` fix. Total: **510 passing, 93 % coverage**.
+
 ### Added — Publishability push: JOSS / JMLR-MLOSS submission artefacts and SOTA features
 
 - **`paper/paper.md`** — JOSS-format short paper (1107 words) with frontmatter,

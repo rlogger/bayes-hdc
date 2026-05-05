@@ -41,14 +41,18 @@ import numpy as np
 from bayes_hdc import (
     GaussianHV,
     elbo_gaussian,
-    reconstruction_log_likelihood_mc,
+    gaussian_reconstruction_log_likelihood_mc,
     train_variational_codebook,
 )
 
 DIMS = 1024
 SEED = 2026
-N_STEPS = 500
-LEARNING_RATE = 1e-1
+N_STEPS = 1500
+LEARNING_RATE = 5e-2
+# Standard deviation of the Gaussian observation model. Smaller σ → tighter
+# likelihood, stronger reconstruction pressure relative to KL. 0.05 gives
+# clean recovery on this toy task; tune for your dataset.
+OBSERVATION_NOISE = 0.05
 
 
 def main() -> None:
@@ -89,9 +93,14 @@ def main() -> None:
             var=jnp.exp(params["log_var"]),
             dimensions=DIMS,
         )
-        # Monte-Carlo reconstruction term — 32 samples per step
-        recon = reconstruction_log_likelihood_mc(posterior, target, key, n_samples=32)
-        # Negative ELBO so Adam minimises it
+        # True Gaussian-observation log-likelihood (in nats), so the
+        # ``recon - KL`` combination below is a dimensionally consistent
+        # ELBO. observation_noise=1.0 sets the reconstruction weight
+        # relative to KL; tune for your task.
+        recon = gaussian_reconstruction_log_likelihood_mc(
+            posterior, target, key, n_samples=32, observation_noise=OBSERVATION_NOISE
+        )
+        # Negative ELBO so Adam minimises it.
         return -elbo_gaussian(posterior, prior, recon)
 
     # ----------------------------------------------------------------- 4.
@@ -144,13 +153,14 @@ def main() -> None:
         print(f"  step {i:>4d}: loss = {v:+.4f}  {'█' * bar_len}")
 
     print("\nThe per-step loss is noisy because the reconstruction term is a")
-    print("32-sample Monte-Carlo estimator; Adam descends the *expected* loss,")
-    print("not the per-step realisation. The cosine similarity at step [5] is")
-    print("the cleaner convergence signal. The substantive point is that every")
-    print("PVSA primitive — bind, bundle, permute, KL, the reparameterised")
-    print("sampler — is a pure JAX function on registered pytrees, so jax.grad")
-    print("composes through all of them and the entire training run compiles")
-    print("to one XLA program via jax.lax.scan.")
+    print("32-sample Monte-Carlo estimator under an isotropic Gaussian")
+    print("observation model; Adam descends the *expected* loss, not the per-step")
+    print("realisation. The cosine similarity at step [5] is the cleaner")
+    print("convergence signal. The substantive point is that every PVSA")
+    print("primitive — bind, bundle, permute, KL, the reparameterised sampler,")
+    print("the Gaussian log-density — is a pure JAX function on registered")
+    print("pytrees, so jax.grad composes through all of them and the entire")
+    print("training run compiles to one XLA program via jax.lax.scan.")
 
 
 if __name__ == "__main__":

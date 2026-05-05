@@ -151,8 +151,14 @@ def run_torchhd_benchmarks(
     results["MAP bundle (10 HVs)"] = (mean, std)
 
     def cos_sim():
+        # No `.item()` here — that would force a Tensor → Python-float
+        # host sync on every call, an asymmetry the JAX timer (which only
+        # `block_until_ready`s a 0-d device array) does not pay. Returning
+        # the Tensor keeps both timers measuring "compute the result
+        # on-device, then wait for it"; identity testing on the resulting
+        # array is each library's responsibility downstream.
         with torch.no_grad():
-            return torchhd.cosine_similarity(x, y.unsqueeze(0)).item()
+            return torchhd.cosine_similarity(x, y.unsqueeze(0))
 
     mean, std = benchmark_torch(cos_sim, warmup=warmup, trials=trials)
     results["Cosine similarity"] = (mean, std)

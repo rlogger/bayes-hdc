@@ -122,7 +122,12 @@ from bayes_hdc.functional import (
     vector_intersect,
     window,
 )
-from bayes_hdc.inference import elbo_gaussian, reconstruction_log_likelihood_mc
+from bayes_hdc.inference import (
+    elbo_gaussian,
+    gaussian_reconstruction_log_likelihood_mc,
+    reconstruction_log_likelihood_mc,  # deprecated alias
+    reconstruction_score_mc,
+)
 from bayes_hdc.memory import AttentionMemory, HopfieldMemory, SparseDistributedMemory
 from bayes_hdc.metrics import (
     brier_score,
@@ -193,6 +198,9 @@ __all__ = [
     "StreamingBayesianHDC",
     # Variational inference
     "elbo_gaussian",
+    "gaussian_reconstruction_log_likelihood_mc",
+    "reconstruction_score_mc",
+    # Deprecated alias for reconstruction_score_mc (do not use in new code).
     "reconstruction_log_likelihood_mc",
     # Variational training
     "AdamState",

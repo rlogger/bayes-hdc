@@ -69,35 +69,42 @@ All datasets clear the finite-sample coverage guarantee. Set size scales with
 task difficulty — binary classification collapses sets to near-1, 10-class
 problems admit 2–3 classes.
 
-## Wall-clock micro-benchmark vs TorchHD (CPU)
+## Wall-clock micro-benchmark vs TorchHD (CPU, eager mode)
 
 Reproduced from `benchmarks/benchmark_compare.py` on the same machine,
 identical dimensions (`d = 10 000`), 20 warmup iterations, 200 timed
 trials. Both libraries run on CPU. JAX side compiles via `jit` once
 during warmup; PyTorch side uses TorchHD's default eager kernels under
-`torch.no_grad`.
+`torch.no_grad`. Both timers wait for the result tensor on-device — no
+asymmetric host sync via `.item()` — so the numbers measure
+"compute-and-block" on each backend.
 
 | Operation | bayes-hdc (ms) | TorchHD (ms) | Speedup |
 |---|---:|---:|---:|
-| MAP `bind` (2 HVs) | **0.006 ± 0.000** | 0.010 ± 0.001 | 1.54× |
-| MAP `bundle` (10 HVs) | **0.032 ± 0.010** | 0.061 ± 0.014 | 1.89× |
-| Cosine similarity | **0.019 ± 0.003** | 0.078 ± 0.005 | **4.07×** |
-| `RandomEncoder` (100×20) | 0.998 ± 0.044 | **0.810 ± 0.044** | 0.81× |
+| MAP `bind` (2 HVs) | **0.009 ± 0.006** | 0.012 ± 0.014 | 1.41× |
+| MAP `bundle` (10 HVs) | **0.025 ± 0.008** | 0.053 ± 0.021 | 2.11× |
+| Cosine similarity | **0.021 ± 0.006** | 0.075 ± 0.025 | 3.48× |
+| `RandomEncoder` (100×20) | 1.069 ± 0.075 | **0.911 ± 0.128** | 0.85× |
 
-Pointwise operations (`bind`, `bundle`, similarity) are 1.5×–4× faster
+Pointwise operations (`bind`, `bundle`, cosine) are 1.4×–3.5× faster
 under JAX-`jit` than TorchHD's eager kernels. The encoder benchmark
-includes 200 random-sample lookups in addition to the bind+bundle work,
-where TorchHD's `embeddings.Random` indexing path is slightly faster
-on a single CPU; the gap closes on GPU and reverses with batching.
-Reproduce locally with `python benchmarks/benchmark_compare.py`; the
-script writes `benchmarks/benchmark_results.json` (gitignored — local
-hardware varies).
+includes 200 random-sample lookups in addition to the bind+bundle
+work, and TorchHD's `embeddings.Random` indexing path stays slightly
+faster on this single-CPU configuration; the gap typically closes on
+GPU and reverses with batching.
+
+These numbers compare **eager-mode TorchHD against `jit`-compiled
+bayes-hdc**. A `torch.compile` baseline would partially close the
+pointwise gap and is deferred to a future suite. Reproduce locally
+with `python benchmarks/benchmark_compare.py`; the script writes
+`benchmarks/benchmark_results.json` (gitignored — local hardware
+varies).
 
 ## Test / coverage / lint status
 
 | Check | Value |
 |---|---|
-| Unit tests passing | 506 |
+| Unit tests passing | 510 |
 | Line coverage | 93% on 23 modules |
 | Lint (`ruff check`) | clean |
 | Format (`ruff format --check`) | clean |

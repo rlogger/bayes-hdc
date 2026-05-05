@@ -19,7 +19,7 @@
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml/badge.svg?branch=main" /></a>
   <a href="https://rlogger.github.io/bayes-hdc/"><img alt="Documentation" src="https://img.shields.io/badge/docs-online-1e1e3f?logo=readthedocs&logoColor=white" /></a>
   <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://img.shields.io/badge/coverage-97%25-brightgreen.svg" /></a>
-  <img alt="Tests" src="https://img.shields.io/badge/tests-480%20passing-brightgreen.svg" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-510%20passing-brightgreen.svg" />
   <img alt="Python" src="https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12%20|%203.13-blue.svg" />
   <img alt="JAX" src="https://img.shields.io/badge/JAX-%E2%89%A5%200.4.20-orange.svg" />
   <a href="https://github.com/rlogger/bayes-hdc/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
@@ -53,7 +53,7 @@ For the broader landscape of HDC/VSA applications, see Kleyko, Rachkovskij, Osip
 - **Differentiable end-to-end.** Reparameterisation samplers on every distributional op; `jax.grad` composes through everything.
 - **Scales.** From a laptop CPU to a TPU pod with the same code via `pmap` / `shard_map` wrappers.
 - **Eight VSA models** under one uniform `bind` / `bundle` / `inverse` / `similarity` / `random` API.
-- **480 tests, 97 % coverage.** Ubuntu + macOS × Python 3.9–3.13 on every push.
+- **510 tests, 93 % coverage.** Ubuntu + macOS × Python 3.9–3.13 on every push.
 
 ## Quick tour
 
@@ -228,8 +228,8 @@ python examples/<name>.py
 
 | | |
 |---|---|
-| **Tests** | 475 passing, 2 skipped (network-gated dataset loaders) |
-| **Coverage** | 97 % line coverage |
+| **Tests** | 510 passing, 2 skipped (network-gated dataset loaders) |
+| **Coverage** | 93 % line coverage |
 | **Lint** | `ruff check`, `ruff format --check`, `mypy` clean on every push |
 | **CI** | Ubuntu + macOS × Python 3.9–3.13 |
 | **Security** | CodeQL on a weekly schedule; Dependabot weekly bumps |
@@ -262,7 +262,7 @@ Detailed paths, paths to maintainership, and recognition in [`COMMUNITY.md`](COM
 | [NengoSPA](https://github.com/nengo/nengo-spa) | Nengo (spiking) | HRR, VTB | — | — | — |
 | **bayes-hdc** | **JAX** | **8** | **GaussianHV / DirichletHV / conformal sets** | **`jit` / `vmap` / `grad` / `pmap` end-to-end** | **`Z/d` cyclic-shift verifiers** |
 
-Independent of speed comparisons, no other HDC library exposes (a) a JAX backend that composes with the BlackJAX / Flax / Equinox / Optax / Dynamax stack, (b) closed-form moment propagation for Gaussian hypervectors, (c) reparameterisation gradients for end-to-end variational codebook learning, or (d) split-conformal prediction sets with formal coverage guarantees. See [`BENCHMARKS.md`](BENCHMARKS.md) for accuracy and timing numbers.
+Two narrower JAX-backed packages exist (`hyper-jax` covers MAP only; `hrr` is a multi-backend HRR-only library with a JAX option); neither covers the full primitive set. Within the comprehensive-library tier, no other open-source HDC library exposes (a) a JAX backend that composes with the BlackJAX / Flax / Equinox / Optax / Dynamax stack across all eight VSA models, (b) closed-form moment propagation for Gaussian hypervectors, (c) reparameterisation gradients for end-to-end variational codebook learning, or (d) split-conformal prediction sets with formal coverage guarantees as a built-in module (algorithmic prior/concurrent work on conformal HDC exists on the paper side without a released library). See [`BENCHMARKS.md`](BENCHMARKS.md) for accuracy and timing numbers.
 
 ## How to cite
 

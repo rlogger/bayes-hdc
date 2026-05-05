@@ -276,3 +276,86 @@
   year    = {2007},
   doi     = {10.1037/0033-295X.114.1.1}
 }
+
+% =============================================================
+% Concurrent / prior work surfaced by the 2026-05 depth audit.
+% These citations are required for the State-of-the-Field section to
+% engage with the literature truthfully; absent them, several "first"
+% claims would be overstated.
+% =============================================================
+
+@article{liang2026conformalhdc,
+  author        = {Yiwei Liang and Hossein Poursiami and Bingzhe Yang and
+                   Sam Cooper and Anirudh Jaiswal and Mahmoud Parsa and
+                   Liam Fortin and Babak Shahbaba},
+  title         = {{ConformalHDC}: Conformal Prediction for
+                   Hyperdimensional Computing Classifiers},
+  journal       = {arXiv preprint},
+  volume        = {abs/2602.21446},
+  year          = {2026},
+  url           = {https://arxiv.org/abs/2602.21446},
+  note          = {Concurrent algorithmic proposal of split-conformal
+                   prediction for prototype-based HDC classifiers, with
+                   adaptive nonconformity scores. Published February 2026,
+                   no released code. bayes-hdc operationalises the
+                   conformal-HDC direction as a JAX-native built-in
+                   module; the algorithmic contribution sits with Liang
+                   et al. and the HDUQ-HAR line.}
+}
+
+@article{furlong2024probabilistic,
+  author  = {Mike Furlong and Chris Eliasmith},
+  title   = {Probabilistic Computing with the Vector Symbolic
+             Architecture in {S}emantic {P}ointer {A}rchitecture},
+  journal = {Cognitive Neurodynamics},
+  year    = {2024},
+  doi     = {10.1007/s11571-023-10031-7},
+  note    = {Theoretical precedent for probabilistic VSA via Spatial
+             Semantic Pointers (SSP) and fractional-binding kernel-
+             density theory. No released library implementing analytic
+             bind/bundle moments; bayes-hdc's GaussianHV provides the
+             first such open-source library.}
+}
+
+@article{rachkovskij2024shiftequivariance,
+  author  = {Dmitri A. Rachkovskij},
+  title   = {Shift-Equivariant Similarity-Preserving Hypervector
+             Representations of Sequences},
+  journal = {Cognitive Computation},
+  year    = {2024},
+  doi     = {10.1007/s12559-024-10258-4},
+  eprint  = {2112.15475},
+  archivePrefix = {arXiv},
+  note    = {Theoretical analysis of cyclic-shift equivariance for HDC
+             sequence encodings. The equivariance idea is published; the
+             novel contribution of bayes-hdc.equivariance is the
+             property-based runtime verifier and the explicit Z/d group
+             object as a first-class type, not the equivariance itself.}
+}
+
+@inproceedings{bryant2024hdvqvae,
+  author    = {Quan Bryant and others},
+  title     = {{HDVQ-VAE}: Hyperdimensional Vector Quantized Variational
+               Autoencoder},
+  booktitle = {Proceedings of the International Conference on Compilers,
+               Architecture, and Synthesis for Embedded Systems
+               (CASES, ESWEEK 2024)},
+  year      = {2024},
+  url       = {https://web.eng.fiu.edu/gaquan/Papers/ESWEEK24Papers/CASES/},
+  note      = {Uses HDC hypervectors as a static binary codebook inside
+               a VQ-VAE; explicitly avoids codebook training. Closest
+               prior art on "HDC + variational"; bayes-hdc's
+               train_variational_codebook does the opposite — end-to-end
+               gradient training of a probabilistic codebook.}
+}
+
+@inproceedings{nesygems2023hdvae,
+  author    = {{Anonymous, Nesy-GeMs Workshop}},
+  title     = {Hyperdimensional Variational Autoencoders},
+  booktitle = {Proceedings of the {ICLR} Workshop on Neuro-Symbolic
+               Generative Models (Nesy-GeMs)},
+  year      = {2023},
+  url       = {https://nesygems.github.io/assets/pdf/papers/hyperdimensional.pdf},
+  note      = {Workshop paper using VSA primitives inside a VAE; no
+               released library, no generic ELBO trainer.}
+}

@@ -23,7 +23,11 @@ The intended pattern is::
         posterior = GaussianHV(mu=params["mu"], var=jnp.exp(params["log_var"]),
                                 dimensions=D)
         prior = GaussianHV.create(D)
-        recon = reconstruction_log_likelihood_mc(posterior, target, key, 16)
+        # True Gaussian log-density (in nats), dimensionally consistent
+        # with kl_gaussian, so the result is a real ELBO.
+        recon = gaussian_reconstruction_log_likelihood_mc(
+            posterior, target, key, n_samples=16, observation_noise=0.05,
+        )
         return -elbo_gaussian(posterior, prior, recon)
 
     result = train_variational_codebook(
@@ -41,7 +45,11 @@ optimisation pytree). To our knowledge no other open-source HDC / VSA
 library exposes a comparable end-to-end variational training API
 [Heddes et al. 2023, J. Mach. Learn. Res. 24(255); Cumbo et al. 2023,
 J. Open Source Softw. 8(89): 5704; Bekolay et al. 2014, Front.
-Neuroinform. 7: 48].
+Neuroinform. 7: 48]. On the paper side, HDVQ-VAE (Bryant et al. 2024,
+ESWEEK CASES) uses HDC as a *static* binary codebook inside a VQ-VAE
+— the opposite direction of this module — and the Nesy-GeMs ICLR'23
+HD-VAE workshop paper sketches a related approach without a released
+library.
 """
 
 from __future__ import annotations

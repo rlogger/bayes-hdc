@@ -15,7 +15,12 @@ from bayes_hdc.distributed import (
     pmap_bundle_gaussian,
 )
 from bayes_hdc.distributions import GaussianHV, kl_gaussian
-from bayes_hdc.inference import elbo_gaussian, reconstruction_log_likelihood_mc
+from bayes_hdc.inference import (
+    elbo_gaussian,
+    gaussian_reconstruction_log_likelihood_mc,
+    reconstruction_log_likelihood_mc,  # back-compat alias
+    reconstruction_score_mc,
+)
 
 DIMS = 64
 
@@ -71,32 +76,67 @@ def test_elbo_is_differentiable() -> None:
     assert jnp.all(jnp.isfinite(g_logvar))
 
 
-def test_reconstruction_log_likelihood_mc_shape() -> None:
+def test_reconstruction_score_mc_shape_and_bounds() -> None:
+    """The similarity proxy is a scalar in [-1, 1]."""
     post = GaussianHV.random(jax.random.PRNGKey(10), DIMS, var=0.1)
     target = GaussianHV.random(jax.random.PRNGKey(11), DIMS, var=0.0)
-    ll = reconstruction_log_likelihood_mc(post, target, jax.random.PRNGKey(12))
-    assert ll.shape == ()
-    assert jnp.isfinite(ll)
+    score = reconstruction_score_mc(post, target, jax.random.PRNGKey(12))
+    assert score.shape == ()
+    assert jnp.isfinite(score)
+    assert -1.0 - 1e-6 <= float(score) <= 1.0 + 1e-6
 
 
-def test_reconstruction_log_likelihood_mc_respects_n_samples() -> None:
+def test_reconstruction_score_mc_respects_n_samples() -> None:
     post = GaussianHV.random(jax.random.PRNGKey(20), DIMS, var=0.1)
     target = GaussianHV.random(jax.random.PRNGKey(21), DIMS, var=0.0)
-    # Two runs with different n_samples should both be finite — no shape errors.
-    ll_small = reconstruction_log_likelihood_mc(
-        post,
-        target,
-        jax.random.PRNGKey(22),
-        n_samples=4,
+    score_small = reconstruction_score_mc(post, target, jax.random.PRNGKey(22), n_samples=4)
+    score_large = reconstruction_score_mc(post, target, jax.random.PRNGKey(22), n_samples=128)
+    assert jnp.isfinite(score_small)
+    assert jnp.isfinite(score_large)
+
+
+def test_legacy_alias_reconstruction_log_likelihood_mc() -> None:
+    """The deprecated alias must still resolve to the same function."""
+    assert reconstruction_log_likelihood_mc is reconstruction_score_mc
+
+
+def test_gaussian_recon_log_likelihood_is_in_nats_scale() -> None:
+    """The Gaussian log-density is on a scale comparable to KL — both negative,
+    both d-extensive — unlike the cosine proxy which is bounded in [-1, 1]."""
+    post = GaussianHV.random(jax.random.PRNGKey(30), DIMS, var=0.5)
+    target = GaussianHV.random(jax.random.PRNGKey(31), DIMS, var=0.0)
+    ll = gaussian_reconstruction_log_likelihood_mc(
+        post, target, jax.random.PRNGKey(32), n_samples=64, observation_noise=1.0
     )
-    ll_large = reconstruction_log_likelihood_mc(
-        post,
-        target,
-        jax.random.PRNGKey(22),
-        n_samples=128,
+    # For d=64 random unit-ish vectors with σ_obs=1, |ll| ~ O(d). Sanity: > 1.
+    assert jnp.isfinite(ll)
+    assert abs(float(ll)) > 1.0
+
+
+def test_gaussian_recon_log_likelihood_max_at_target() -> None:
+    """Centring the posterior at the target should *raise* the log-density."""
+    target = GaussianHV.random(jax.random.PRNGKey(40), DIMS, var=0.0)
+    near = GaussianHV(
+        mu=target.mu,
+        var=jnp.full((DIMS,), 1e-3),
+        dimensions=DIMS,
     )
-    assert jnp.isfinite(ll_small)
-    assert jnp.isfinite(ll_large)
+    far = GaussianHV(
+        mu=jnp.zeros(DIMS),
+        var=jnp.full((DIMS,), 1e-3),
+        dimensions=DIMS,
+    )
+    ll_near = float(
+        gaussian_reconstruction_log_likelihood_mc(
+            near, target, jax.random.PRNGKey(41), n_samples=64, observation_noise=0.5
+        )
+    )
+    ll_far = float(
+        gaussian_reconstruction_log_likelihood_mc(
+            far, target, jax.random.PRNGKey(41), n_samples=64, observation_noise=0.5
+        )
+    )
+    assert ll_near > ll_far
 
 
 def test_elbo_gradient_descent_reduces_kl() -> None:
@@ -198,3 +238,35 @@ def test_pmap_bundle_gaussian_single_device() -> None:
     out = pmap_bundle_gaussian(hvs)
     assert out.mu.shape == (DIMS,)
     assert out.var.shape == (DIMS,)
+
+
+def test_pmap_bundle_gaussian_matches_global_bundle() -> None:
+    """Sharded bundle is algebraically identical to bundling the un-sharded batch.
+
+    Regression test for a subtle bug: composing ``bundle_gaussian`` twice
+    (per-device then host) double-normalises, which is not the same
+    operation as a single global bundle. The fix accumulates partial
+    sums via ``pmap`` and normalises exactly once on the host.
+    """
+    from bayes_hdc.distributions import bundle_gaussian
+
+    n_devices = jax.local_device_count()
+    batch_per_device = 4
+    total = n_devices * batch_per_device
+    key = jax.random.PRNGKey(202)
+    mus = jax.random.normal(key, (total, DIMS))
+    vars_ = jnp.full((total, DIMS), 0.1)
+
+    flat = GaussianHV(mu=mus, var=vars_, dimensions=DIMS)
+    sharded = GaussianHV(
+        mu=mus.reshape(n_devices, batch_per_device, DIMS),
+        var=vars_.reshape(n_devices, batch_per_device, DIMS),
+        dimensions=DIMS,
+    )
+
+    direct = bundle_gaussian(flat)
+    via_pmap = pmap_bundle_gaussian(sharded)
+
+    # Algebraic equivalence within float32 precision.
+    assert jnp.allclose(via_pmap.mu, direct.mu, atol=1e-5)
+    assert jnp.allclose(via_pmap.var, direct.var, atol=1e-5)

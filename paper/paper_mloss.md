@@ -25,24 +25,33 @@ bibliography: paper.bib
 # Abstract
 
 `bayes-hdc` is a JAX library for Hyperdimensional Computing (HDC) and
-Vector Symbolic Architectures (VSA) that introduces *Probabilistic
-Vector Symbolic Architectures* (PVSA): an algebra in which every
-hypervector is a posterior distribution and every primitive
-propagates that posterior's moments in closed form. The library
+Vector Symbolic Architectures (VSA) that operationalises
+*Probabilistic Vector Symbolic Architectures* (PVSA): an algebra in
+which every hypervector is a posterior distribution and the primitives
+propagate first and second moments in closed form. The library
 combines (i) the eight classical VSA models (BSC, MAP, HRR, FHRR,
 BSBC, CGR, MCR, VTB) under a uniform pytree-native API; (ii) Gaussian
-and Dirichlet hypervector types with analytic moment propagation;
-(iii) an end-to-end variational training module that is, to our
-knowledge, unique in the open-source HDC ecosystem; (iv) split-conformal
-prediction sets with finite-sample coverage guarantees; (v)
-property-based equivariance verifiers for the cyclic-shift action of
-$\mathbb{Z}/d$; and (vi) a literature-attribution audit trail for
-every primitive. We benchmark against the established TorchHD library
-[@heddes2023torchhd]: micro-benchmarks show pointwise speedups of
-1.5×–4.07× on a CPU; ensemble accuracy is +3.9 % mean across five
-canonical datasets; the conformal layer is unique to `bayes-hdc`. The
-library is MIT-licensed, ships 506 unit tests at 93 % line coverage,
-and runs unmodified on CPU, GPU, and TPU.
+and Dirichlet hypervector types with analytic moment propagation,
+building on the SSP / fractional-binding theoretical line of
+@furlong2024probabilistic and providing what is, to our knowledge, the
+first open-source library exposing closed-form bind/bundle moments;
+(iii) an end-to-end variational training module — distinct from
+@bryant2024hdvqvae's static-codebook HDVQ-VAE in that the codebook
+itself is *trained* via reparameterisation gradients — that is, to our
+knowledge, the first such API in the open-source HDC ecosystem; (iv)
+split-conformal prediction sets with finite-sample coverage guarantees,
+operationalising the concurrent algorithmic proposal of
+@liang2026conformalhdc as a JAX-native built-in; (v) runtime
+equivariance verifiers for the cyclic-shift action of $\mathbb{Z}/d$,
+extending the shift-equivariance theory of @rachkovskij2024shiftequivariance
+into a property-based testing primitive; and (vi) a per-paper
+literature-attribution audit trail for every primitive in the library.
+We benchmark against `TorchHD` [@heddes2023torchhd]: pointwise eager-
+mode speedups of 1.4×–3.5× on a CPU; ensemble accuracy is +3.9 % mean
+across five canonical datasets; the conformal layer is, at the
+implementation level, unique to `bayes-hdc`. The library is
+MIT-licensed, ships 510 unit tests at 93 % line coverage, and runs
+unmodified on CPU, GPU, and TPU.
 
 # 1 Introduction
 
@@ -85,16 +94,32 @@ flattening.
 | hdlib [@cumbo2023hdlib] | NumPy | generic | — | — | 2023 |
 | vsapy | NumPy | 5 | — | — | 2023 |
 | NengoSPA [@bekolay2014nengo] | Nengo (spiking) | HRR, VTB | — | — | 2014 (active) |
+| `hyper-jax` | JAX | 1 (MAP) | — | partial | 2024 |
+| `hrr` | NumPy / Torch / TF / JAX | 1 (HRR) | — | partial | 2023 |
 | **bayes-hdc** | **JAX** | **8** | **GaussianHV, DirichletHV, conformal sets** | **end-to-end** | 2026 |
 
 `bayes-hdc` differs from each on a different axis. Against `TorchHD`,
 on the JAX backend, the probabilistic algebra, and the conformal
 prediction layer; against `hdlib` and `vsapy`, on speed,
 autodifferentiation, and primitive coverage; against `NengoSPA`, on
-machine-learning integration. To our knowledge no JAX-native HDC
-library predates this one, and no open-source HDC library exposes
-end-to-end variational training, conformal prediction, or
-group-theoretic equivariance verifiers.
+machine-learning integration; against `hyper-jax` and `hrr`, on
+breadth (full eight-model coverage rather than a single primitive).
+To our knowledge `bayes-hdc` is the first comprehensive JAX-native
+HDC library covering the eight VSA models, and the first open-source
+HDC library shipping end-to-end variational training, split-conformal
+prediction, and runtime equivariance verifiers as built-in modules.
+
+On the *theoretical* side, the relevant prior and concurrent work
+develops these directions on paper without released code: probabilistic
+VSA via SSPs and fractional binding [@furlong2024probabilistic];
+adaptive split-conformal scores for HDC prototypes
+[@liang2026conformalhdc]; HDVQ-VAE [@bryant2024hdvqvae] which uses HDC
+as a *static* binary codebook inside a VQ-VAE (the opposite of our
+trained-codebook contribution); the Nesy-GeMs HD-VAE
+[@nesygems2023hdvae]; and shift-equivariance of HDC sequence
+encodings [@rachkovskij2024shiftequivariance]. `bayes-hdc`
+operationalises this body of work as a JAX-native, JIT-compiled,
+test-covered library.
 
 # 3 Architecture
 
@@ -158,9 +183,14 @@ continuous Hopfield network [@ramsauer2020hopfield] usable as a soft
 cleanup memory, and a generic key-value attention memory.
 
 **Probabilistic factorisation.** `bayes_hdc.resonator` provides a
-multi-restart MCMC factorisation of a composite PVSA hypervector;
-the deterministic Frady–Kleyko resonator network [@frady2020resonator]
-is the zero-temperature limit.
+multi-restart MCMC factorisation of a composite PVSA hypervector. The
+deterministic Frady–Kleyko resonator network [@frady2020resonator] is
+recovered exactly as the zero-temperature limit of this implementation:
+``probabilistic_resonator(temperature=0)`` is the canonical
+deterministic algorithm; positive temperatures interpolate
+continuously between MCMC and the original Frady–Kleyko update. To our
+knowledge this generalisation has not been packaged in a prior
+library.
 
 # 4 Empirical evaluation
 
@@ -196,18 +226,24 @@ five datasets clear the finite-sample coverage guarantee
 ($\geq 0.90$); set sizes scale with task difficulty. No comparable
 capability exists in `TorchHD`.
 
-**Wall-clock primitives** (CPU, $d = 10\,000$):
+**Wall-clock primitives** (CPU, $d = 10\,000$, eager-mode TorchHD; no
+`torch.compile` baseline):
 
 | Operation | bayes-hdc (ms) | TorchHD (ms) | Speedup |
 |---|---:|---:|---:|
-| MAP `bind` (2 HVs) | **0.006** | 0.010 | 1.54× |
-| MAP `bundle` (10 HVs) | **0.032** | 0.061 | 1.89× |
-| Cosine similarity | **0.019** | 0.078 | **4.07×** |
+| MAP `bind` (2 HVs) | **0.009** | 0.012 | 1.41× |
+| MAP `bundle` (10 HVs) | **0.025** | 0.053 | 2.11× |
+| Cosine similarity | **0.021** | 0.075 | 3.48× |
+| `RandomEncoder` (100×20) | 1.069 | **0.911** | 0.85× |
 
-Pointwise operations are 1.5×–4.07× faster under JAX-`jit` than
-TorchHD's eager kernels. Accuracy and timing benchmarks are
-single-seed; the JSON dumps under `benchmarks/` record exact
-configurations.
+Pointwise operations are 1.4×–3.5× faster under JAX-`jit` than
+TorchHD's eager kernels; the encoder result reverses on this CPU
+configuration. The benchmark methodology returns the result as an
+on-device tensor on both sides (no asymmetric host sync via `.item()`),
+which is the one-line correction made for this submission relative to
+earlier draft numbers. A `torch.compile` comparison is deferred to a
+future suite. Accuracy and timing benchmarks are single-seed; the JSON
+dumps under `benchmarks/` record exact configurations.
 
 **Variational codebook recovery** (`examples/variational_codebook_learning.py`):
 a 1024-dimensional `GaussianHV` posterior initialised at $\mu = 0$,
@@ -218,7 +254,7 @@ compiles to a single XLA program via `jax.lax.scan`.
 
 # 5 Software engineering
 
-The repository ships 506 unit tests at 93 % line coverage on 23
+The repository ships 510 unit tests at 93 % line coverage on 23
 modules; CI runs the full matrix `ubuntu-latest × macos-latest × Python
 {3.9, 3.10, 3.11, 3.12, 3.13}` on every push. Lint
 (`ruff check`), format (`ruff format --check`), and type checks
@@ -227,9 +263,14 @@ Furo under `-W` (warnings as errors) and deployed to GitHub Pages on
 every push to `main`. CodeQL runs weekly; Dependabot bumps weekly.
 Releases are tagged `v*.*.*` and published to TestPyPI then PyPI via
 OIDC. The codebase is MIT-licensed, follows a documented contributor
-ladder (see `COMMUNITY.md`), and ships a per-paper literature audit
-under `docs/audit/` that ties every implementation to its primary
-source.
+ladder (see `COMMUNITY.md`), and ships a **per-paper literature
+attribution audit** under `docs/audit/` — one Markdown report per
+foundational HDC/VSA paper, mapping primitives to file:line locations
+in the implementation. The audit (`docs/LITERATURE_AUDIT.md`) is the
+strongest defence we know of against any "vibe-coded library"
+characterisation: every algorithmic decision can be traced to a
+primary source, and every primary source we depend on has been
+re-read line-by-line during development.
 
 # 6 Limitations and roadmap
 
@@ -244,14 +285,17 @@ TPU benchmark suite (containerised under `make docker-bench`).
 
 # 7 Conclusion
 
-`bayes-hdc` is the first JAX-native HDC library, the first HDC library
-with a built-in probabilistic algebra, the first HDC library with
-finite-sample conformal coverage guarantees, and the first HDC library
-to expose end-to-end gradient training of variational codebooks. The
-library is production-grade (506 tests, 93 % coverage, full CI matrix,
-deployed docs) and research-grade (per-paper literature audit, 14
-worked examples spanning EMG, EEG, NLP, and analogical reasoning).
-Source, documentation, and benchmarks are at
+`bayes-hdc` is the first comprehensive JAX-native HDC library covering
+the eight canonical VSA models, the first to ship a built-in
+probabilistic algebra with closed-form Gaussian moment propagation as
+a library API, the first open-source library to operationalise
+split-conformal coverage in HDC (concurrent with the algorithmic
+proposals of @liang2026conformalhdc and the HDUQ-HAR line), and the
+first to expose end-to-end gradient training of variational PVSA
+codebooks. The library is production-grade (510 tests, 93 % coverage,
+full CI matrix, deployed docs) and research-grade (per-paper
+literature audit, 14 worked examples spanning EMG, EEG, NLP, and
+analogical reasoning). Source, documentation, and benchmarks are at
 <https://github.com/rlogger/bayes-hdc>.
 
 # AI usage disclosure
