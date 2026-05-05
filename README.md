@@ -50,10 +50,11 @@ For the broader landscape of HDC/VSA applications, see Kleyko, Rachkovskij, Osip
 - **Closed-form algebra.** `bind_gaussian`, `bundle_gaussian`, `kl_gaussian`, `kl_dirichlet` are analytic.
 - **First-class group actions.** `Z/d` cyclic shift as a group object, with property-based equivariance verifiers.
 - **Calibration & coverage out of the box.** Temperature scaling and split-conformal APS prediction sets.
-- **Differentiable end-to-end.** Reparameterisation samplers on every distributional op; `jax.grad` composes through everything.
+- **Differentiable end-to-end.** Reparameterisation samplers on every distributional op; `jax.grad` composes through everything; gradient correctness verified against finite differences via `jax.test_util.check_grads`.
+- **Streaming, bounded-memory inference.** `StreamingBayesianHDC` keeps EMA posteriors per class in `O(K·d)` memory regardless of stream length — designed for non-stationary edge deployments where the underlying class distribution drifts.
 - **Scales.** From a laptop CPU to a TPU pod with the same code via `pmap` / `shard_map` wrappers.
 - **Eight VSA models** under one uniform `bind` / `bundle` / `inverse` / `similarity` / `random` API.
-- **510 tests, 93 % coverage.** Ubuntu + macOS × Python 3.9–3.13 on every push.
+- **540 tests, 93 % coverage.** Algebraic laws (associativity, distributivity, bind-unbind) verified across BSC / MAP / HRR; closed-form Gaussian moments cross-checked against Monte-Carlo at d=64, n=20 000. Ubuntu + macOS × Python 3.9–3.13 on every push.
 
 ## Quick tour
 

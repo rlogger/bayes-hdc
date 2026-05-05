@@ -146,6 +146,19 @@ def bind_gaussian(x: GaussianHV, y: GaussianHV) -> GaussianHV:
     itself exactly Gaussian, but ``GaussianHV`` takes a moment-matched
     view.
 
+    .. warning::
+       **Independence is assumed.** The closed-form variance above
+       holds only when ``x`` and ``y`` are statistically independent.
+       If both operands derive from a common upstream random source —
+       e.g. ``bind_gaussian(bundle_gaussian([x_i, x_j]), x_i)``, where
+       ``x_i`` appears on both sides — the formula systematically
+       underestimates ``Var[Z]`` because it ignores the covariance
+       contribution. For sequential PVSA pipelines that may share
+       upstream randomness, treat the returned variance as a lower
+       bound on the true posterior variance, or work in a regime where
+       the shared component is small relative to the independent
+       components.
+
     Args:
         x: First Gaussian hypervector.
         y: Second Gaussian hypervector.
@@ -171,6 +184,18 @@ def bundle_gaussian(hvs: GaussianHV) -> GaussianHV:
     The result is then normalised (mean divided by its L2 norm, variance
     scaled by the squared inverse norm) to stay on the unit sphere, which
     matches deterministic MAP bundling.
+
+    .. note::
+       **Plug-in normalisation is an approximation.** The norm
+       :math:`s = \\lVert \\sum_i \\mu_i \\rVert` is treated here as a
+       deterministic scalar applied uniformly across components, so the
+       returned variance is :math:`\\sum_i \\sigma_i^2 / s^2`. The true
+       distribution of the *normalised* random sum has a marginally
+       different variance because :math:`s` is itself a function of the
+       random vector. For high dimension :math:`d` and well-conditioned
+       inputs the discrepancy is :math:`O(1/d)` and negligible; for
+       small :math:`d` or near-singular sums treat the returned
+       variance as an approximation.
 
     Args:
         hvs: A batched :class:`GaussianHV` with ``mu`` of shape ``(n, d)``

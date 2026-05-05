@@ -119,29 +119,32 @@ def shard_map_bind_gaussian(x: GaussianHV, y: GaussianHV) -> GaussianHV:
     call if the host has only one device (nothing to shard) or if the
     installed JAX version does not expose ``shard_map``.
     """
+    # Import-level fallback: older JAX versions don't expose the
+    # shard_map API at all. Attribute / module errors here mean we have
+    # to use pmap (or single-device) instead.
     try:
         from jax.experimental.shard_map import shard_map
         from jax.sharding import Mesh, PartitionSpec
-
-        n_dev = jax.local_device_count()
-        if n_dev < 2:
-            return bind_gaussian(x, y)
-
-        mesh = Mesh(jax.devices()[:n_dev], axis_names=("i",))
-        spec = PartitionSpec("i", None)
-        sharded = shard_map(
-            bind_gaussian,
-            mesh=mesh,
-            in_specs=(spec, spec),
-            out_specs=spec,
-        )
-        return sharded(x, y)
-    except Exception:  # pragma: no cover — JAX version dependent
-        # Fall through to pmap, then single-device.
+    except (ImportError, AttributeError):  # pragma: no cover — JAX < 0.4.24
         try:
             return jax.pmap(bind_gaussian)(x, y)
-        except Exception:
+        except (RuntimeError, ValueError):  # pragma: no cover — single device
             return bind_gaussian(x, y)
+
+    n_dev = jax.local_device_count()
+    if n_dev < 2:
+        # Single-device host: nothing to shard, just bind directly.
+        return bind_gaussian(x, y)
+
+    mesh = Mesh(jax.devices()[:n_dev], axis_names=("i",))
+    spec = PartitionSpec("i", None)
+    sharded = shard_map(
+        bind_gaussian,
+        mesh=mesh,
+        in_specs=(spec, spec),
+        out_specs=spec,
+    )
+    return sharded(x, y)
 
 
 def shard_classifier_posteriors(

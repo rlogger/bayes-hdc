@@ -163,7 +163,8 @@ Reach for it when you need one or more of:
 - closed-form moment propagation for a probabilistic HDC pipeline;
 - coverage-guaranteed or calibrated predictions on top of an HDC classifier;
 - a distribution-valued representation of classifier weights;
-- structured representations for task-conditioned agents.
+- structured representations for task-conditioned agents;
+- **bounded-memory streaming inference under distribution shift.** `StreamingBayesianHDC` maintains exponential-moving-average posteriors per class in `O(K·d)` memory regardless of stream length — useful for non-stationary biomedical-signal streams (drifting EMG calibration, EEG montage shifts, wearable-sensor recalibration) where a Kalman-style fixed-shrinkage filter (`BayesianAdaptiveHDC`) is too rigid and a full posterior fit is too expensive.
 
 Reach for something else when the task calls for deep end-to-end learning
 on natural images at ImageNet scale, or when the uncertainty in your model

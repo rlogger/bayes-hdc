@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Tier-2 test depth + code quality (audit follow-up, 2026-05-05)
+
+The 2026-05 depth audit's test-rigor finding ("the suite passes 506
+tests but a peer reviewer running `pytest --co -q | grep -c
+associativity` gets zero hits") is closed in this batch. Reviewer-
+expected mathematical guarantees are now part of the suite.
+
+- **`tests/test_math_properties.py`** — 30 new property-based tests
+  covering three previously unaddressed categories:
+  1. **Reparameterisation gradient correctness** via
+     `jax.test_util.check_grads` against finite differences for
+     `bind_gaussian`, `bundle_gaussian`, `kl_gaussian`, and
+     `inverse_gaussian` (relaxed tolerances appropriate for
+     CPU float32: atol = rtol = 2e-2).
+  2. **VSA algebraic laws** across BSC, MAP, and HRR: bind
+     commutativity, bind associativity, BSC self-inverse chain
+     (`bind(a, bind(a, b)) = b`), bind distributes over (un-
+     normalised) bundle for MAP, approximate distributivity over the
+     normalised bundle, bundle majority for BSC, full-cycle
+     permutation identity, bind / unbind round-trip for MAP and BSC,
+     and a noise-aware HRR bind/unbind test that asserts recovery is
+     significantly above a random baseline (rather than chasing a
+     tight cosine threshold across seeds).
+  3. **Closed-form ↔ Monte-Carlo agreement.** The Gaussian moments
+     in `bayes_hdc.distributions` are cross-checked against MC
+     samples at d=64, n=20 000: bind moments match within 1e-2
+     element-wise; un-normalised bundle moments within 2e-2; KL
+     within 1 nat; the delta-method inverse mean correction
+     `1/μ + σ²/μ³` matches its expansion within 1e-4. KL identities
+     (`KL(p, p) = 0`, `KL ≥ 0`) are explicitly asserted.
+- **Bug fix — `tests/test_functional.py:218` (`test_bind_hrr_inverse`)
+  was degenerate.** It used a single `key` for both `x` and `y`,
+  which made `x == y` and turned the bind-inverse test into a
+  trivially-true identity. Fixed to split keys; added a sanity
+  assertion that `|<x, y>|` is small.
+- **Bug fix — `tests/test_v05_v06.py:62` resonator test was
+  trivially true.** It only asserted `result.alignment > 0.0`,
+  which is satisfied by any well-conditioned codebook. Strengthened
+  to verify (a) recovered indices lie in valid codebook ranges, (b)
+  the resonator achieves at least one factor match OR alignment >
+  0.3 (a substantive partial-factorisation claim), and (c)
+  `result.alignment ≤ 1.0 + ε`.
+- **`shard_map_bind_gaussian`** (`distributed.py:107`): the bare
+  `except Exception:` that swallowed all errors silently is replaced
+  with a typed `(ImportError, AttributeError)` whitelist. Mis-
+  configurations now raise; only old-JAX-without-shard_map falls
+  through to the pmap path (and that path itself now uses a typed
+  `(RuntimeError, ValueError)` fallback).
+- **Documentation honesty in two `distributions.py` docstrings**:
+  - `bind_gaussian` now carries an explicit `.. warning::` block
+    that the closed-form variance assumes operand independence;
+    pipelines with shared upstream randomness should treat the
+    returned variance as a lower bound.
+  - `bundle_gaussian` now carries an explicit `.. note::` block
+    that the post-normalisation step treats `||sum_mu||` as a
+    deterministic scalar — a plug-in approximation, exact only in
+    the limit of large d.
+- **`StreamingBayesianHDC` foregrounded** in README highlights and
+  DESIGN.md §6 ("When to reach for this library") — bounded-memory
+  EMA posteriors for non-stationary streams was previously buried
+  in a single bullet despite being a primitive no competing HDC
+  library exposes.
+
+Test count: 510 → 540 passing (+30 new). Coverage holds at 93 % on
+23 modules. ruff / format / Sphinx -W all clean.
+
 ### Fixed — Audit-driven Tier-1 corrections (depth audit, 2026-05-05)
 
 A five-agent depth audit surfaced two semantic bugs, one unfair

@@ -89,13 +89,33 @@ def test_resonator_returns_result_with_right_shape() -> None:
         max_iters=20,
         temperature=0.05,
     )
+    # Shape and bookkeeping.
     assert result.indices.shape == (3,)
     assert result.n_restarts == 4
     assert result.history.shape == (20,)
-    # Low-temperature run on a clean target should recover at least one factor exactly.
-    # (With small DIMS and many codebook rows, perfect 3/3 recovery is not
-    # guaranteed, but alignment must be > 0.)
-    assert result.alignment > 0.0
+
+    # Recovered indices must be valid (inside each codebook's row range).
+    n_per_book = [cb.mu.shape[0] for cb in codebooks]
+    recovered = [int(i) for i in result.indices]
+    for idx, n in zip(recovered, n_per_book):
+        assert 0 <= idx < n, f"out-of-range index {idx} for codebook of size {n}"
+
+    # Substantive claim: low-temperature resonator on a clean target should
+    # at least *partially* factorise. At DIMS=64 with 5×5×5=125 candidate
+    # triples, full recovery is not guaranteed, but at least one factor
+    # match plus a non-trivial alignment is. (Earlier version asserted
+    # only `alignment > 0.0`, which is satisfied by any random guess on
+    # well-conditioned codebooks; that was a degenerate check.)
+    truth = (2, 3, 0)
+    n_correct = sum(int(r == t) for r, t in zip(recovered, truth))
+    assert n_correct >= 1 or float(result.alignment) > 0.3, (
+        f"resonator did not partially factorise: indices={recovered} "
+        f"(truth={truth}), alignment={float(result.alignment):.4f}"
+    )
+
+    # Alignment trajectory is recorded and bounded — tighter than > 0.
+    assert jnp.all(jnp.isfinite(result.history))
+    assert float(result.alignment) <= 1.0 + 1e-6
 
 
 def test_resonator_alignment_is_in_valid_range() -> None:

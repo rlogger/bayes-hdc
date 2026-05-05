@@ -216,25 +216,39 @@ class TestHRROperations:
     """Test Holographic Reduced Representations operations."""
 
     def test_bind_hrr_inverse(self):
-        """Test HRR binding inverse."""
-        key = jax.random.PRNGKey(42)
-        x = jax.random.normal(key, shape=(10000,))
-        y = jax.random.normal(key, shape=(10000,))
+        """Test HRR binding inverse — bind(bind(x, y), inv(y)) ≫ random.
+
+        Plate's involution-based HRR inverse is exact only for unitary y;
+        for general L2-normalised Gaussian y the recovery is a noisy
+        match. We assert recovery is substantially above the random
+        baseline rather than chasing a specific cosine threshold (which
+        is seed-dependent at d=10 000). For seed-stable deeper coverage,
+        see ``tests/test_math_properties.py``.
+        """
+        # Independent keys for x and y; reusing a single key would make
+        # x == y and trivialise the test (the original bug).
+        key_x, key_y = jax.random.split(jax.random.PRNGKey(42))
+        x = jax.random.normal(key_x, shape=(10000,))
+        y = jax.random.normal(key_y, shape=(10000,))
 
         # Normalize
         x = x / jnp.linalg.norm(x)
         y = y / jnp.linalg.norm(y)
 
-        # bind(bind(x, y), inverse(y)) should be close to x
+        # Sanity: x and y should be (nearly) orthogonal random unit vectors.
+        cross = float(jnp.abs(jnp.sum(x * y)))
+        assert cross < 0.1, f"x and y not independent: |<x,y>|={cross}"
+
+        # bind(bind(x, y), inverse(y)) should recover x with cosine
+        # significantly above zero (random unit vectors at d=10 000 give
+        # ~0 cosine).
         bound = F.bind_hrr(x, y)
         y_inv = F.inverse_hrr(y)
         unbound = F.bind_hrr(bound, y_inv)
-
-        # Normalize for comparison
         unbound = unbound / jnp.linalg.norm(unbound)
 
         similarity = jnp.sum(x * unbound)
-        assert similarity > 0.8  # Should be quite similar
+        assert similarity > 0.5, f"HRR unbind cosine = {float(similarity):.4f}"
 
     def test_bundle_hrr_normalization(self):
         """Test that HRR bundling produces normalized vectors."""
