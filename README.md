@@ -287,7 +287,7 @@ If `bayes-hdc` is useful in your research, please cite both the software and the
 }
 ```
 
-A machine-readable [`CITATION.cff`](CITATION.cff) is provided for the GitHub "Cite this repository" widget. The short paper draft is at [`paper/paper.md`](paper/paper.md) with its bibliography at [`paper/paper.bib`](paper/paper.bib). DOI minting on tagged release follows the metadata in [`.zenodo.json`](.zenodo.json).
+A machine-readable [`CITATION.cff`](CITATION.cff) is provided for the GitHub "Cite this repository" widget. DOI minting on tagged release follows the metadata in [`.zenodo.json`](.zenodo.json). The library's per-primitive intellectual provenance — every algorithmic decision tied to its primary HDC/VSA paper — is documented in [`docs/LITERATURE_AUDIT.md`](docs/LITERATURE_AUDIT.md) and the per-paper reports under [`docs/audit/`](docs/audit/).
 
 ## License
 

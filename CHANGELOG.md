@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — Repo scope: library-only (2026-05-05)
+
+The public repo is now strictly library / open-source code. Paper
+drafts (JOSS short paper, JMLR-MLOSS-format paper, accompanying
+BibTeX) and the internal launch / outreach playbook have moved to a
+separate private repository (`rlogger/bayes-hdc-paper`). The
+library-side intellectual provenance — the per-primitive citation
+audit at `docs/LITERATURE_AUDIT.md` and the per-paper reports under
+`docs/audit/` — stays here, because those tie directly to file:line
+attributions in the source. The public repo's `CITATION.cff` and
+`.zenodo.json` are unchanged and remain the canonical sources for
+citing the software.
+
+Removed from the public repo: `paper/paper.md`, `paper/paper.bib`,
+`paper/paper_mloss.md`. `KESTREL.md` was already gitignored locally
+and has been moved as well. Earlier CHANGELOG entries that mention
+those files describe what shipped at the time and are kept as
+historical record.
+
 ### Added — Tier-3 TokenEncoder (2026-05-05)
 
 Closes the language-tokenizer gap from the depth audit's PI-applicability
