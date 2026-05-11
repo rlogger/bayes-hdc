@@ -132,12 +132,66 @@ items, and the per-layer SNR is dominated by `1/√(chunk_size)` and
 Plate (2003) §6.2 on flat-bundle capacity; Frady, Kleyko & Sommer
 (2018) on hierarchical recurrent-network indexing.
 
+## Canonical HDC benchmark datasets (script shipped; numbers pending)
+
+The accuracy table above uses sklearn datasets (iris / wine /
+breast-cancer / digits / MNIST) — useful as smoke checks, not as
+HDC-canonical anchors. The datasets the HDC literature actually
+benchmarks on are:
+
+| Dataset | Task | Reference |
+|---|---|---|
+| ISOLET | 26-class spoken-letter recognition (617 features) | Fanty & Cole 1990; Rahimi et al. 2016 |
+| UCI-HAR | 6-class daily-living activity recognition (561 features) | Anguita et al. 2013 |
+| EMG | multi-class hand-gesture EMG | Rahimi et al. 2016 |
+| European Languages | 21-class character-trigram language ID | Joshi, Halseth, Kanerva 2016 |
+
+`benchmarks/benchmark_canonical_hdc_tasks.py` ships the full
+calibration + conformal pipeline against these four datasets via the
+`bayes_hdc.datasets.load_*` loaders. The reported columns are
+**accuracy**, **ECE (raw)**, **ECE (post-temperature)**, **Brier**,
+**NLL**, **conformal coverage at α = 0.1**, **mean conformal set
+size**. At the time of writing, all four loaders fetch from OpenML and
+on the development machine these fetches either error on the dataset
+ID or require the `pyarrow` optional parser. Reproduce on a host with
+OpenML-reachable networking + `pyarrow` installed; numbers go in this
+section once produced. (This is the single most load-bearing
+empirical gap the 2026-05-06 audit identified — anchoring on the
+field's standard datasets is what turns "library-first" into
+"library-first AND empirically validated.")
+
+## Deferred comparisons
+
+These are head-to-head comparisons the library will gain once the
+matching datasets / configurations are available on the dev machine.
+Documented here so they are not silently absent from the benchmarks
+story.
+
+- **ConformalHDC** (Liang, Poursiami, Yang, Cooper, Jaiswal, Parsa,
+  Fortin & Shahbaba 2026, *arXiv:2602.21446*). Concurrent algorithmic
+  work on conformal prediction for HDC; cited in the README, paper,
+  and bibliography. A like-for-like comparison on their reported
+  hippocampal-neural-decoding dataset would cash out the
+  "concurrent algorithmic priority; library-first implementation"
+  framing into hard numbers (e.g. matching their adaptive-score
+  coverage within 1-2 pp at comparable set sizes). Deferred to the
+  next benchmark cycle.
+- **`torch.compile` head-to-head with TorchHD.** The Wall-clock
+  table above compares eager-mode TorchHD against `jit`-compiled
+  bayes-hdc; a `torch.compile` baseline would partially close the
+  pointwise gap and isolate the JAX-XLA-vs-PyTorch-compile
+  contribution from the JIT-vs-eager contribution.
+- **GPU + TPU numbers.** All wall-clock measurements above are
+  single-CPU. Multi-device numbers via `pmap_*` and `shard_map_*`
+  wrappers are runnable but not yet reported on a TPU pod with
+  multiple chips.
+
 ## Test / coverage / lint status
 
 | Check | Value |
 |---|---|
-| Unit tests passing | 510 |
-| Line coverage | 93% on 23 modules |
+| Unit tests passing | 625 (+ 1 xfailed for GraphEncoder.encode_edges jit limitation) |
+| Line coverage | 93 % on 23 modules |
 | Lint (`ruff check`) | clean |
 | Format (`ruff format --check`) | clean |
 | Type check (`mypy bayes_hdc/`) | clean |
