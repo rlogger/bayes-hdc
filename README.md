@@ -40,21 +40,35 @@
 
 ## About
 
-**bayes-hdc** is a [JAX](https://github.com/google/jax) library for **hyperdimensional computing (HDC)** and **vector symbolic architectures (VSA)** ([Gayler 2003](https://arxiv.org/abs/cs/0412059); [Kanerva 2009](https://doi.org/10.1007/s12559-009-9009-8)) with a built-in probabilistic layer — **PVSA**, *Probabilistic Vector Symbolic Architectures*. It provides Gaussian and Dirichlet hypervector types with closed-form moment propagation under `bind`, `bundle`, and `permute`; explicit cyclic-shift group actions with property-based equivariance verifiers; calibrated probabilities via temperature scaling; and coverage-guaranteed prediction sets via split-conformal prediction. The deterministic substrate ships eight classical VSA models — **BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB** — with a uniform API. Every type is a JAX pytree, so `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with every operation, on CPU, GPU, and TPU.
+**bayes-hdc** is a [JAX](https://github.com/google/jax) library that brings a **probabilistic algebra** to hyperdimensional computing. Where existing HDC libraries — [TorchHD](https://github.com/hyperdimensional-computing/torchhd) (Heddes et al. 2023, JMLR 24:255), [hdlib](https://github.com/cumbof/hdlib), [HoloVec](https://github.com/Twistient/HoloVec) — ship the deterministic substrate, bayes-hdc adds a built-in distributional layer with closed-form Gaussian and Dirichlet moment propagation, end-to-end variational training of hypervector codebooks, and finite-sample-coverage split-conformal prediction. Concurrent algorithmic work on probabilistic VSA (Furlong & Eliasmith 2024, *Cogn. Neurodyn.*) and conformal HDC (Liang et al. 2026, arXiv:2602.21446) does not ship a library; bayes-hdc fills that gap. The deterministic substrate underneath covers the eight canonical VSA models — **BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB** — with a uniform pytree-native API, comparable in scope to TorchHD and HoloVec. Every type is a JAX pytree, so `jit`, `vmap`, `grad`, `pmap`, and `shard_map` compose with every operation on CPU, GPU, and TPU.
 
 For the broader landscape of HDC/VSA applications, see Kleyko, Rachkovskij, Osipov & Rahimi (2023), *[A Survey on HDC aka VSA, Part II: Applications, Cognitive Models, and Challenges](https://arxiv.org/abs/2112.15424)*, ACM Computing Surveys 55(9): Article 175.
+
+### The library-first contribution
+
+What bayes-hdc ships that no released library does (verified against TorchHD, hdlib, vsapy, NengoSPA, HoloVec, and a Semantic Scholar / arXiv sweep on probabilistic-VSA and conformal-HDC keywords through April 2026):
+
+- `GaussianHV` and `DirichletHV` distributional hypervector types with **closed-form first/second moments** under bind / bundle / permute / cleanup / inverse, finite-difference-verified `jax.grad`, and analytic `kl_gaussian` / `kl_dirichlet`.
+- `train_variational_codebook` — a `lax.scan`-fused Adam loop on a real isotropic-Gaussian observation log-likelihood; reparameterisation gradients compose through every PVSA primitive. (`Kim et al. 2024` *TrainableHD* trains deterministic encoders; `HDVQ-VAE` Bryant et al. 2024 uses HDC as a static codebook inside a VQ-VAE. Neither performs reparameterisation-gradient variational training on probabilistic HV primitives.)
+- `ConformalClassifier` (Romano-Sesia-Candès APS) **and** `ConformalRegressor` (Lei et al. 2018 absolute-residual) with finite-sample marginal-coverage guarantees. Concurrent algorithmic work — `Liang et al. 2026 ConformalHDC` (cited) — develops adaptive nonconformity scores; bayes-hdc is the first library to ship the wrapper.
+- `equivariance.{verify_shift_equivariance, verify_single_argument_shift_equivariance, verify_shift_invariance}` — property-based runtime verifiers for the `Z/d` cyclic-shift action; build on `Rachkovskij 2024` (Cogn. Comp., shift-equivariance theory).
+- `probabilistic_resonator` — multi-restart MCMC factorisation over `GaussianHV` codebooks; the deterministic `Frady, Kent, Olshausen & Sommer 2020` *Resonator Networks 1* is recovered as the zero-temperature limit. Closest prior art: `Furlong et al. 2024` (ICANN) on biologically-plausible MCMC from VSA-encoded distributions; we are the first to package the static, JAX-native version.
+- `HierarchicalSequence` with chunk-level cleanup — long-horizon trajectory encoding with empirical retrieval > 0.9 at T = 800, d = 4 096 where flat `Sequence` falls to 0.31 (see [BENCHMARKS.md](BENCHMARKS.md)).
+- `StreamingBayesianHDC` — bounded-memory EMA posteriors per class for non-stationary streams.
+
+The framing for any paper or talk: *bayes-hdc is the first comprehensive open-source library to make probabilistic hyperdimensional computing available behind a JAX-pytree-native API. It does for probabilistic HDC what TorchHD did for deterministic HDC.*
 
 ### Highlights
 
 - **Pytree-native.** `jit` / `vmap` / `grad` / `pmap` / `shard_map` compose with every operation.
-- **Closed-form algebra.** `bind_gaussian`, `bundle_gaussian`, `kl_gaussian`, `kl_dirichlet` are analytic.
+- **Closed-form algebra.** `bind_gaussian`, `bundle_gaussian`, `kl_gaussian`, `kl_dirichlet` are analytic; verified against Monte-Carlo at d=64, n=20 000.
 - **First-class group actions.** `Z/d` cyclic shift as a group object, with property-based equivariance verifiers.
-- **Calibration & coverage out of the box.** Temperature scaling and split-conformal APS prediction sets.
+- **Calibration & coverage out of the box.** Temperature scaling and split-conformal APS prediction sets; `ConformalRegressor` for continuous outputs.
 - **Differentiable end-to-end.** Reparameterisation samplers on every distributional op; `jax.grad` composes through everything; gradient correctness verified against finite differences via `jax.test_util.check_grads`.
 - **Streaming, bounded-memory inference.** `StreamingBayesianHDC` keeps EMA posteriors per class in `O(K·d)` memory regardless of stream length — designed for non-stationary edge deployments where the underlying class distribution drifts.
 - **Scales.** From a laptop CPU to a TPU pod with the same code via `pmap` / `shard_map` wrappers.
-- **Eight VSA models** under one uniform `bind` / `bundle` / `inverse` / `similarity` / `random` API.
-- **540 tests, 93 % coverage.** Algebraic laws (associativity, distributivity, bind-unbind) verified across BSC / MAP / HRR; closed-form Gaussian moments cross-checked against Monte-Carlo at d=64, n=20 000. Ubuntu + macOS × Python 3.9–3.13 on every push.
+- **Eight VSA models** under one uniform `bind` / `bundle` / `inverse` / `similarity` / `random` API — comparable substrate scope to TorchHD and HoloVec.
+- **625 tests passing, 93 % coverage.** Algebraic laws (associativity, distributivity, bind-unbind) verified across BSC / MAP / HRR; cross-API composition tests across 12 categories; closed-form Gaussian moments cross-checked against Monte-Carlo. Ubuntu + macOS × Python 3.9–3.13 on every push.
 
 ## Quick tour
 
@@ -260,17 +274,20 @@ Detailed paths, paths to maintainership, and recognition in [`COMMUNITY.md`](COM
 
 ## In the HDC library landscape
 
-`bayes-hdc` occupies an empty lane in the open-source HDC ecosystem.
+bayes-hdc differentiates on the probabilistic / uncertainty-quantification layer; the deterministic substrate is comparable to TorchHD and HoloVec.
 
-| Library | Backend | VSA models | Probabilistic / UQ | Differentiable | Group-theoretic verifiers |
+| Library | Backend | VSA models | Probabilistic / UQ | Differentiable | Equivariance verifiers |
 |---|---|---:|---|---|---|
-| [TorchHD](https://github.com/hyperdimensional-computing/torchhd) | PyTorch | 8 | — | partial | — |
-| [hdlib](https://github.com/cumbof/hdlib) | NumPy | generic | — | — | — |
+| [TorchHD](https://github.com/hyperdimensional-computing/torchhd) (Heddes et al. 2023, JMLR 24:255) | PyTorch | 8 | — | partial | — |
+| [HoloVec](https://github.com/Twistient/HoloVec) (v1.0, 2026-04) | NumPy / PyTorch / JAX | 8 | — | — | — |
+| [hdlib](https://github.com/cumbof/hdlib) (Cumbo et al. 2023) | NumPy | generic | — | — | — |
 | [vsapy](https://github.com/vsapy/vsapy) | NumPy | 5 | — | — | — |
-| [NengoSPA](https://github.com/nengo/nengo-spa) | Nengo (spiking) | HRR, VTB | — | — | — |
-| **bayes-hdc** | **JAX** | **8** | **GaussianHV / DirichletHV / conformal sets** | **`jit` / `vmap` / `grad` / `pmap` end-to-end** | **`Z/d` cyclic-shift verifiers** |
+| [NengoSPA](https://github.com/nengo/nengo-spa) (Bekolay et al. 2014) | Nengo (spiking) | HRR, VTB | — | — | — |
+| **bayes-hdc** | **JAX-pytree** | **8** | **GaussianHV / DirichletHV / conformal classifier + regressor** | **`jit` / `vmap` / `grad` / `pmap` end-to-end** | **`Z/d` cyclic-shift verifiers** |
 
-Two narrower JAX-backed packages exist (`hyper-jax` covers MAP only; `hrr` is a multi-backend HRR-only library with a JAX option); neither covers the full primitive set. Within the comprehensive-library tier, no other open-source HDC library exposes (a) a JAX backend that composes with the BlackJAX / Flax / Equinox / Optax / Dynamax stack across all eight VSA models, (b) closed-form moment propagation for Gaussian hypervectors, (c) reparameterisation gradients for end-to-end variational codebook learning, or (d) split-conformal prediction sets with formal coverage guarantees as a built-in module (algorithmic prior/concurrent work on conformal HDC exists on the paper side without a released library). See [`BENCHMARKS.md`](BENCHMARKS.md) for accuracy and timing numbers.
+The eight-VSA-model substrate column is roughly equivalent across TorchHD, HoloVec, and bayes-hdc; the differentiation is in the probabilistic-and-UQ layer. Concurrent algorithmic work also occupies adjacent ground without releasing a library — `Furlong & Eliasmith 2024` (*Cognitive Neurodynamics*) formalises probabilistic VSA via SSP under the NEF spiking substrate; `Liang et al. 2026` (*ConformalHDC*, arXiv:2602.21446) develops adaptive conformal scores for HDC; `Dewulf, De Baets & Stock 2025` (*Neural Computing & Applications*) gives a hyperdimensional-transform framework for Bayesian inference with hypervectors. None of these has a released JAX-native library; bayes-hdc is the open-source-library realisation of that line.
+
+Two narrower JAX-backed packages also exist (`hyper-jax` covers MAP only; `hrr` is a multi-backend HRR-only library with a JAX option); neither covers the full primitive set. See [`BENCHMARKS.md`](BENCHMARKS.md) for accuracy and timing numbers, [`docs/audit/`](docs/audit/) for per-paper attribution.
 
 ## How to cite
 

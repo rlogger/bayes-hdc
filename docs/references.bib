@@ -443,3 +443,345 @@
   note      = {The canonical sEMG hand-gesture classification application;
                see examples/emg_gesture_recognition.py.}
 }
+
+% =============================================================
+% Probabilistic VSA / SSP / Fractional Power Encoding line
+% (Berkeley Redwood + Waterloo Eliasmith group)
+% Added 2026-05-06 after the novelty audit identified these as
+% the closest concurrent / prior work on probabilistic VSA. Cite
+% these wherever GaussianHV, train_variational_codebook, or
+% probabilistic_resonator is introduced.
+% =============================================================
+
+@article{frady2018sequence,
+  author  = {E. Paxon Frady and Denis Kleyko and Friedrich T. Sommer},
+  title   = {A Theory of Sequence Indexing and Working Memory in Recurrent
+             Neural Networks},
+  journal = {Neural Computation},
+  volume  = {30},
+  number  = {6},
+  pages   = {1449--1513},
+  year    = {2018},
+  doi     = {10.1162/neco_a_01084},
+  eprint  = {1803.00412},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.NE},
+  note    = {Capacity theory for recurrent permute-bundle sequence indexing;
+             the static analogue is what HierarchicalSequence implements.}
+}
+
+@article{frady2020variable,
+  author  = {E. Paxon Frady and Denis Kleyko and Friedrich T. Sommer},
+  title   = {Variable Binding for Sparse Distributed Representations:
+             Theory and Applications},
+  journal = {arXiv preprint},
+  volume  = {abs/2009.06734},
+  year    = {2020},
+  eprint  = {2009.06734},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.NE},
+  note    = {Foundational variance analysis for binding; closest prior
+             art to the closed-form Gaussian moments in bayes_hdc.distributions.}
+}
+
+@article{frady2022computing,
+  author  = {E. Paxon Frady and Denis Kleyko and Christopher J. Kymn and
+             Bruno A. Olshausen and Friedrich T. Sommer},
+  title   = {Computing on Functions Using Randomized Vector Representations},
+  journal = {arXiv preprint},
+  volume  = {abs/2109.03429},
+  year    = {2022},
+  eprint  = {2109.03429},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.NE},
+  note    = {Fractional power encoding (FPE) on the Berkeley Redwood line;
+             cite alongside functional.fractional_power.}
+}
+
+@inproceedings{komer2019ssp,
+  author    = {Brent Komer and Terrence C. Stewart and Aaron R. Voelker and
+               Chris Eliasmith},
+  title     = {A Neural Representation of Continuous Space Using Fractional
+               Binding},
+  booktitle = {Proceedings of the 41st Annual Meeting of the Cognitive
+               Science Society (CogSci 2019)},
+  pages     = {2038--2044},
+  year      = {2019},
+  note      = {The Semantic Pointer Architecture spatial-semantic-pointer
+               (SSP) formulation that underpins the Furlong-Eliasmith
+               probabilistic VSA line.}
+}
+
+@inproceedings{furlong2022quasi,
+  author    = {P. Michael Furlong and Chris Eliasmith},
+  title     = {Fractional Binding in Vector Symbolic Architectures as
+               Quasi-Probability Statements},
+  booktitle = {Proceedings of the 44th Annual Meeting of the Cognitive
+               Science Society (CogSci 2022)},
+  pages     = {259--266},
+  year      = {2022},
+  note      = {The closest prior framing to PVSA; treats VSA bundles as
+               quasi-probability distributions in the Fourier-domain SSP
+               substrate.}
+}
+
+@article{furlong2024probabilistic,
+  author  = {P. Michael Furlong and Chris Eliasmith},
+  title   = {Modelling Neural Probabilistic Computation Using Vector
+             Symbolic Architectures},
+  journal = {Cognitive Neurodynamics},
+  volume  = {19},
+  number  = {4},
+  year    = {2024},
+  doi     = {10.1007/s11571-023-10031-7},
+  note    = {The most directly competing framing on probabilistic VSA;
+             cite next to GaussianHV / DirichletHV.}
+}
+
+@inproceedings{furlong2024mcmc,
+  author    = {P. Michael Furlong and Madeleine Bartlett and Nicole Sandra-Yaffa Dumont and
+               Pietro Simone and Terrence C. Stewart and Jeff Orchard and
+               Chris Eliasmith},
+  title     = {Biologically-Plausible {MCMC} Sampling from {VSA}-Encoded
+               Distributions},
+  booktitle = {Artificial Neural Networks and Machine Learning -- ICANN 2024},
+  publisher = {Springer},
+  year      = {2024},
+  doi       = {10.1007/978-3-031-72341-4_7},
+  note      = {Direct prior art for the probabilistic resonator;
+               cite alongside resonator.probabilistic_resonator.}
+}
+
+% =============================================================
+% Bayesian / uncertainty / trainable HDC — concurrent algorithmic work
+% =============================================================
+
+@inproceedings{ni2023dicehd,
+  author    = {Yang Ni and Cheng Chen and Prathyush Poduval and Han Zou and
+               Marco Mercati and Mohsen Imani},
+  title     = {{DiceHD}: A Generic and Stochastic Bayesian Hyperdimensional
+               Computing Framework},
+  booktitle = {Proceedings of the IEEE/ACM International Conference on
+               Computer-Aided Design (ICCAD 2023)},
+  year      = {2023},
+  doi       = {10.1109/ICCAD57390.2023.10323657},
+  note      = {Bayesian HDC via MC-dropout-style stochastic encoders;
+               concurrent algorithmic work on the uncertainty axis. Note
+               the mechanism differs: DiceHD uses Monte-Carlo over dropout
+               masks, while bayes-hdc uses closed-form moment propagation.}
+}
+
+@article{kim2024trainable,
+  author  = {Junhwan Kim and Soyeon Lee and Mohsen Imani and Yeseong Kim},
+  title   = {Advancing Hyperdimensional Computing Based on Trainable Encoding
+             and Adaptive Training},
+  journal = {ACM Transactions on Design Automation of Electronic Systems},
+  volume  = {29},
+  number  = {3},
+  pages   = {Article 41},
+  year    = {2024},
+  doi     = {10.1145/3665891},
+  note    = {Trainable HDC encoders via adaptive optimisers on deterministic
+             hypervectors; closest prior art to train_variational_codebook.
+             Distinction: their training is on point estimates; ours is
+             variational with reparameterisation gradients on distributional
+             primitives.}
+}
+
+@article{rachkovskij2024shiftequiv,
+  author  = {Dmitri A. Rachkovskij},
+  title   = {Shift-Equivariant Similarity-Preserving Hypervector
+             Representations of Sequences},
+  journal = {Cognitive Computation},
+  volume  = {16},
+  year    = {2024},
+  doi     = {10.1007/s12559-024-10258-4},
+  eprint  = {2112.15475},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.NE},
+  note    = {Theory of shift-equivariant HDC sequence representations;
+             prior art for the equivariance angle in bayes_hdc.equivariance.}
+}
+
+@article{rachkovskij2022recursive,
+  author  = {Dmitri A. Rachkovskij and Denis Kleyko},
+  title   = {Recursive Binding for Similarity-Preserving Hypervector
+             Representations of Sequences},
+  journal = {arXiv preprint},
+  volume  = {abs/2201.11691},
+  year    = {2022},
+  eprint  = {2201.11691},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.NE},
+  note    = {Earlier paper in the Rachkovskij shift-equivariance line.}
+}
+
+@article{liang2026conformalhdc,
+  author  = {Hong Liang and Mojan Poursiami and Bingyao Yang and
+             Andrew Cooper and Akhil Jaiswal and Maryam Parsa and
+             Daniel Fortin and Babak Shahbaba},
+  title   = {{ConformalHDC}: Adaptive Conformal Prediction for
+             Hyperdimensional Computing},
+  journal = {arXiv preprint},
+  volume  = {abs/2602.21446},
+  year    = {2026},
+  eprint  = {2602.21446},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  note    = {Concurrent algorithmic priority on conformal prediction for HDC;
+             cite next to uncertainty.ConformalClassifier.}
+}
+
+@article{dewulf2025hdtransform,
+  author  = {Pieter Dewulf and Bernard De Baets and Michiel Stock},
+  title   = {The Hyperdimensional Transform: A Framework for Bayesian
+             Inference with Hypervectors},
+  journal = {Neural Computing and Applications},
+  year    = {2025},
+  doi     = {10.1007/s00521-025-11405-0},
+  note    = {Distributions over hypervectors formalised as a transform;
+             concurrent framing on the "Bayesian HDC" axis.}
+}
+
+@inproceedings{bryant2024hdvqvae,
+  author    = {Chase D. Bryant and Sai Maharaj and Geng Yuan},
+  title     = {{HDVQ-VAE}: Static Hyperdimensional Codebook in a Vector-
+               Quantized Variational Autoencoder},
+  booktitle = {Proceedings of the International Conference on Compilers,
+               Architecture, and Synthesis for Embedded Systems (CASES 2024)},
+  series    = {ESWEEK 2024},
+  year      = {2024},
+  url       = {https://web.eng.fiu.edu/gaquan/Papers/ESWEEK24Papers/CASES/},
+  note      = {Uses HDC as a static binary codebook inside a VQ-VAE.
+               Concurrent work on the "variational HDC" axis; distinct
+               from bayes-hdc's learned variational codebook.}
+}
+
+% =============================================================
+% TorchHD line — the de-facto SOTA for deterministic HDC
+% =============================================================
+
+@article{heddes2023torchhd,
+  author  = {Mike Heddes and Igor Nunes and Pere Verg{\'e}s and Denis Kleyko and
+             Danny Abraham and Tony Givargis and Alexandru Nicolau and
+             Alexander V. Veidenbaum},
+  title   = {{Torchhd}: An Open Source {P}ython Library to Support
+             Research on Hyperdimensional Computing and Vector Symbolic
+             Architectures},
+  journal = {Journal of Machine Learning Research},
+  volume  = {24},
+  number  = {255},
+  pages   = {1--10},
+  year    = {2023},
+  url     = {https://jmlr.org/papers/v24/23-0300.html},
+  note    = {The de-facto SOTA HDC library and direct comparator for any
+             new HDC library publication.}
+}
+
+@article{heddes2024framework,
+  author  = {Mike Heddes and Igor Nunes and Tony Givargis and Alexandru Nicolau and
+             Alexander V. Veidenbaum},
+  title   = {Hyperdimensional Computing: A Framework for Stochastic
+             Computation and Symbolic {AI}},
+  journal = {Journal of Big Data},
+  volume  = {11},
+  year    = {2024},
+  doi     = {10.1186/s40537-024-01010-8},
+  note    = {The HDC-as-stochastic-computation framing; broad context
+             for any new library's positioning.}
+}
+
+@article{verges2025review,
+  author  = {Pere Verg{\'e}s and Mike Heddes and Igor Nunes and Denis Kleyko and
+             Tony Givargis and Alexandru Nicolau},
+  title   = {Classification Using Hyperdimensional Computing: A Review
+             with Comparative Analysis},
+  journal = {Artificial Intelligence Review},
+  volume  = {58},
+  year    = {2025},
+  doi     = {10.1007/s10462-025-11181-2},
+  note    = {2025 benchmark and review of HDC classification; reference
+             for the BENCHMARKS.md accuracy claims.}
+}
+
+% =============================================================
+% Edge / neuromorphic HDC — application substrate
+% =============================================================
+
+@article{karunaratne2020inmemory,
+  author  = {Geethan Karunaratne and Manuel Le Gallo and Giovanni Cherubini and
+             Luca Benini and Abbas Rahimi and Abu Sebastian},
+  title   = {In-Memory Hyperdimensional Computing},
+  journal = {Nature Electronics},
+  volume  = {3},
+  number  = {6},
+  pages   = {327--337},
+  year    = {2020},
+  doi     = {10.1038/s41928-020-0410-3},
+  note    = {The IBM Zurich PCM-based HDC substrate; canonical for edge-
+             deployment relevance.}
+}
+
+@article{burrello2020seizure,
+  author  = {Alessio Burrello and Kaspar Schindler and Luca Benini and
+             Abbas Rahimi},
+  title   = {Hyperdimensional Computing With Local Binary Patterns: One-Shot
+             Learning of Seizure Onset and Identification of {IctoGenic}
+             Brain Regions},
+  journal = {IEEE Transactions on Biomedical Engineering},
+  volume  = {67},
+  number  = {2},
+  pages   = {601--613},
+  year    = {2020},
+  doi     = {10.1109/TBME.2019.2919137},
+  note    = {The canonical iEEG-HDC seizure-detection paper;
+             cite in examples/eeg_seizure_detection.py.}
+}
+
+@article{kleyko2025reservoir,
+  author  = {Denis Kleyko and Christopher J. Kymn and Anthony Thomas and
+             E. Paxon Frady and Bruno A. Olshausen and Friedrich T. Sommer},
+  title   = {Principled Neuromorphic Reservoir Computing},
+  journal = {Nature Communications},
+  volume  = {16},
+  year    = {2025},
+  doi     = {10.1038/s41467-025-55832-y},
+  note    = {2025 SOTA on the HDC-reservoir-computing axis;
+             context for positioning bayes-hdc against neuromorphic HDC.}
+}
+
+@article{kleyko2021framework,
+  author  = {Denis Kleyko and Mike Davies and E. Paxon Frady and
+             Pentti Kanerva and Spencer J. Kent and Bruno A. Olshausen and
+             Evgeny Osipov and Jan M. Rabaey and Dmitri A. Rachkovskij and
+             Abbas Rahimi and Friedrich T. Sommer},
+  title   = {Vector Symbolic Architectures as a Computing Framework for
+             Emerging Hardware},
+  journal = {arXiv preprint},
+  volume  = {abs/2106.05268},
+  year    = {2021},
+  eprint  = {2106.05268},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AR},
+  note    = {Companion to the Kleyko et al. 2023 two-part ACM Computing
+             Surveys; survey of VSA as a computing framework. Cite where
+             surveys are referenced.}
+}
+
+% =============================================================
+% Conformal regression — algorithmic foundation
+% =============================================================
+
+@article{lei2018conformal,
+  author  = {Jing Lei and Max G'Sell and Alessandro Rinaldo and
+             Ryan J. Tibshirani and Larry Wasserman},
+  title   = {Distribution-Free Predictive Inference for Regression},
+  journal = {Journal of the American Statistical Association},
+  volume  = {113},
+  number  = {523},
+  pages   = {1094--1111},
+  year    = {2018},
+  doi     = {10.1080/01621459.2017.1307116},
+  note    = {Split-conformal regression with the absolute-residual
+             nonconformity score; foundation for uncertainty.ConformalRegressor.}
+}

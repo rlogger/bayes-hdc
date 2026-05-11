@@ -57,6 +57,12 @@ Test file: `tests/test_equivariance.py`.
 
 The probabilistic layer replaces each hypervector $x \in \mathbb{R}^d$ with a posterior distribution $X$. A `GaussianHV` carries a mean $\mu \in \mathbb{R}^d$ and a per-dimension variance $\sigma^2 \in \mathbb{R}_{\ge 0}^d$.
 
+### Where this sits in the literature
+
+The PVSA layer in bayes-hdc is the library-first realisation of a research line that has matured on the paper side over the last few years. **Furlong & Eliasmith** (2022 *CogSci*; 2023/2024 *Cognitive Neurodynamics*; 2024 *ICANN MCMC*) develop probabilistic VSA via fractional power encoding and spatial-semantic pointers under the Neural Engineering Framework / NengoSPA spiking substrate. **Dewulf, De Baets & Stock** (2025 *Neural Computing & Applications*) formalise distributions over hypervectors as a hyperdimensional transform for Bayesian inference. **Frady, Kleyko & Sommer** (2020 *Variable Binding for Sparse Distributed Representations*) give variance analyses for binding noise. **Ni et al.** (2023 *DiceHD*, ICCAD) implement Bayesian HDC via MC-dropout-style stochastic encoders. **Liang et al.** (2026 *ConformalHDC*, arXiv:2602.21446) develop adaptive conformal scores for HDC outputs. **HDVQ-VAE** (Bryant et al. 2024, ESWEEK CASES) embeds HDC inside a VQ-VAE with a static codebook.
+
+None of these papers ships a released JAX-pytree-native library that exposes closed-form Gaussian / Dirichlet moment propagation under bind / bundle / permute / cleanup / inverse, end-to-end variational codebook training via reparameterisation gradients, and split-conformal classifier *and* regressor wrappers — bayes-hdc fills that integration gap. The algebra below is the textbook product- and sum-of-Gaussians moments; the contribution is packaging them as a fixed-dimensional pytree-typed VSA algebra that `jit` / `vmap` / `grad` / `pmap` / `shard_map` compose through. See `docs/references.bib` for the canonical citations.
+
 ### Closed-form moments
 
 For independent $X \sim \mathcal{N}(\mu_x, \mathrm{diag}(\sigma_x^2))$ and $Y \sim \mathcal{N}(\mu_y, \mathrm{diag}(\sigma_y^2))$, the first and second moments of the element-wise product $Z = X \cdot Y$ are exact:

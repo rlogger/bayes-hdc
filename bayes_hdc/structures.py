@@ -391,7 +391,18 @@ class Graph:
         return F.bind_map(self.value, F.inverse_map(node_hv))
 
     def contains_edge(self, u_hv: jax.Array, v_hv: jax.Array) -> jax.Array:
-        """Return dot similarity of edge (u, v) against the graph."""
+        """Return dimension-normalised dot similarity of edge (u, v).
+
+        Returns ``dot(edge_hv, self.value) / dimensions`` rather than
+        cosine similarity. This convention differs from
+        :meth:`Multiset.contains` (cosine) — chosen here because the
+        graph's stored ``value`` is an *unnormalised* sum of edge
+        hypervectors (its norm grows with the number of edges) and
+        cosine would collapse to ~0 for dense graphs. The dot/d
+        scale preserves relative magnitudes between edges-in-graph
+        and not-in-graph. For thresholding, compare against a
+        baseline computed on a random edge with the same scaling.
+        """
         if self.directed:
             edge = F.bind_map(u_hv, F.permute(v_hv))
         else:

@@ -468,6 +468,13 @@ class GraphEncoder:
 
         Returns:
             Graph hypervector of shape (dimensions,)
+
+        Notes:
+            This Python-for-loop implementation is **not** ``jax.jit``-
+            compilable — it uses ``int(jnp.clip(...))`` on a loop index,
+            which forces a host sync per edge. For jit-friendly batched
+            encoding, prefer :meth:`encode_batch` (which delegates to
+            the vmapped functional path).
         """
         edge_hvs = []
         for i in range(edges.shape[0]):
@@ -480,6 +487,24 @@ class GraphEncoder:
             )
             edge_hvs.append(bound)
         return F.bundle_map(jnp.stack(edge_hvs), axis=0)
+
+    @jax.jit
+    def encode_batch(self, edges: jax.Array) -> jax.Array:
+        """Encode a graph from an edge array, jit-friendly.
+
+        API-parity entry point matching the other encoders. Delegates
+        to the vmapped functional ``graph_encode`` with the same
+        directed-style encoding (permute of the second node) used by
+        :meth:`encode_edges`, so the two paths return semantically
+        identical hypervectors.
+
+        Args:
+            edges: Array of shape ``(num_edges, 2)`` with node indices.
+
+        Returns:
+            Graph hypervector of shape ``(dimensions,)``.
+        """
+        return F.graph_encode(edges, self.node_embeddings, directed=True)
 
 
 @register_dataclass

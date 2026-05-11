@@ -471,8 +471,38 @@ class RegularizedLSClassifier:
 
     @jax.jit
     def predict(self, queries: jax.Array) -> jax.Array:
+        """Predict class labels.
+
+        Mirrors the rank-handling convention of the other classifiers in
+        this module: rank-1 input ``(d,)`` returns a scalar prediction;
+        rank-2 input ``(n, d)`` returns ``(n,)``.
+        """
+        is_single = queries.ndim == 1
+        if is_single:
+            queries = queries[None, :]
         logits = queries @ self.weights
-        return jnp.argmax(logits, axis=-1)
+        predictions = jnp.argmax(logits, axis=-1)
+        if is_single:
+            return predictions[0]
+        return predictions
+
+    @jax.jit
+    def predict_proba(self, queries: jax.Array) -> jax.Array:
+        """Return softmax-normalised pseudo-probabilities over the logits.
+
+        Mirrors :meth:`CentroidClassifier.predict_proba` so the two
+        classifiers expose the same uncertainty hooks (e.g. for downstream
+        :class:`TemperatureCalibrator` / :class:`ConformalClassifier`
+        wrappers).
+        """
+        is_single = queries.ndim == 1
+        if is_single:
+            queries = queries[None, :]
+        logits = queries @ self.weights
+        probs = jax.nn.softmax(logits, axis=-1)
+        if is_single:
+            return probs[0]
+        return probs
 
     @jax.jit
     def score(self, test_hvs: jax.Array, test_labels: jax.Array) -> jax.Array:
