@@ -9,9 +9,14 @@ and is incorporated here by reference.
 ## Reporting
 
 If you experience or witness behaviour that violates the Covenant, please
-report it privately to the project maintainer:
-
-- **rajdeeps@usc.edu**
+report it privately to the project maintainer via **GitHub Private
+Vulnerability Reporting**:
+<https://github.com/rlogger/bayes-hdc/security/advisories/new>.
+While the GitHub form is nominally for security issues, the draft-
+advisory channel is the only confidential maintainer-only inbox the
+project offers and is appropriate for Code-of-Conduct reports too.
+Title the advisory `[code-of-conduct]` and the maintainer will route
+it accordingly.
 
 Reports are confidential. The maintainer will acknowledge within 72 hours
 and respond with next steps.

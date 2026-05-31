@@ -11,7 +11,7 @@ This page is the map.
 | [GitHub Discussions](https://github.com/rlogger/bayes-hdc/discussions) | Q&A, "is this a bug?", feature ideas, show-and-tell, RFCs |
 | [GitHub Issues](https://github.com/rlogger/bayes-hdc/issues) | Confirmed bugs, concrete tasks |
 | Pull requests | Code, docs, examples, benchmarks |
-| Email (`rajdeeps@usc.edu`) | Security disclosures, private collaboration enquiries |
+| [Private Vulnerability Reporting](https://github.com/rlogger/bayes-hdc/security/advisories/new) | Security disclosures and private maintainer-only reports |
 
 ## How to get involved
 
@@ -90,8 +90,9 @@ escalated and acted on.
 
 ## Security
 
-See [`SECURITY.md`](SECURITY.md). Briefly: open a private security
-advisory on GitHub or email `rajdeeps@usc.edu` for embargo handling.
+See [`SECURITY.md`](SECURITY.md). Briefly: open a [GitHub Private
+Vulnerability Report](https://github.com/rlogger/bayes-hdc/security/advisories/new)
+for embargo handling.
 
 ## Where the project is heading
 

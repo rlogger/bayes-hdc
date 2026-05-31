@@ -270,7 +270,7 @@ Four ways to get involved, sorted from "ten minutes" to "deep dive":
 
 Detailed paths, paths to maintainership, and recognition in [`COMMUNITY.md`](COMMUNITY.md). Setup, style, and release process in [`CONTRIBUTING.md`](CONTRIBUTING.md). All interactions follow the [Code of Conduct](CODE_OF_CONDUCT.md). Security disclosures: [`SECURITY.md`](SECURITY.md).
 
-**Channels:** [Discussions](https://github.com/rlogger/bayes-hdc/discussions) · [Issues](https://github.com/rlogger/bayes-hdc/issues) · email `rajdeeps@usc.edu` for security.
+**Channels:** [Discussions](https://github.com/rlogger/bayes-hdc/discussions) · [Issues](https://github.com/rlogger/bayes-hdc/issues) · [Private Vulnerability Reporting](https://github.com/rlogger/bayes-hdc/security/advisories/new) for security.
 
 ## In the HDC library landscape
 

@@ -15,12 +15,12 @@ recent tagged release receive security fixes.
 
 Please **do not** open a public GitHub issue for security reports.
 
-Use one of the following private channels:
-
-1. **GitHub Security Advisories** — preferred. Open a draft advisory at
-   <https://github.com/rlogger/bayes-hdc/security/advisories/new>.
-2. **Email** — send a description and minimal reproduction to
-   `rajdeeps@usc.edu` with subject line `[bayes-hdc security]`.
+Use the **GitHub Private Vulnerability Reporting** channel:
+<https://github.com/rlogger/bayes-hdc/security/advisories/new>. Open
+a draft advisory; the report is private to the maintainers until
+disclosure. This is preferred over any email channel because it keeps
+the disclosure thread on GitHub and links the eventual patch to the
+advisory automatically.
 
 Please include:
 
