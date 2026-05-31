@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 Rajdeep Singh
+# Copyright (c) 2026 R.S.
 
 """Tests for MixtureHV, permute_gaussian, and cleanup_gaussian."""
 

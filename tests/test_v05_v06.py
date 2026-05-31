@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 Rajdeep Singh
+# Copyright (c) 2026 R.S.
 
 """Tests for v0.5 (resonator + diagnostics) and v0.6 (streaming + shard_map)."""
 

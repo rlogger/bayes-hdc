@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 Rajdeep Singh
+# Copyright (c) 2026 R.S.
 
 """Cross-API functional audit: every public primitive vs every other public primitive.
 

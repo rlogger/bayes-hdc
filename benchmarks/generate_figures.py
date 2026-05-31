@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 Rajdeep Singh
+# Copyright (c) 2026 R.S.
 
 """Generate paper-ready figures from benchmark results.
 

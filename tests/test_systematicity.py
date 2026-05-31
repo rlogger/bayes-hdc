@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 Rajdeep Singh
+# Copyright (c) 2026 R.S.
 
 """Property-based tests for the Fodor-Pylyshyn 1988 cognitive-architecture
 challenges that VSAs answer.

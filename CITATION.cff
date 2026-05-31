@@ -3,8 +3,8 @@ title: "Bayes-HDC: Probabilistic Vector Symbolic Architectures for Hyperdimensio
 message: "If you use this software, please cite it as below."
 type: software
 authors:
-  - family-names: Singh
-    given-names: Rajdeep
+  - family-names: S.
+    given-names: R.
     email: rajdeeps@usc.edu
     affiliation: University of Southern California
 repository-code: "https://github.com/rlogger/bayes-hdc"

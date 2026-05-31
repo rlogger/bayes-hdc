@@ -295,7 +295,7 @@ If `bayes-hdc` is useful in your research, please cite both the software and the
 
 ```bibtex
 @software{singh2026bayeshdc,
-  author  = {Rajdeep Singh},
+  author  = {R.S.},
   title   = {bayes-hdc: Probabilistic Vector Symbolic Architectures and
              Calibrated Hyperdimensional Computing in {JAX}},
   year    = {2026},

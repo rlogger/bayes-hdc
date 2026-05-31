@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 Rajdeep Singh
+# Copyright (c) 2026 R.S.
 
 """Tests for bayes_hdc.inference (ELBO) and bayes_hdc.distributed (pmap wrappers)."""
 

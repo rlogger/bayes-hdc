@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 Rajdeep Singh
+# Copyright (c) 2026 R.S.
 
 """Sphinx configuration for the bayes-hdc documentation site.
 
@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath(".."))
 # ----------------------------------------------------------------------
 
 project = "bayes-hdc"
-author = "Rajdeep Singh"
+author = "R.S."
 copyright = f"{datetime.now().year}, {author}"
 
 try:  # Pull the version from the installed package so docs always match.
@@ -188,7 +188,7 @@ ogp_custom_meta_tags = [
     f'<meta name="twitter:image" content="{html_baseurl}_static/social-card.svg"/>',
     # Page-level keywords. Search-engine signal, not user-facing.
     '<meta name="keywords" content="hyperdimensional computing, vector symbolic architectures, VSA, HDC, JAX, Bayesian, probabilistic, conformal prediction, calibration, temperature scaling, Gaussian hypervector, Dirichlet hypervector, neuromorphic, edge ML, Kanerva, HRR, BSC, MAP, Hopfield, sparse distributed memory"/>',
-    '<meta name="author" content="Rajdeep Singh"/>',
+    '<meta name="author" content="R.S."/>',
     '<meta name="robots" content="index, follow"/>',
     # Schema.org JSON-LD for the software application.
     """<script type="application/ld+json">
@@ -205,7 +205,7 @@ ogp_custom_meta_tags = [
   "license": "https://opensource.org/licenses/MIT",
   "codeRepository": "https://github.com/rlogger/bayes-hdc",
   "url": "https://rlogger.github.io/bayes-hdc/",
-  "author": {"@type": "Person", "name": "Rajdeep Singh"},
+  "author": {"@type": "Person", "name": "R.S."},
   "keywords": "hyperdimensional computing, vector symbolic architectures, JAX, Bayesian machine learning, conformal prediction, uncertainty quantification"
 }
 </script>""",
