@@ -164,6 +164,7 @@ from bayes_hdc.training import (
     adam_update,
     train_variational_codebook,
 )
+from bayes_hdc.anomaly import ConformalAnomalyDetector, HDCAnomalyScorer, fit_anomaly_pipeline
 from bayes_hdc.uncertainty import (
     ConformalClassifier,
     ConformalRegressor,
@@ -246,6 +247,10 @@ __all__ = [
     "TemperatureCalibrator",
     "ConformalClassifier",
     "ConformalRegressor",
+    # Conformal anomaly detection
+    "HDCAnomalyScorer",
+    "ConformalAnomalyDetector",
+    "fit_anomaly_pipeline",
     # Core operations
     "bind_bsc",
     "bundle_bsc",
