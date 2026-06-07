@@ -44,6 +44,30 @@
 
 For the broader landscape of HDC/VSA applications, see Kleyko, Rachkovskij, Osipov & Rahimi (2023), *[A Survey on HDC aka VSA, Part II: Applications, Cognitive Models, and Challenges](https://arxiv.org/abs/2112.15424)*, ACM Computing Surveys 55(9): Article 175.
 
+### Calibrated anomaly detection in ~10 lines
+
+The headline use case: one-class, one-shot-friendly anomaly detection where the
+false-positive rate is *guaranteed* at your target `alpha` (finite-sample,
+distribution-free, under exchangeability) — not tuned by hand. No other HDC
+library ships this.
+
+```python
+from bayes_hdc import RandomEncoder, MAP, fit_anomaly_pipeline
+
+encoder  = RandomEncoder.create(num_features=F, num_values=V, dimensions=10_000,
+                                vsa_model=MAP.create(dimensions=10_000))
+detector = fit_anomaly_pipeline(encoder, normal_train, calibration, alpha=0.05)
+
+flags  = detector.predict_batch(test, alpha=0.05)   # bool: anomaly or not
+pvals  = detector.pvalue_batch(test)                # split-conformal p-values
+```
+
+Walk through it in [`tutorials/02_anomaly_detection.py`](tutorials/02_anomaly_detection.py)
+(coverage guarantee shown empirically, conformal vs naive-threshold drift,
+multi-VSA, streaming, a fraud-style tabular demo). Applied demos:
+[network intrusion](examples/anomaly_detection_intrusion.py) ·
+[industrial sensors](examples/anomaly_detection_sensors.py).
+
 ### The library-first contribution
 
 What bayes-hdc ships that no released library does (verified against TorchHD, hdlib, vsapy, NengoSPA, HoloVec, and a Semantic Scholar / arXiv sweep on probabilistic-VSA and conformal-HDC keywords through April 2026):
@@ -68,7 +92,8 @@ The framing for any paper or talk: *bayes-hdc is the first comprehensive open-so
 - **Streaming, bounded-memory inference.** `StreamingBayesianHDC` keeps EMA posteriors per class in `O(K·d)` memory regardless of stream length — designed for non-stationary edge deployments where the underlying class distribution drifts.
 - **Scales.** From a laptop CPU to a TPU pod with the same code via `pmap` / `shard_map` wrappers.
 - **Eight VSA models** under one uniform `bind` / `bundle` / `inverse` / `similarity` / `random` API — comparable substrate scope to TorchHD and HoloVec.
-- **625 tests passing, 93 % coverage.** Algebraic laws (associativity, distributivity, bind-unbind) verified across BSC / MAP / HRR; cross-API composition tests across 12 categories; closed-form Gaussian moments cross-checked against Monte-Carlo. Ubuntu + macOS × Python 3.9–3.13 on every push.
+- **Calibrated anomaly detection.** `ConformalAnomalyDetector` / `HDCAnomalyScorer` — one-class detection with a finite-sample false-positive guarantee at a target `alpha`.
+- **644 tests passing, 92 % coverage.** Algebraic laws (associativity, distributivity, bind-unbind) verified across BSC / MAP / HRR; cross-API composition tests across 12 categories; anomaly p-value uniformity + coverage; closed-form Gaussian moments cross-checked against Monte-Carlo. Ubuntu + macOS × Python 3.9–3.13 on every push.
 
 ## Quick tour
 
@@ -283,7 +308,7 @@ bayes-hdc differentiates on the probabilistic / uncertainty-quantification layer
 | [hdlib](https://github.com/cumbof/hdlib) (Cumbo et al. 2023) | NumPy | generic | — | — | — |
 | [vsapy](https://github.com/vsapy/vsapy) | NumPy | 5 | — | — | — |
 | [NengoSPA](https://github.com/nengo/nengo-spa) (Bekolay et al. 2014) | Nengo (spiking) | HRR, VTB | — | — | — |
-| **bayes-hdc** | **JAX-pytree** | **8** | **GaussianHV / DirichletHV / conformal classifier + regressor** | **`jit` / `vmap` / `grad` / `pmap` end-to-end** | **`Z/d` cyclic-shift verifiers** |
+| **bayes-hdc** | **JAX-pytree** | **8** | **GaussianHV / DirichletHV / conformal classifier + regressor + anomaly detector** | **`jit` / `vmap` / `grad` / `pmap` end-to-end** | **`Z/d` cyclic-shift verifiers** |
 
 The eight-VSA-model substrate column is roughly equivalent across TorchHD, HoloVec, and bayes-hdc; the differentiation is in the probabilistic-and-UQ layer. Concurrent algorithmic work also occupies adjacent ground without releasing a library — `Furlong & Eliasmith 2024` (*Cognitive Neurodynamics*) formalises probabilistic VSA via SSP under the NEF spiking substrate; `Liang et al. 2026` (*ConformalHDC*, arXiv:2602.21446) develops adaptive conformal scores for HDC; `Dewulf, De Baets & Stock 2025` (*Neural Computing & Applications*) gives a hyperdimensional-transform framework for Bayesian inference with hypervectors. None of these has a released JAX-native library; bayes-hdc is the open-source-library realisation of that line.
 
