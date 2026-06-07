@@ -38,6 +38,7 @@ from bayes_hdc import (
     utils,
     vsa,
 )
+from bayes_hdc.anomaly import ConformalAnomalyDetector, HDCAnomalyScorer, fit_anomaly_pipeline
 from bayes_hdc.bayesian_models import (
     BayesianAdaptiveHDC,
     BayesianCentroidClassifier,
@@ -164,7 +165,6 @@ from bayes_hdc.training import (
     adam_update,
     train_variational_codebook,
 )
-from bayes_hdc.anomaly import ConformalAnomalyDetector, HDCAnomalyScorer, fit_anomaly_pipeline
 from bayes_hdc.uncertainty import (
     ConformalClassifier,
     ConformalRegressor,
