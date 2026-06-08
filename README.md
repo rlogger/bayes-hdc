@@ -18,8 +18,8 @@
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml/badge.svg?branch=main" /></a>
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml/badge.svg?branch=main" /></a>
   <a href="https://rlogger.github.io/bayes-hdc/"><img alt="Documentation" src="https://img.shields.io/badge/docs-online-1e1e3f?logo=readthedocs&logoColor=white" /></a>
-  <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://img.shields.io/badge/coverage-97%25-brightgreen.svg" /></a>
-  <img alt="Tests" src="https://img.shields.io/badge/tests-510%20passing-brightgreen.svg" />
+  <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://img.shields.io/badge/coverage-92%25-brightgreen.svg" /></a>
+  <img alt="Tests" src="https://img.shields.io/badge/tests-655%20passing-brightgreen.svg" />
   <img alt="Python" src="https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12%20|%203.13-blue.svg" />
   <img alt="JAX" src="https://img.shields.io/badge/JAX-%E2%89%A5%200.4.20-orange.svg" />
   <a href="https://github.com/rlogger/bayes-hdc/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
@@ -68,6 +68,25 @@ multi-VSA, streaming, a fraud-style tabular demo). Applied demos:
 [network intrusion](examples/anomaly_detection_intrusion.py) ·
 [industrial sensors](examples/anomaly_detection_sensors.py).
 
+### Drop-in for scikit-learn
+
+`bayes_hdc.sklearn` exposes the estimators with the standard
+`fit` / `predict` / `predict_proba` / `score_samples` API, so they slot into
+pipelines, `cross_val_score`, and `GridSearchCV` unchanged:
+
+```python
+from bayes_hdc.sklearn import HDClassifier, HDAnomalyDetector
+
+HDClassifier().fit(X_train, y_train).predict(X_test)      # labels + predict_proba
+det = HDAnomalyDetector(alpha=0.05).fit(X_normal)
+det.predict(X_test)        # +1 inlier / -1 outlier (sklearn convention)
+det.score_samples(X_test)  # higher = more normal
+```
+
+The anomaly detector follows scikit-learn's `OutlierMixin` conventions, so it is
+a calibrated, coverage-guaranteed alternative to `IsolationForest` /
+`LocalOutlierFactor` / `OneClassSVM` in any existing outlier-detection workflow.
+
 ### The library-first contribution
 
 What bayes-hdc ships that no released library does (verified against TorchHD, hdlib, vsapy, NengoSPA, HoloVec, and a Semantic Scholar / arXiv sweep on probabilistic-VSA and conformal-HDC keywords through April 2026):
@@ -93,7 +112,7 @@ The framing for any paper or talk: *bayes-hdc is the first comprehensive open-so
 - **Scales.** From a laptop CPU to a TPU pod with the same code via `pmap` / `shard_map` wrappers.
 - **Eight VSA models** under one uniform `bind` / `bundle` / `inverse` / `similarity` / `random` API — comparable substrate scope to TorchHD and HoloVec.
 - **Calibrated anomaly detection.** `ConformalAnomalyDetector` / `HDCAnomalyScorer` — one-class detection with a finite-sample false-positive guarantee at a target `alpha`.
-- **644 tests passing, 92 % coverage.** Algebraic laws (associativity, distributivity, bind-unbind) verified across BSC / MAP / HRR; cross-API composition tests across 12 categories; anomaly p-value uniformity + coverage; closed-form Gaussian moments cross-checked against Monte-Carlo. Ubuntu + macOS × Python 3.9–3.13 on every push.
+- **655 tests passing, 92 % coverage.** Algebraic laws (associativity, distributivity, bind-unbind) verified across BSC / MAP / HRR; cross-API composition tests across 12 categories; anomaly p-value uniformity + coverage; closed-form Gaussian moments cross-checked against Monte-Carlo. Ubuntu + macOS × Python 3.9–3.13 on every push.
 
 ## Quick tour
 
