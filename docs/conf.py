@@ -69,6 +69,10 @@ napoleon_numpy_docstring = True
 napoleon_use_param = True
 napoleon_use_rtype = True
 napoleon_preprocess_types = True
+# Render docstring "Attributes:" sections as inline :ivar: fields rather than
+# separate object descriptions, so dataclass fields aren't documented twice
+# (Napoleon Attributes section + autodoc annotated member).
+napoleon_use_ivar = True
 
 myst_enable_extensions = [
     "colon_fence",
@@ -98,6 +102,8 @@ exclude_patterns = [
     # Per-paper audit artefacts (readable on GitHub, not part of the docs site).
     "LITERATURE_AUDIT.md",
     "audit/*",
+    # Internal marketing notes (readable on GitHub, not part of the docs site).
+    "marketing/*",
 ]
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"

@@ -9,11 +9,15 @@ authors:
 repository-code: "https://github.com/rlogger/bayes-hdc"
 url: "https://github.com/rlogger/bayes-hdc"
 license: MIT
-version: 0.4.0a0
-date-released: "2026-04-19"
+version: 0.5.0a0
+date-released: "2026-06-07"
 keywords:
   - Bayesian hyperdimensional computing
   - probabilistic vector symbolic architectures
+  - anomaly detection
+  - conformal anomaly detection
+  - outlier detection
+  - conformal prediction
   - uncertainty quantification
   - calibrated retrieval
   - hyperdimensional computing

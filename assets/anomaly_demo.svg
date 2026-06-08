@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 320" width="640" height="320" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <title>Calibrated false-positive guarantee, even at one shot</title>
+
+  <!-- title -->
+  <text x="40" y="34" font-size="19" font-weight="600" fill="#1f2933">Calibrated false-positive guarantee, even at one shot</text>
+  <text x="40" y="56" font-size="13" fill="#69707d">ConformalAnomalyDetector — finite-sample, distribution-free, ~10 lines of JAX</text>
+
+  <!-- plot frame -->
+  <line x1="90" y1="90" x2="90" y2="250" stroke="#c2c8d0" stroke-width="1.5"/>
+  <line x1="90" y1="250" x2="580" y2="250" stroke="#c2c8d0" stroke-width="1.5"/>
+
+  <!-- y axis label -->
+  <text x="34" y="170" font-size="12" fill="#69707d" transform="rotate(-90 34 170)" text-anchor="middle">false-positive rate</text>
+  <!-- y ticks -->
+  <text x="82" y="254" font-size="11" fill="#9aa1ab" text-anchor="end">0.00</text>
+  <text x="82" y="174" font-size="11" fill="#9aa1ab" text-anchor="end">0.10</text>
+  <text x="82" y="98"  font-size="11" fill="#9aa1ab" text-anchor="end">0.20</text>
+
+  <!-- target alpha = 0.05 dashed line (y = 250 - 0.05/0.20*160 = 250 - 40 = 210) -->
+  <line x1="90" y1="210" x2="580" y2="210" stroke="#9aa1ab" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="584" y="214" font-size="11" fill="#69707d">target α = 0.05</text>
+
+  <!-- naive threshold: drifts away from target as data changes (desaturated red) -->
+  <polyline fill="none" stroke="#c0564b" stroke-width="2.5"
+    points="120,150 180,128 240,172 300,110 360,186 420,120 480,168 540,134"/>
+  <circle cx="120" cy="150" r="3.5" fill="#c0564b"/>
+  <circle cx="300" cy="110" r="3.5" fill="#c0564b"/>
+  <circle cx="540" cy="134" r="3.5" fill="#c0564b"/>
+
+  <!-- conformal: flat on target (desaturated blue) -->
+  <polyline fill="none" stroke="#3b6ea5" stroke-width="2.5"
+    points="120,210 180,208 240,212 300,209 360,211 420,210 480,209 540,211"/>
+  <circle cx="120" cy="210" r="3.5" fill="#3b6ea5"/>
+  <circle cx="300" cy="209" r="3.5" fill="#3b6ea5"/>
+  <circle cx="540" cy="211" r="3.5" fill="#3b6ea5"/>
+
+  <!-- x axis label + ticks -->
+  <text x="335" y="296" font-size="12" fill="#69707d" text-anchor="middle">training samples</text>
+  <text x="120" y="270" font-size="11" fill="#9aa1ab" text-anchor="middle">1</text>
+  <text x="300" y="270" font-size="11" fill="#9aa1ab" text-anchor="middle">10</text>
+  <text x="540" y="270" font-size="11" fill="#9aa1ab" text-anchor="middle">100</text>
+
+  <!-- legend -->
+  <line x1="360" y1="78" x2="384" y2="78" stroke="#c0564b" stroke-width="2.5"/>
+  <text x="390" y="82" font-size="12" fill="#1f2933">naive threshold</text>
+  <line x1="488" y1="78" x2="512" y2="78" stroke="#3b6ea5" stroke-width="2.5"/>
+  <text x="518" y="82" font-size="12" fill="#1f2933">conformal</text>
+</svg>

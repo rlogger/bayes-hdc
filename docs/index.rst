@@ -75,12 +75,12 @@ Install
 Status
 ------
 
-Alpha. Versions 0.2 through 1.0 shipped — Gaussian and Dirichlet
-posteriors, conformal prediction, temperature calibration, probabilistic
-resonator, posterior predictive checks, streaming Bayesian updates,
-multi-device sharding, 11 standard HDC datasets, and equivariance
-verifiers. **480 tests, 97 % line coverage**, Ubuntu + macOS × Python
-3.9–3.13 on every push.
+Alpha. Gaussian and Dirichlet posteriors, conformal prediction
+(classifier, regressor, and one-class anomaly detector), temperature
+calibration, probabilistic resonator, posterior predictive checks,
+streaming Bayesian updates, multi-device sharding, 11 standard HDC
+datasets, and equivariance verifiers. **644 tests, 92 % line
+coverage**, Ubuntu + macOS × Python 3.9–3.13 on every push.
 
 The public API may shift before 1.0; behaviour changes are called out in
 ``CHANGELOG.md``.
@@ -95,6 +95,7 @@ User guide
 
    installation
    quickstart
+   tutorials
    classification
    examples
    design
@@ -106,6 +107,7 @@ API reference
    :maxdepth: 2
 
    api
+   anomaly
    functional
    vsa
    embeddings

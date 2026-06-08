@@ -43,8 +43,18 @@ Uncertainty quantification
 
    bayes_hdc.TemperatureCalibrator
    bayes_hdc.ConformalClassifier
+   bayes_hdc.ConformalRegressor
    bayes_hdc.posterior_predictive_check
    bayes_hdc.coverage_calibration_check
+
+Anomaly detection
+-----------------
+
+.. autosummary::
+
+   bayes_hdc.HDCAnomalyScorer
+   bayes_hdc.ConformalAnomalyDetector
+   bayes_hdc.fit_anomaly_pipeline
 
 Group-theoretic structure
 -------------------------

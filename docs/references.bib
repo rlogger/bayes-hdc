@@ -785,3 +785,30 @@
   note    = {Split-conformal regression with the absolute-residual
              nonconformity score; foundation for uncertainty.ConformalRegressor.}
 }
+
+% --- Conformal anomaly / outlier detection (bayes_hdc.anomaly) ---
+
+@phdthesis{laxhammar2014conformal,
+  author = {Rikard Laxhammar},
+  title  = {Conformal Anomaly Detection: Detecting Abnormal Trajectories
+            in Surveillance Applications},
+  school = {University of Sk{\"o}vde},
+  year   = {2014},
+  note   = {Introduces conformal anomaly detection: nonconformity scores
+            turned into calibrated p-values with finite-sample validity.}
+}
+
+@article{bates2023outliers,
+  author  = {Stephen Bates and Emmanuel Cand{\`e}s and Lihua Lei and
+             Yaniv Romano and Matteo Sesia},
+  title   = {Testing for Outliers with Conformal p-values},
+  journal = {The Annals of Statistics},
+  volume  = {51},
+  number  = {1},
+  pages   = {149--178},
+  year    = {2023},
+  doi     = {10.1214/22-AOS2244},
+  note    = {Conformal p-values for outlier testing with finite-sample
+            false-discovery and false-positive control; the guarantee
+            bayes_hdc.ConformalAnomalyDetector inherits.}
+}

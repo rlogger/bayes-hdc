@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bayes-hdc"
-version = "0.4.0a0"
-description = "Probabilistic hyperdimensional computing in JAX. Closed-form Gaussian and Dirichlet hypervectors, group-theoretic equivariance, calibrated probabilities, and coverage-guaranteed conformal prediction sets — pytree-native end-to-end."
+version = "0.5.0a0"
+description = "Calibrated anomaly detection and probabilistic hyperdimensional computing in JAX. Conformal classifier, regressor, and one-class anomaly detector with finite-sample coverage; closed-form Gaussian and Dirichlet hypervectors; pytree-native end-to-end."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
@@ -30,6 +30,12 @@ keywords = [
     "uncertainty quantification",
     "calibrated retrieval",
     "calibration",
+    "anomaly detection",
+    "anomaly-detection",
+    "outlier detection",
+    "conformal anomaly detection",
+    "one-shot learning",
+    "novelty detection",
     "conformal prediction",
     "temperature scaling",
     "Gaussian hypervectors",
@@ -56,7 +62,7 @@ keywords = [
     "sparse distributed memory",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: GPU",
     "Environment :: GPU :: NVIDIA CUDA",
     "Framework :: Jupyter",
