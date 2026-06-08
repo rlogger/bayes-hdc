@@ -60,3 +60,5 @@ benchmarks/canonical_hdc_results.json
 
 # Internal — not for public repo
 KESTREL.md
+
+benchmarks/paper_results.json
