@@ -540,3 +540,69 @@ def test_end_to_end_with_random_encoder_pipeline() -> None:
     # In-sample FPR (calibration data == fit data) is biased low — the
     # interesting check is that it stays at or near α and never spikes.
     assert norm_fpr <= 0.20, f"In-sample FPR {norm_fpr:.3f} grossly above α=0.05."
+
+
+# ----------------------------------------------------------------------
+# FDR control (Benjamini-Hochberg over conformal p-values, Bates et al. 2023)
+# ----------------------------------------------------------------------
+
+
+def _fit_detector(key: jax.Array) -> ConformalAnomalyDetector:
+    k_tr, k_cal = jax.random.split(key)
+    train = _normal_hvs(k_tr, 400)
+    cal = _normal_hvs(k_cal, 400)
+    scorer = HDCAnomalyScorer.create(dimensions=DIMS).fit(train)
+    return ConformalAnomalyDetector.create(scorer=scorer).fit(cal)
+
+
+def test_predict_fdr_shape_and_validation() -> None:
+    det = _fit_detector(jax.random.PRNGKey(0))
+    batch = _normal_hvs(jax.random.PRNGKey(1), 50)
+    flags = det.predict_fdr(batch, q=0.1)
+    assert flags.shape == (50,)
+    assert flags.dtype == jnp.bool_
+    for bad in (0.0, 1.0, -0.1, 1.5):
+        with pytest.raises(ValueError, match="q must be in"):
+            det.predict_fdr(batch, q=bad)
+
+
+def test_predict_fdr_flags_clear_anomalies() -> None:
+    det = _fit_detector(jax.random.PRNGKey(2))
+    anoms = _anomalous_hvs(jax.random.PRNGKey(3), 60)
+    flags = det.predict_fdr(anoms, q=0.1)
+    # A batch of strong, pure anomalies should be almost entirely flagged.
+    assert float(jnp.mean(flags.astype(jnp.float32))) > 0.8
+
+
+def test_predict_fdr_controls_false_discovery_rate() -> None:
+    # Mixed batch: mostly normal + a minority of true anomalies. BH at q
+    # should keep the realised false-discovery proportion at/below q in
+    # expectation; average over seeds to check the guarantee.
+    q = 0.1
+    n_normal, n_anom = 180, 20
+    realised = []
+    rng = jax.random.PRNGKey(100)
+    for _ in range(12):
+        rng, k_det, k_n, k_a = jax.random.split(rng, 4)
+        det = _fit_detector(k_det)
+        normal = _normal_hvs(k_n, n_normal)
+        anom = _anomalous_hvs(k_a, n_anom)
+        batch = jnp.concatenate([normal, anom], axis=0)
+        is_anom = jnp.concatenate([jnp.zeros(n_normal, bool), jnp.ones(n_anom, bool)])
+        flags = det.predict_fdr(batch, q=q)
+        n_flagged = int(jnp.sum(flags))
+        if n_flagged == 0:
+            realised.append(0.0)
+            continue
+        false_disc = int(jnp.sum(flags & ~is_anom))
+        realised.append(false_disc / n_flagged)
+    mean_fdr = sum(realised) / len(realised)
+    # BH controls FDR in expectation; allow modest finite-sample slack.
+    assert mean_fdr <= q + 0.05, f"mean realised FDR {mean_fdr:.3f} exceeds q={q}"
+
+
+def test_predict_fdr_composes_under_jit() -> None:
+    det = _fit_detector(jax.random.PRNGKey(4))
+    batch = _normal_hvs(jax.random.PRNGKey(5), 40)
+    jitted = jax.jit(lambda qs: det.predict_fdr(qs, q=0.1))
+    assert bool(jnp.array_equal(jitted(batch), det.predict_fdr(batch, q=0.1)))

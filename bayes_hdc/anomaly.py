@@ -529,6 +529,57 @@ class ConformalAnomalyDetector:
             raise ValueError(f"alpha must be in (0, 1), got {alpha}")
         return self.pvalue_batch(queries) <= float(alpha)
 
+    def predict_fdr(self, queries: jax.Array, q: float = 0.1) -> jax.Array:
+        r"""Flag anomalies in a batch with false-discovery-rate control.
+
+        Applies the Benjamini-Hochberg (BH) procedure to the conformal
+        p-values of the batch. Because split-conformal p-values are
+        positively dependent (PRDS), BH controls the expected fraction
+        of *false discoveries* among the flagged points at level
+        :math:`q` (Bates, Candès, Lei & Romano, 2023, *Testing for
+        outliers with conformal p-values*, Annals of Statistics):
+
+        .. math::
+            \mathbb{E}\!\left[
+              \frac{\#\{\text{true normal points flagged}\}}
+                   {\#\{\text{points flagged}\} \vee 1}
+            \right] \le q .
+
+        This is the right control when you score *many* points at once
+        and care about the purity of the alarm set, rather than the
+        per-point false-positive rate that :meth:`predict_batch`
+        controls. The two answer different questions; use FDR control
+        for batch screening (scan logs / a wafer / a patient cohort),
+        per-point :math:`\alpha` for an online single-point decision.
+
+        Args:
+            queries: Batch of query hypervectors, shape
+                ``(batch, dimensions)``.
+            q: Target false-discovery rate in :math:`(0, 1)`.
+
+        Returns:
+            Boolean array of shape ``(batch,)`` — ``True`` where the
+            point is flagged as an anomaly under BH at level ``q``.
+
+        Raises:
+            ValueError: If ``q`` is not strictly in :math:`(0, 1)`.
+        """
+        if not (0.0 < float(q) < 1.0):
+            raise ValueError(f"q must be in (0, 1), got {q}")
+        p = self.pvalue_batch(queries)
+        m = p.shape[0]
+        sorted_p = jnp.sort(p)
+        # BH critical line (i/m) * q for i = 1..m.
+        crit = (jnp.arange(1, m + 1) / m) * float(q)
+        below = sorted_p <= crit
+        # Largest rank k (1-indexed) with p_(k) <= (k/m) q; 0 if none.
+        ranks = jnp.where(below, jnp.arange(1, m + 1), 0)
+        k = jnp.max(ranks)
+        # Rejection threshold is p_(k); reject everything <= it. If k == 0,
+        # use a negative threshold so nothing (p >= 0) is flagged.
+        threshold = jnp.where(k > 0, sorted_p[jnp.maximum(k - 1, 0)], -1.0)
+        return p <= threshold
+
     def replace(self, **updates: Any) -> ConformalAnomalyDetector:
         """Pytree-friendly functional update."""
         from dataclasses import replace as _replace
