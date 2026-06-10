@@ -56,9 +56,9 @@ docs/_build/
 # Benchmarks
 benchmarks/benchmark_results.json
 benchmarks/sequence_capacity_results.json
-benchmarks/canonical_results.json
+# canonical_results.json and paper_results.json are committed deliberately:
+# they are the exact artifacts behind the paper tables.
 
 # Internal — not for public repo
 KESTREL.md
 
-benchmarks/paper_results.json

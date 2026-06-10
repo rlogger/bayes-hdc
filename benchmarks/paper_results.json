@@ -1,0 +1,154 @@
+{
+  "config": {
+    "dimensions": 10000,
+    "alpha": 0.1,
+    "classification_seed": 0,
+    "anomaly_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "provenance": {
+    "commit": "cfdd818",
+    "python": "3.13.5",
+    "jax": "0.10.0",
+    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O"
+  },
+  "classification": [
+    {
+      "dataset": "digits",
+      "n": 1797,
+      "features": 64,
+      "classes": 10,
+      "hd_accuracy": 0.9,
+      "hd_ece_raw": 0.7216,
+      "hd_ece_calibrated": 0.0541,
+      "conformal_coverage": 0.925,
+      "conformal_set_size": 1.181,
+      "logreg_accuracy": 0.9667,
+      "torchhd_accuracy": null
+    },
+    {
+      "dataset": "breast_cancer",
+      "n": 569,
+      "features": 30,
+      "classes": 2,
+      "hd_accuracy": 0.9123,
+      "hd_ece_raw": 0.1882,
+      "hd_ece_calibrated": 0.0373,
+      "conformal_coverage": 0.9123,
+      "conformal_set_size": 1.0,
+      "logreg_accuracy": 0.9825,
+      "torchhd_accuracy": null
+    },
+    {
+      "dataset": "wine",
+      "n": 178,
+      "features": 13,
+      "classes": 3,
+      "hd_accuracy": 0.8889,
+      "hd_ece_raw": 0.3438,
+      "hd_ece_calibrated": 0.0945,
+      "conformal_coverage": 0.8889,
+      "conformal_set_size": 1.0,
+      "logreg_accuracy": 0.9722,
+      "torchhd_accuracy": null
+    }
+  ],
+  "anomaly": [
+    {
+      "dataset": "digits",
+      "normal_class": 3,
+      "n_anomalies": 1614,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "hd_auroc_mean": 0.9656,
+      "hd_auroc_std": 0.0093,
+      "hd_fpr_at_alpha_mean": 0.0622,
+      "hd_fpr_at_alpha_std": 0.0183,
+      "baselines_auroc": {
+        "IsolationForest": {
+          "mean": 0.9743,
+          "std": 0.0061
+        },
+        "LOF": {
+          "mean": 0.9626,
+          "std": 0.0076
+        },
+        "OneClassSVM": {
+          "mean": 0.9451,
+          "std": 0.0083
+        }
+      }
+    },
+    {
+      "dataset": "breast_cancer",
+      "normal_class": 1,
+      "n_anomalies": 212,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "hd_auroc_mean": 0.9823,
+      "hd_auroc_std": 0.0059,
+      "hd_fpr_at_alpha_mean": 0.0755,
+      "hd_fpr_at_alpha_std": 0.0499,
+      "baselines_auroc": {
+        "IsolationForest": {
+          "mean": 0.9614,
+          "std": 0.0074
+        },
+        "LOF": {
+          "mean": 0.9268,
+          "std": 0.0109
+        },
+        "OneClassSVM": {
+          "mean": 0.9234,
+          "std": 0.0119
+        }
+      }
+    },
+    {
+      "dataset": "wine",
+      "normal_class": 1,
+      "n_anomalies": 107,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "hd_auroc_mean": 0.9766,
+      "hd_auroc_std": 0.0175,
+      "hd_fpr_at_alpha_mean": 0.0345,
+      "hd_fpr_at_alpha_std": 0.0378,
+      "baselines_auroc": {
+        "IsolationForest": {
+          "mean": 0.92,
+          "std": 0.0303
+        },
+        "LOF": {
+          "mean": 0.8578,
+          "std": 0.0406
+        },
+        "OneClassSVM": {
+          "mean": 0.8406,
+          "std": 0.045
+        }
+      }
+    }
+  ],
+  "runtime_s": 7.6
+}

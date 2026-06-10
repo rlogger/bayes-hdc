@@ -150,7 +150,12 @@ def classification_benchmark():
     return rows
 
 
+ANOM_SEEDS = [0, 1, 2, 3, 4]
+
+
 def anomaly_benchmark():
+    """One-class anomaly detection over ANOM_SEEDS; the seed controls the
+    train/test split, the random codebook, and the IsolationForest."""
     rows = []
     for name, loader in DATASETS.items():
         data = loader()
@@ -158,48 +163,87 @@ def anomaly_benchmark():
         y = data.target.astype(np.int64)
         normal_cls = int(np.bincount(y).argmax())
         is_norm = y == normal_cls
-
         Xn = X[is_norm]
         Xa = X[~is_norm]
-        Xn_tr, Xn_te = train_test_split(Xn, test_size=0.4, random_state=SEED)
-        # Test set: held-out normal (label 0) + all anomalies (label 1).
-        X_test = np.vstack([Xn_te, Xa])
-        y_test = np.concatenate([np.zeros(len(Xn_te)), np.ones(len(Xa))]).astype(int)
 
-        # bayes-hdc: higher p-value = more normal, so anomaly score = -pvalue.
-        det = HDAnomalyDetector(alpha=ALPHA, dimensions=DIMS, random_state=SEED).fit(Xn_tr)
-        pv = det.pvalue(X_test)
-        hd_auroc = float(roc_auc_score(y_test, -pv))
-        hd_fpr = float((det.predict(Xn_te) == -1).mean())  # FP rate on normal
+        per_seed = {
+            "hd_auroc": [],
+            "hd_fpr": [],
+            "IsolationForest": [],
+            "LOF": [],
+            "OneClassSVM": [],
+        }
+        for seed in ANOM_SEEDS:
+            Xn_tr, Xn_te = train_test_split(Xn, test_size=0.4, random_state=seed)
+            # Test set: held-out normal (label 0) + all anomalies (label 1).
+            X_test = np.vstack([Xn_te, Xa])
+            y_test = np.concatenate([np.zeros(len(Xn_te)), np.ones(len(Xa))]).astype(int)
 
-        # sklearn baselines: decision_function higher = more normal → negate.
-        baselines = {}
-        for bname, model in {
-            "IsolationForest": IsolationForest(random_state=SEED),
-            "LOF": LocalOutlierFactor(novelty=True),
-            "OneClassSVM": OneClassSVM(gamma="scale"),
-        }.items():
-            try:
+            # bayes-hdc: higher p-value = more normal, so anomaly score = -pvalue.
+            det = HDAnomalyDetector(alpha=ALPHA, dimensions=DIMS, random_state=seed).fit(Xn_tr)
+            pv = det.pvalue(X_test)
+            per_seed["hd_auroc"].append(float(roc_auc_score(y_test, -pv)))
+            per_seed["hd_fpr"].append(float((det.predict(Xn_te) == -1).mean()))
+
+            # sklearn baselines: decision_function higher = more normal → negate.
+            for bname, model in {
+                "IsolationForest": IsolationForest(random_state=seed),
+                "LOF": LocalOutlierFactor(novelty=True),
+                "OneClassSVM": OneClassSVM(gamma="scale"),
+            }.items():
                 model.fit(Xn_tr)
                 score = -model.decision_function(X_test)
-                baselines[bname] = round(float(roc_auc_score(y_test, score)), 4)
-            except Exception as e:  # noqa: BLE001
-                baselines[bname] = f"err:{type(e).__name__}"
+                per_seed[bname].append(float(roc_auc_score(y_test, score)))
 
+        def ms(key):
+            return round(float(np.mean(per_seed[key])), 4), round(float(np.std(per_seed[key])), 4)
+
+        hd_m, hd_s = ms("hd_auroc")
+        fpr_m, fpr_s = ms("hd_fpr")
         rows.append(
             {
                 "dataset": name,
                 "normal_class": normal_cls,
-                "n_normal_train": int(len(Xn_tr)),
-                "n_test": int(len(y_test)),
                 "n_anomalies": int((~is_norm).sum()),
-                "hd_auroc": round(hd_auroc, 4),
-                "hd_fpr_at_alpha": round(hd_fpr, 4),
-                "baselines_auroc": baselines,
+                "seeds": ANOM_SEEDS,
+                "hd_auroc_mean": hd_m,
+                "hd_auroc_std": hd_s,
+                "hd_fpr_at_alpha_mean": fpr_m,
+                "hd_fpr_at_alpha_std": fpr_s,
+                "baselines_auroc": {
+                    b: {"mean": ms(b)[0], "std": ms(b)[1]}
+                    for b in ("IsolationForest", "LOF", "OneClassSVM")
+                },
             }
         )
-        print(f"[anom] {name:14s} HD_AUROC={hd_auroc:.3f} fpr@a={hd_fpr:.3f} baselines={baselines}")
+        print(
+            f"[anom] {name:14s} HD={hd_m:.3f}+/-{hd_s:.3f} fpr@a={fpr_m:.3f} "
+            + " ".join(f"{b}={ms(b)[0]:.3f}" for b in ("IsolationForest", "LOF", "OneClassSVM"))
+        )
     return rows
+
+
+def provenance():
+    import platform
+    import subprocess
+    import sys
+
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent,
+            check=False,
+        ).stdout.strip()
+    except OSError:
+        commit = "unknown"
+    return {
+        "commit": commit or "unknown",
+        "python": sys.version.split()[0],
+        "jax": jax.__version__,
+        "platform": platform.platform(),
+    }
 
 
 def main():
@@ -209,7 +253,13 @@ def main():
     cls = classification_benchmark()
     anom = anomaly_benchmark()
     out = {
-        "config": {"dimensions": DIMS, "alpha": ALPHA, "seed": SEED},
+        "config": {
+            "dimensions": DIMS,
+            "alpha": ALPHA,
+            "classification_seed": SEED,
+            "anomaly_seeds": ANOM_SEEDS,
+        },
+        "provenance": provenance(),
         "classification": cls,
         "anomaly": anom,
         "runtime_s": round(time.perf_counter() - t0, 1),

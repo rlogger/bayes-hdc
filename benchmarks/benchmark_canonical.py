@@ -9,10 +9,19 @@ identical splits, and reports the calibration and conformal-coverage metrics
 that the deterministic baseline does not provide.
 
 ISOLET is fetched with TorchHD's dataset loader (canonical 6238/1559 split);
-UCI-HAR and EMG use bayes_hdc.datasets loaders (OpenML and the original
-Rahimi dataset.mat respectively). The RBF bandwidth gamma is selected on the
-calibration split only — never on test. Runs over several seeds (the seed
-controls the random codebook) and reports mean +/- std.
+UCI-HAR uses the official subject-disjoint 7352/2947 split via
+bayes_hdc.datasets; EMG uses the original Rahimi dataset.mat with a
+stratified 70/30 window split (no canonical split ships with it).
+
+Protocol: the training pool is split three ways (70% fit / 15%
+model-selection / 15% conformal+temperature calibration), all stratified.
+BOTH encoders get the same RBF-bandwidth search on the model-selection
+split — bayes-hdc via KernelEncoder's gamma, TorchHD via the equivalent
+input-scaling of its Sinusoid embedding — and the conformal/temperature
+calibration uses data disjoint from everything else, so the finite-sample
+coverage guarantee is intact. Test data is never touched before the final
+evaluation. Runs over several seeds (the seed controls the random codebook)
+and reports mean +/- std.
 
     uv run --with scikit-learn --with torch --with torch-hd --with gdown \
         python benchmarks/benchmark_canonical.py
@@ -78,42 +87,56 @@ def load_ucihar():
 
 
 # --------------------------------------------------------------------------
-# TorchHD reference (faithful centroid on the identical split)
+# TorchHD reference (centroid over Sinusoid, same tuning budget)
 # --------------------------------------------------------------------------
-def torchhd_centroid_accuracy(Xtr, ytr, Xte, yte, n_classes, seed, dims=DIMS):
+def _torchhd_fit_eval(Xtr, ytr, Xev, n_classes, seed, scale, dims=DIMS):
+    """Train a TorchHD Sinusoid+Centroid at the given input scale; return preds.
+
+    Scaling the standardized inputs by sqrt(2*gamma) makes the Sinusoid
+    random-Fourier embedding approximate the RBF kernel at bandwidth gamma,
+    the same family bayes-hdc's KernelEncoder searches over.
+    """
     import torch
     from torchhd import embeddings
     from torchhd.models import Centroid
 
     torch.manual_seed(seed)
-    n_feat = Xtr.shape[1]
-    # Sinusoid projection is TorchHD's standard encoder for real-valued
-    # feature vectors; matches bayes-hdc's random-projection encoder in spirit.
-    enc = embeddings.Sinusoid(n_feat, dims)
-
-    def encode(X):
-        with torch.no_grad():
-            return enc(torch.as_tensor(X))
-
-    tr_hv = encode(Xtr)
-    te_hv = encode(Xte)
-    model = Centroid(dims, n_classes)
-    model.add(tr_hv, torch.as_tensor(ytr))
-    model.normalize()  # required, else the majority class dominates
+    enc = embeddings.Sinusoid(Xtr.shape[1], dims)
     with torch.no_grad():
-        preds = model(te_hv).argmax(1).numpy()
+        tr_hv = enc(torch.as_tensor(Xtr * scale))
+        ev_hv = enc(torch.as_tensor(Xev * scale))
+        model = Centroid(dims, n_classes)
+        model.add(tr_hv, torch.as_tensor(ytr))
+        model.normalize()  # required, else the majority class dominates
+        return model(ev_hv).argmax(1).numpy()
+
+
+def torchhd_centroid_accuracy(Xtr, ytr, Xsel, ysel, Xte, yte, n_classes, seed, dims=DIMS):
+    """Tuned TorchHD reference: bandwidth picked on the model-selection split."""
+    best_scale, best_acc = None, -1.0
+    for g in GAMMA_GRID:
+        scale = float(np.sqrt(2.0 * g))
+        preds = _torchhd_fit_eval(Xtr, ytr, Xsel, n_classes, seed, scale, dims)
+        acc = float((preds == ysel).mean())
+        if acc > best_acc:
+            best_scale, best_acc = scale, acc
+    preds = _torchhd_fit_eval(Xtr, ytr, Xte, n_classes, seed, best_scale, dims)
     return float((preds == yte).mean())
 
 
 # --------------------------------------------------------------------------
 # One dataset, one seed
 # --------------------------------------------------------------------------
-# RBF bandwidths searched on the calibration split (never on test).
-GAMMA_GRID = [0.0003, 0.001, 0.003, 0.01, 0.03]
+# RBF bandwidths searched on the model-selection split (never on test,
+# never on the conformal-calibration slice). Both libraries get the same
+# grid; gamma = 0.5 corresponds to input scale 1.0, i.e. TorchHD's
+# untuned Sinusoid default, so neither library's natural operating point
+# is excluded from the search.
+GAMMA_GRID = [0.0003, 0.001, 0.003, 0.01, 0.03, 0.1, 0.5]
 
 
 def select_gamma(Xtr, ytr, Xval, yval, seed):
-    """Pick the RFF bandwidth with the best calibration-split accuracy."""
+    """Pick the RFF bandwidth with the best model-selection-split accuracy."""
     best_g, best_acc = GAMMA_GRID[0], -1.0
     for g in GAMMA_GRID:
         clf = HDClassifier(dimensions=DIMS, encoder="kernel", gamma=g, random_state=seed).fit(
@@ -132,13 +155,18 @@ def run_once(Xtr_full, ytr_full, Xte, yte, n_classes, seed):
     scaler = StandardScaler().fit(Xtr_full)
     Xtr_full_s = scaler.transform(Xtr_full).astype(np.float32)
     Xte_s = scaler.transform(Xte).astype(np.float32)
-    # Carve a calibration slice from training data for gamma selection,
-    # conformal calibration, and temperature scaling.
-    Xtr, Xcal, ytr, ycal = train_test_split(
-        Xtr_full_s, ytr_full, test_size=0.2, random_state=seed, stratify=ytr_full
+    # Three-way split of the training pool: fit / model-selection /
+    # conformal+temperature calibration. Keeping the selection and
+    # calibration slices disjoint preserves the conformal coverage
+    # guarantee; test data is never touched before final evaluation.
+    Xtr, Xhold, ytr, yhold = train_test_split(
+        Xtr_full_s, ytr_full, test_size=0.3, random_state=seed, stratify=ytr_full
+    )
+    Xsel, Xcal, ysel, ycal = train_test_split(
+        Xhold, yhold, test_size=0.5, random_state=seed, stratify=yhold
     )
 
-    gamma = select_gamma(Xtr, ytr, Xcal, ycal, seed)
+    gamma = select_gamma(Xtr, ytr, Xsel, ysel, seed)
     clf = HDClassifier(dimensions=DIMS, encoder="kernel", gamma=gamma, random_state=seed).fit(
         Xtr, ytr
     )
@@ -160,7 +188,7 @@ def run_once(Xtr_full, ytr_full, Xte, yte, n_classes, seed):
 
     th_acc = None
     try:
-        th_acc = torchhd_centroid_accuracy(Xtr, ytr, Xte_s, yte, n_classes, seed)
+        th_acc = torchhd_centroid_accuracy(Xtr, ytr, Xsel, ysel, Xte_s, yte, n_classes, seed)
     except Exception as e:  # noqa: BLE001
         th_acc = {"error": f"{type(e).__name__}: {e}"}
 
@@ -216,6 +244,39 @@ def aggregate(name, Xtr, ytr, Xte, yte):
     return row
 
 
+def provenance():
+    """Environment provenance, recorded into the results JSON."""
+    import platform
+    import subprocess
+    import sys
+
+    import jax
+
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent,
+            check=False,
+        ).stdout.strip()
+    except OSError:
+        commit = "unknown"
+    try:
+        import torchhd
+
+        torchhd_v = torchhd.__version__
+    except Exception:  # noqa: BLE001
+        torchhd_v = None
+    return {
+        "commit": commit or "unknown",
+        "python": sys.version.split()[0],
+        "jax": jax.__version__,
+        "torchhd": torchhd_v,
+        "platform": platform.platform(),
+    }
+
+
 def main():
     print(f"canonical HDC benchmark (d={DIMS}, alpha={ALPHA}, seeds={SEEDS})")
     t0 = time.perf_counter()
@@ -224,7 +285,14 @@ def main():
         name, Xtr, ytr, Xte, yte = loader()
         rows.append(aggregate(name, Xtr, ytr, Xte, yte))
     out = {
-        "config": {"dimensions": DIMS, "alpha": ALPHA, "seeds": SEEDS},
+        "config": {
+            "dimensions": DIMS,
+            "alpha": ALPHA,
+            "seeds": SEEDS,
+            "gamma_grid": GAMMA_GRID,
+            "split": "train pool -> 70% fit / 15% model-selection / 15% calibration",
+        },
+        "provenance": provenance(),
         "results": rows,
         "runtime_s": round(time.perf_counter() - t0, 1),
     }

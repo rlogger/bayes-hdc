@@ -1,20 +1,30 @@
 # Benchmarks
 
-Reference numbers for `bayes-hdc`. All numbers are produced by
-`make bench`; the included figures are checked into
-`benchmarks/figures/`.
+Reference numbers for `bayes-hdc`. The calibration / selective /
+OOD numbers come from `make bench`; the canonical-dataset and paper
+tables come from `make bench-canonical` and `make bench-paper`
+(separate targets because they need the optional torch / torch-hd /
+gdown extras and a network connection on first run). Figures are
+checked into `benchmarks/figures/`.
 
 **Reproduce:**
 
 ```bash
 make install-all
-make bench                # local run (takes ~2 minutes on a laptop CPU)
-make figures              # regenerate the paper PDFs/PNGs under benchmarks/figures/
+make bench                # calibration/selective/OOD (~2 minutes, laptop CPU)
+make bench-canonical      # ISOLET/UCI-HAR/EMG vs TorchHD (downloads data on first run)
+make bench-paper          # classification calibration + multi-seed anomaly
+make figures              # regenerate the figures under benchmarks/figures/
 # or, containerised:
 make docker-bench         # writes to benchmarks/results/
 ```
 
-Last refreshed from commit `0f761f0` (April 22, 2026), Python 3.14, JAX 0.4.28, macOS arm64.
+Each results JSON under `benchmarks/` embeds its own provenance
+(commit, Python / JAX / TorchHD versions, platform). Canonical and
+paper tables last refreshed June 10, 2026 on Python 3.13.5, JAX
+0.10.0, torchhd 5.8.4, macOS arm64; the committed
+`benchmarks/canonical_results.json` and `benchmarks/paper_results.json`
+are the exact artifacts behind the tables below and in the paper.
 
 ## Accuracy (Bayes-HDC vs TorchHD, identical preprocessing)
 
@@ -137,23 +147,34 @@ Plate (2003) §6.2 on flat-bundle capacity; Frady, Kleyko & Sommer
 The accuracy table above uses sklearn datasets (iris / wine /
 breast-cancer / digits / MNIST) — useful as smoke checks, not as
 HDC-canonical anchors. The table below anchors on the datasets the HDC
-literature actually benchmarks on, head-to-head against a faithful
-TorchHD centroid (`Sinusoid` embedding — the matching random-Fourier
-encoder) on identical splits. bayes-hdc uses `HDClassifier` with
-`encoder="kernel"`; the RBF bandwidth is selected on the calibration
-split only, never on test. Mean ± std over 5 seeds (the seed controls
-the random codebook), d = 10 000, α = 0.1.
+literature actually benchmarks on, head-to-head against a TorchHD
+centroid over its `Sinusoid` embedding (the matching random-Fourier
+encoder family) on identical splits.
 
-| Dataset | bayes-hdc | TorchHD centroid | ECE raw → calibrated | Coverage @ α=0.1 | Mean set size |
+Protocol: the training pool is split 70/15/15 into fit /
+model-selection / conformal-calibration slices. **Both** encoders get
+the same RBF-bandwidth grid search on the model-selection slice (the
+grid includes TorchHD's untuned default), and the conformal +
+temperature calibration uses only the disjoint calibration slice, so
+the finite-sample coverage guarantee is intact. Test data is never
+touched before final evaluation. Mean ± std over 5 seeds, d = 10 000,
+α = 0.1.
+
+| Dataset | bayes-hdc | TorchHD (tuned) | ECE raw → calibrated | Coverage @ α=0.1 | Mean set size |
 |---|---|---|---|---|---|
-| ISOLET (canonical 6238/1559 split) | **0.896 ± 0.004** | 0.882 ± 0.003 | 0.846 → **0.024** | 0.899 | 1.03 |
-| UCI-HAR | **0.838 ± 0.006** | 0.813 ± 0.003 | 0.622 → **0.028** | 0.909 | 1.68 |
-| EMG hand gestures (Rahimi et al. 2016) | **0.950 ± 0.010** | 0.892 ± 0.006 | 0.624 → **0.046** | 0.952 | 1.01 |
+| ISOLET (canonical 6238/1559 split) | **0.895 ± 0.004** | 0.882 ± 0.006 | 0.845 → **0.022** | 0.901 | 1.08 |
+| UCI-HAR (official subject-disjoint 7352/2947 split) | 0.849 ± 0.006 | **0.871 ± 0.005** | 0.633 → **0.031** | 0.904 | 1.52 |
+| EMG hand gestures (Rahimi et al. 2016; stratified 70/30 window split) | **0.944 ± 0.014** | 0.892 ± 0.005 | 0.618 → **0.045** | 0.947 | 1.01 |
 
-bayes-hdc exceeds the TorchHD reference on accuracy on all three
-datasets and additionally delivers calibrated probabilities and
-conformal coverage at the target — guarantees the deterministic
-baseline does not provide.
+Under a matched tuning budget bayes-hdc is ahead on ISOLET and EMG and
+behind on UCI-HAR — competitive with the deterministic reference, not
+dominant. The value-add is the probabilistic layer: calibrated
+probabilities (order-of-magnitude ECE reduction) and conformal coverage
+at the target, guarantees the deterministic baseline does not provide.
+Note the EMG split is window-level (subjects shared across train/test,
+no canonical split ships with the dataset); UCI-HAR uses the official
+subject-disjoint partition, so its accuracies are comparable to the
+literature.
 
 Reproduce with:
 
@@ -163,8 +184,9 @@ uv run --with scikit-learn --with torch --with torch-hd --with gdown \
 ```
 
 ISOLET is fetched via TorchHD's dataset loader (canonical
-isolet1-4/isolet5 split); UCI-HAR via `bayes_hdc.datasets.load_ucihar`
-(OpenML `har`, id 1478); EMG via `bayes_hdc.datasets.load_emg`, which
+isolet1-4/isolet5 split); UCI-HAR via `bayes_hdc.datasets.load_ucihar`,
+which downloads the official UCI archive and keeps the subject-disjoint
+7352/2947 partition; EMG via `bayes_hdc.datasets.load_emg`, which
 downloads the original authors' `dataset.mat` from
 `abbas-rahimi/HDC-EMG` and cuts label-pure 256-sample windows.
 European Languages (Joshi, Halseth, Kanerva 2016) remains future work:

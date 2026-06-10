@@ -46,6 +46,12 @@ bench: ## Run all calibration / selective / OOD benchmarks locally
 	$(PYTHON) benchmarks/benchmark_selective.py
 	$(PYTHON) benchmarks/benchmark_ood.py
 
+bench-canonical: ## ISOLET/UCI-HAR/EMG vs TorchHD (needs torch, torch-hd, gdown, scikit-learn)
+	$(PYTHON) benchmarks/benchmark_canonical.py
+
+bench-paper: ## Paper tables: classification calibration + multi-seed anomaly (needs scikit-learn)
+	$(PYTHON) benchmarks/benchmark_paper.py
+
 docker-build: ## Build the benchmark Docker image
 	docker build --target benchmark -t bayes-hdc:benchmark .
 

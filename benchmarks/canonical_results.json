@@ -1,0 +1,99 @@
+{
+  "config": {
+    "dimensions": 10000,
+    "alpha": 0.1,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "gamma_grid": [
+      0.0003,
+      0.001,
+      0.003,
+      0.01,
+      0.03,
+      0.1,
+      0.5
+    ],
+    "split": "train pool -> 70% fit / 15% model-selection / 15% calibration"
+  },
+  "provenance": {
+    "commit": "cfdd818",
+    "python": "3.13.5",
+    "jax": "0.10.0",
+    "torchhd": "5.8.4",
+    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O"
+  },
+  "results": [
+    {
+      "dataset": "ISOLET",
+      "n_train": 6238,
+      "n_test": 1559,
+      "features": 617,
+      "classes": 26,
+      "hd_acc_mean": 0.8949,
+      "hd_acc_std": 0.004,
+      "ece_raw_mean": 0.8454,
+      "ece_cal_mean": 0.0223,
+      "coverage_mean": 0.901,
+      "set_size_mean": 1.082,
+      "torchhd_acc_mean": 0.8821,
+      "torchhd_acc_std": 0.0056,
+      "gammas": [
+        0.003,
+        0.003,
+        0.003,
+        0.003,
+        0.003
+      ]
+    },
+    {
+      "dataset": "UCI-HAR",
+      "n_train": 7352,
+      "n_test": 2947,
+      "features": 561,
+      "classes": 6,
+      "hd_acc_mean": 0.849,
+      "hd_acc_std": 0.0056,
+      "ece_raw_mean": 0.6333,
+      "ece_cal_mean": 0.0311,
+      "coverage_mean": 0.9038,
+      "set_size_mean": 1.521,
+      "torchhd_acc_mean": 0.8709,
+      "torchhd_acc_std": 0.0047,
+      "gammas": [
+        0.003,
+        0.003,
+        0.003,
+        0.003,
+        0.003
+      ]
+    },
+    {
+      "dataset": "EMG",
+      "n_train": 1514,
+      "n_test": 649,
+      "features": 1024,
+      "classes": 5,
+      "hd_acc_mean": 0.9442,
+      "hd_acc_std": 0.0136,
+      "ece_raw_mean": 0.618,
+      "ece_cal_mean": 0.0451,
+      "coverage_mean": 0.9467,
+      "set_size_mean": 1.01,
+      "torchhd_acc_mean": 0.8924,
+      "torchhd_acc_std": 0.0047,
+      "gammas": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.003
+      ]
+    }
+  ],
+  "runtime_s": 58.3
+}
