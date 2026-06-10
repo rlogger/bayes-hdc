@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.5.0a0] - 2026-06-10
+
+First PyPI release. Everything below was developed since the
+0.1.0-alpha snapshot and ships in this version.
+
 ### Changed — Repo scope: library-only (2026-05-05)
 
 The public repo is now strictly library / open-source code. Paper
