@@ -24,8 +24,10 @@ or ``pip install scikit-learn``). Importing this module without it raises a
 clear error; the rest of bayes-hdc has no scikit-learn dependency.
 
 The continuous feature matrix ``X`` is encoded with a random-projection
-``ProjectionEncoder`` (no manual discretisation needed); the anomaly
-detector wraps :class:`~bayes_hdc.ConformalAnomalyDetector`, so its
+``ProjectionEncoder`` by default, or a random-Fourier ``KernelEncoder``
+(``encoder="kernel"``) that approximates an RBF kernel and is usually more
+accurate on real-valued features; no manual discretisation is needed. The
+anomaly detector wraps :class:`~bayes_hdc.ConformalAnomalyDetector`, so its
 ``predict`` inherits the finite-sample false-positive guarantee at the
 chosen ``alpha``.
 """
@@ -46,7 +48,7 @@ except ImportError as exc:  # pragma: no cover - exercised only without sklearn
         "`pip install scikit-learn` or `pip install bayes-hdc[examples]`."
     ) from exc
 
-from bayes_hdc import MAP, ProjectionEncoder
+from bayes_hdc import MAP, KernelEncoder, ProjectionEncoder
 from bayes_hdc.anomaly import ConformalAnomalyDetector, HDCAnomalyScorer
 from bayes_hdc.models import CentroidClassifier
 
@@ -60,14 +62,22 @@ def _as_f32(X: Any) -> np.ndarray:
 class HDClassifier(ClassifierMixin, BaseEstimator):
     """Hyperdimensional classifier with a scikit-learn API.
 
-    Encodes continuous features with a random-projection encoder and
-    classifies with a centroid (prototype) model. Drop-in for any
-    scikit-learn pipeline or model-selection tool.
+    Encodes continuous features with a random-projection or random-Fourier
+    (RBF-kernel) encoder and classifies with a centroid (prototype) model.
+    Drop-in for any scikit-learn pipeline or model-selection tool.
 
     Parameters
     ----------
     dimensions : int, default=10000
         Hypervector dimensionality.
+    encoder : {"projection", "kernel"}, default="projection"
+        Feature encoder. ``"projection"`` is a plain random projection;
+        ``"kernel"`` is a random-Fourier-features encoder that approximates
+        an RBF kernel and is typically more accurate on real-valued features
+        (it mirrors TorchHD's ``Sinusoid`` embedding). With ``"kernel"`` the
+        ``gamma`` bandwidth matters and is worth tuning via ``GridSearchCV``.
+    gamma : float, default=0.01
+        RBF bandwidth for ``encoder="kernel"`` (ignored otherwise).
     vsa_model : {"map"}, default="map"
         VSA backend for the encoder/prototype space. (MAP is the
         real-valued default; the prototype classifier assumes it.)
@@ -78,12 +88,35 @@ class HDClassifier(ClassifierMixin, BaseEstimator):
     def __init__(
         self,
         dimensions: int = 10000,
+        encoder: str = "projection",
+        gamma: float = 0.01,
         vsa_model: str = "map",
         random_state: int = 0,
     ) -> None:
         self.dimensions = dimensions
+        self.encoder = encoder
+        self.gamma = gamma
         self.vsa_model = vsa_model
         self.random_state = random_state
+
+    def _make_encoder(self, key: jax.Array) -> Any:
+        model = MAP.create(dimensions=self.dimensions)
+        if self.encoder == "kernel":
+            return KernelEncoder.create(
+                input_dim=self.n_features_in_,
+                dimensions=self.dimensions,
+                gamma=self.gamma,
+                vsa_model=model,
+                key=key,
+            )
+        if self.encoder == "projection":
+            return ProjectionEncoder.create(
+                input_dim=self.n_features_in_,
+                dimensions=self.dimensions,
+                vsa_model=model,
+                key=key,
+            )
+        raise ValueError(f"encoder must be 'projection' or 'kernel', got {self.encoder!r}")
 
     def fit(self, X: Any, y: Any) -> HDClassifier:
         X = _as_f32(X)
@@ -91,12 +124,7 @@ class HDClassifier(ClassifierMixin, BaseEstimator):
         self.classes_, y_idx = np.unique(y, return_inverse=True)
         self.n_features_in_ = X.shape[1]
         key = jax.random.PRNGKey(int(self.random_state))
-        self.encoder_ = ProjectionEncoder.create(
-            input_dim=self.n_features_in_,
-            dimensions=self.dimensions,
-            vsa_model=MAP.create(dimensions=self.dimensions),
-            key=key,
-        )
+        self.encoder_ = self._make_encoder(key)
         hvs = self.encoder_.encode_batch(jnp.asarray(X))
         self.classifier_ = CentroidClassifier.create(
             num_classes=len(self.classes_),

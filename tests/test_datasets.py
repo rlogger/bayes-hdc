@@ -155,3 +155,33 @@ def test_openml_loader_smoketest_mnist() -> None:  # pragma: no cover - network
     assert ds.n_classes == 10
     assert ds.n_features == 784
     assert ds.n_samples == 200
+
+
+@pytest.mark.network
+def test_emg_loader_smoketest() -> None:  # pragma: no cover - network
+    """End-to-end fetch for the Rahimi EMG corpus. Run with `-m network`."""
+    from bayes_hdc.datasets import load_emg
+
+    ds = load_emg()
+    assert ds.name == "emg"
+    assert ds.n_classes == 5
+    assert ds.n_features == 4 * 256  # 4 channels x 256-sample windows
+    assert ds.n_samples > 2000
+
+
+@pytest.mark.network
+def test_ucihar_loader_smoketest() -> None:  # pragma: no cover - network
+    """End-to-end fetch for UCI-HAR via OpenML (`har`). Run with `-m network`."""
+    from bayes_hdc.datasets import load_ucihar
+
+    ds = load_ucihar()
+    assert ds.name == "ucihar"
+    assert ds.n_classes == 6
+    assert ds.n_features == 561
+
+
+def test_pamap2_raises_with_instructions() -> None:
+    from bayes_hdc.datasets import load_pamap2
+
+    with pytest.raises(ValueError, match="PAMAP2"):
+        load_pamap2()

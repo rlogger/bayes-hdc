@@ -301,8 +301,8 @@ python examples/<name>.py
 
 | | |
 |---|---|
-| **Tests** | 510 passing, 2 skipped (network-gated dataset loaders) |
-| **Coverage** | 93 % line coverage |
+| **Tests** | 666 passing, 2 skipped (network-gated dataset loaders) |
+| **Coverage** | 94 % line coverage |
 | **Lint** | `ruff check`, `ruff format --check`, `mypy` clean on every push |
 | **CI** | Ubuntu + macOS × Python 3.9–3.13 |
 | **Security** | CodeQL on a weekly schedule; Dependabot weekly bumps |

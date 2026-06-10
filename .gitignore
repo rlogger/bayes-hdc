@@ -56,7 +56,7 @@ docs/_build/
 # Benchmarks
 benchmarks/benchmark_results.json
 benchmarks/sequence_capacity_results.json
-benchmarks/canonical_hdc_results.json
+benchmarks/canonical_results.json
 
 # Internal — not for public repo
 KESTREL.md

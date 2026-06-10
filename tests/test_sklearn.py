@@ -82,6 +82,39 @@ def test_classifier_get_set_params_roundtrip():
     assert clf.get_params()["dimensions"] == 5000
 
 
+def test_classifier_kernel_encoder_fits_and_predicts():
+    X, y = make_classification(
+        n_samples=300, n_features=12, n_classes=3, n_informative=8, random_state=5
+    )
+    X = StandardScaler().fit_transform(X)  # RFF bandwidth assumes scaled features
+    clf = HDClassifier(dimensions=4000, encoder="kernel", gamma=0.03, random_state=5).fit(X, y)
+    acc = (clf.predict(X) == y).mean()
+    assert acc > 0.6, f"kernel-encoder train accuracy {acc:.2f} not above chance (3 classes)"
+    proba = clf.predict_proba(X)
+    assert proba.shape == (300, 3)
+    assert np.allclose(proba.sum(axis=1), 1.0, atol=1e-4)
+
+
+def test_classifier_invalid_encoder_raises():
+    X, y = make_classification(n_samples=40, n_features=6, random_state=6)
+    with pytest.raises(ValueError, match="encoder"):
+        HDClassifier(dimensions=1000, encoder="nope").fit(X, y)
+
+
+def test_classifier_kernel_gamma_tunable_in_gridsearch():
+    from sklearn.model_selection import GridSearchCV
+
+    X, y = make_classification(
+        n_samples=200, n_features=10, n_classes=2, n_informative=6, random_state=8
+    )
+    grid = GridSearchCV(
+        HDClassifier(dimensions=2000, encoder="kernel", random_state=8),
+        {"gamma": [0.003, 0.03]},
+        cv=3,
+    ).fit(X, y)
+    assert grid.best_params_["gamma"] in {0.003, 0.03}
+
+
 # ----------------------------------------------------------------------
 # HDAnomalyDetector
 # ----------------------------------------------------------------------

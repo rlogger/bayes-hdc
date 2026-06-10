@@ -182,11 +182,13 @@ def _fetch_openml_cached(
     version: int = 1,
 ) -> tuple[np.ndarray, np.ndarray]:
     sk_datasets, _ = _import_sklearn()
+    # parser="liac-arff" works without the optional pandas/pyarrow stack;
+    # parser="auto" fails on hosts that lack them.
     bunch = sk_datasets.fetch_openml(
         openml_name,
         version=version,
         as_frame=False,
-        parser="auto",
+        parser="liac-arff",
     )
     return bunch.data, bunch.target
 
@@ -264,7 +266,10 @@ def load_isolet(
     """ISOLET — 26-class spoken-letter recognition, 617 features.
 
     Fanty & Cole (1990). The canonical HDC benchmark since Rahimi,
-    Kanerva, Rabaey (2016).
+    Kanerva, Rabaey (2016). OpenML pools all 7 797 utterances, so this
+    loader uses a stratified random split; for the canonical
+    isolet1-4/isolet5 (6 238/1 559) split, fetch from the UCI archive
+    or use TorchHD's ``ISOLET`` dataset class.
     """
     X, y = _fetch_openml_cached("isolet", version=1)
     return _build(
@@ -282,15 +287,16 @@ def load_ucihar(
     test_size: float = DEFAULT_TEST_SIZE,
     random_state: int = DEFAULT_SEED,
 ) -> HDCDataset:
-    """UCI Human Activity Recognition — 6-class, 561 features.
+    """UCI Human Activity Recognition — 6-class, 561 features, 10 299 samples.
 
     Anguita, Ghio, Oneto, Parra, Reyes-Ortiz (2013). Standard HDC
-    benchmark.
+    benchmark. OpenML hosts it under the name ``har`` (dataset id 1478).
     """
-    X, y = _fetch_openml_cached("UCI-HAR", version=1)
+    X, y = _fetch_openml_cached("har", version=1)
     return _build(
         "ucihar",
-        "UCI Human Activity Recognition — 6-class, 561 features (Anguita et al. 2013).",
+        "UCI Human Activity Recognition — 6-class, 561 features, 10 299 samples "
+        "(Anguita et al. 2013).",
         np.asarray(X),
         np.asarray(y),
         test_size,
@@ -298,21 +304,61 @@ def load_ucihar(
     )
 
 
+_EMG_URL = "https://raw.githubusercontent.com/abbas-rahimi/HDC-EMG/master/dataset.mat"
+
+
+def _cache_dir() -> Any:
+    import pathlib
+
+    d = pathlib.Path.home() / ".cache" / "bayes_hdc"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def load_emg(
     test_size: float = DEFAULT_TEST_SIZE,
     random_state: int = DEFAULT_SEED,
+    window: int = 256,
+    subjects: tuple[int, ...] = (1, 2, 3, 4, 5),
 ) -> HDCDataset:
-    """EMG gestures — multi-class hand-gesture recognition from EMG signals.
+    """EMG hand gestures — 5-class, 4-channel EMG (Rahimi et al. 2016).
 
-    Attempts OpenML's ``EMG_data_for_gestures`` first. HDC benchmark
-    since Rahimi et al. (2016).
+    Downloads ``dataset.mat`` from the original authors' repository
+    (``abbas-rahimi/HDC-EMG``) on first use and caches it under
+    ``~/.cache/bayes_hdc``. Each subject's 4-channel stream is cut into
+    non-overlapping label-pure windows of ``window`` samples, flattened
+    to a ``4 * window`` feature vector; windows spanning a gesture
+    transition are dropped. Classes: closed hand at rest plus four
+    gestures.
     """
-    X, y = _fetch_openml_cached("EMG_data_for_gestures", version=1)
+    import urllib.request
+
+    from scipy.io import loadmat
+
+    path = _cache_dir() / "rahimi_emg_dataset.mat"
+    if not path.exists():
+        urllib.request.urlretrieve(_EMG_URL, path)  # noqa: S310 — fixed https URL
+    mat = loadmat(str(path))
+
+    feats, labels = [], []
+    for s in subjects:
+        sig = np.asarray(mat[f"COMPLETE_{s}"], dtype=np.float32)
+        lab = np.asarray(mat[f"LABEL_{s}"]).ravel()
+        n_win = sig.shape[0] // window
+        for w in range(n_win):
+            seg_lab = lab[w * window : (w + 1) * window]
+            if (seg_lab != seg_lab[0]).any():
+                continue  # window spans a gesture transition
+            feats.append(sig[w * window : (w + 1) * window].reshape(-1))
+            labels.append(seg_lab[0])
+    X = np.stack(feats)
+    y = np.asarray(labels)
     return _build(
         "emg",
-        "EMG gestures — multi-class hand gesture recognition from EMG signals.",
-        np.asarray(X),
-        np.asarray(y),
+        "EMG hand gestures — 5-class, 4-channel EMG, label-pure windows "
+        f"of {window} samples (Rahimi et al. 2016).",
+        X,
+        y,
         test_size,
         random_state,
     )
@@ -325,23 +371,16 @@ def load_pamap2(
 ) -> HDCDataset:
     """PAMAP2 — physical activity monitoring, 12+ classes (Reiss & Stricker 2012).
 
-    Multi-sensor IMU and heart-rate streams. Large; ``subsample`` keeps
-    iteration time reasonable.
+    PAMAP2 is not hosted on OpenML and the raw UCI archive is ~650 MB,
+    which this library will not download silently. Fetch it yourself from
+    https://archive.ics.uci.edu/dataset/231/pamap2+physical+activity+monitoring
+    and build an :class:`HDCDataset` from the extracted protocol files.
     """
-    X, y = _fetch_openml_cached("PAMAP2", version=1)
-    X = np.asarray(X, dtype=np.float32)
-    y = np.asarray(y)
-    if subsample is not None and subsample < X.shape[0]:
-        rng = np.random.default_rng(random_state)
-        idx = rng.permutation(X.shape[0])[:subsample]
-        X, y = X[idx], y[idx]
-    return _build(
-        "pamap2",
-        "PAMAP2 — physical activity monitoring (Reiss & Stricker 2012).",
-        X,
-        y,
-        test_size,
-        random_state,
+    raise ValueError(
+        "PAMAP2 is not available on OpenML and the raw UCI archive is ~650 MB, "
+        "so bayes-hdc does not download it automatically. Fetch it from "
+        "https://archive.ics.uci.edu/dataset/231/pamap2+physical+activity+monitoring "
+        "and construct an HDCDataset from the protocol files directly."
     )
 
 

@@ -132,33 +132,44 @@ items, and the per-layer SNR is dominated by `1/√(chunk_size)` and
 Plate (2003) §6.2 on flat-bundle capacity; Frady, Kleyko & Sommer
 (2018) on hierarchical recurrent-network indexing.
 
-## Canonical HDC benchmark datasets (script shipped; numbers pending)
+## Canonical HDC benchmark datasets
 
 The accuracy table above uses sklearn datasets (iris / wine /
 breast-cancer / digits / MNIST) — useful as smoke checks, not as
-HDC-canonical anchors. The datasets the HDC literature actually
-benchmarks on are:
+HDC-canonical anchors. The table below anchors on the datasets the HDC
+literature actually benchmarks on, head-to-head against a faithful
+TorchHD centroid (`Sinusoid` embedding — the matching random-Fourier
+encoder) on identical splits. bayes-hdc uses `HDClassifier` with
+`encoder="kernel"`; the RBF bandwidth is selected on the calibration
+split only, never on test. Mean ± std over 5 seeds (the seed controls
+the random codebook), d = 10 000, α = 0.1.
 
-| Dataset | Task | Reference |
-|---|---|---|
-| ISOLET | 26-class spoken-letter recognition (617 features) | Fanty & Cole 1990; Rahimi et al. 2016 |
-| UCI-HAR | 6-class daily-living activity recognition (561 features) | Anguita et al. 2013 |
-| EMG | multi-class hand-gesture EMG | Rahimi et al. 2016 |
-| European Languages | 21-class character-trigram language ID | Joshi, Halseth, Kanerva 2016 |
+| Dataset | bayes-hdc | TorchHD centroid | ECE raw → calibrated | Coverage @ α=0.1 | Mean set size |
+|---|---|---|---|---|---|
+| ISOLET (canonical 6238/1559 split) | **0.896 ± 0.004** | 0.882 ± 0.003 | 0.846 → **0.024** | 0.899 | 1.03 |
+| UCI-HAR | **0.838 ± 0.006** | 0.813 ± 0.003 | 0.622 → **0.028** | 0.909 | 1.68 |
+| EMG hand gestures (Rahimi et al. 2016) | **0.950 ± 0.010** | 0.892 ± 0.006 | 0.624 → **0.046** | 0.952 | 1.01 |
 
-`benchmarks/benchmark_canonical_hdc_tasks.py` ships the full
-calibration + conformal pipeline against these four datasets via the
-`bayes_hdc.datasets.load_*` loaders. The reported columns are
-**accuracy**, **ECE (raw)**, **ECE (post-temperature)**, **Brier**,
-**NLL**, **conformal coverage at α = 0.1**, **mean conformal set
-size**. At the time of writing, all four loaders fetch from OpenML and
-on the development machine these fetches either error on the dataset
-ID or require the `pyarrow` optional parser. Reproduce on a host with
-OpenML-reachable networking + `pyarrow` installed; numbers go in this
-section once produced. (This is the single most load-bearing
-empirical gap the 2026-05-06 audit identified — anchoring on the
-field's standard datasets is what turns "library-first" into
-"library-first AND empirically validated.")
+bayes-hdc exceeds the TorchHD reference on accuracy on all three
+datasets and additionally delivers calibrated probabilities and
+conformal coverage at the target — guarantees the deterministic
+baseline does not provide.
+
+Reproduce with:
+
+```bash
+uv run --with scikit-learn --with torch --with torch-hd --with gdown \
+    python benchmarks/benchmark_canonical.py
+```
+
+ISOLET is fetched via TorchHD's dataset loader (canonical
+isolet1-4/isolet5 split); UCI-HAR via `bayes_hdc.datasets.load_ucihar`
+(OpenML `har`, id 1478); EMG via `bayes_hdc.datasets.load_emg`, which
+downloads the original authors' `dataset.mat` from
+`abbas-rahimi/HDC-EMG` and cuts label-pure 256-sample windows.
+European Languages (Joshi, Halseth, Kanerva 2016) remains future work:
+the corpus has no stable OpenML/UCI mirror and needs the Wortschatz /
+Europarl preprocessing pipeline.
 
 ## Deferred comparisons
 
