@@ -16,7 +16,7 @@ three memory modules, four symbolic data structures, capacity analysis)
 as a baseline and substrate.
 """
 
-__version__ = "0.4.0a0"
+__version__ = "0.5.0a0"
 
 from bayes_hdc import (
     bayesian_models,

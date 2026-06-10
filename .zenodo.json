@@ -39,5 +39,5 @@
     }
   ],
   "language": "eng",
-  "notes": "If you use this software, please cite the accompanying JOSS paper (paper/paper.md) and the CITATION.cff entry."
+  "notes": "If you use this software, please cite it via the CITATION.cff entry."
 }

@@ -18,8 +18,8 @@
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml/badge.svg?branch=main" /></a>
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml/badge.svg?branch=main" /></a>
   <a href="https://rlogger.github.io/bayes-hdc/"><img alt="Documentation" src="https://img.shields.io/badge/docs-online-1e1e3f?logo=readthedocs&logoColor=white" /></a>
-  <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://img.shields.io/badge/coverage-92%25-brightgreen.svg" /></a>
-  <img alt="Tests" src="https://img.shields.io/badge/tests-659%20passing-brightgreen.svg" />
+  <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://img.shields.io/badge/coverage-94%25-brightgreen.svg" /></a>
+  <img alt="Tests" src="https://img.shields.io/badge/tests-666%20passing-brightgreen.svg" />
   <img alt="Python" src="https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12%20|%203.13-blue.svg" />
   <img alt="JAX" src="https://img.shields.io/badge/JAX-%E2%89%A5%200.4.20-orange.svg" />
   <a href="https://github.com/rlogger/bayes-hdc/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
@@ -58,10 +58,14 @@ encoder  = RandomEncoder.create(num_features=F, num_values=V, dimensions=10_000,
                                 vsa_model=MAP.create(dimensions=10_000))
 detector = fit_anomaly_pipeline(encoder, normal_train, calibration, alpha=0.05)
 
-flags  = detector.predict_batch(test, alpha=0.05)   # per-point: FP rate <= alpha
-pvals  = detector.pvalue_batch(test)                # split-conformal p-values
-fdr    = detector.predict_fdr(test, q=0.1)          # batch: false-discovery rate <= q
+test_hv = encoder.encode_batch(test)                   # encode once, query many ways
+flags   = detector.predict_batch(test_hv, alpha=0.05)  # per-point: FP rate <= alpha
+pvals   = detector.pvalue_batch(test_hv)               # split-conformal p-values
+fdr     = detector.predict_fdr(test_hv, q=0.1)         # batch: false-discovery rate <= q
 ```
+
+(Prefer raw feature matrices end-to-end? `bayes_hdc.sklearn.HDAnomalyDetector`
+below encodes internally.)
 
 `predict_batch` controls the per-point false-positive rate; `predict_fdr` runs
 Benjamini-Hochberg over the conformal p-values to control the *false-discovery
@@ -297,7 +301,7 @@ python examples/<name>.py
 
 ## Project status
 
-**Alpha — `0.4.0a0`.** API may shift before `1.0`.
+**Alpha — `0.5.0a0`.** API may shift before `1.0`.
 
 | | |
 |---|---|
@@ -345,13 +349,13 @@ Two narrower JAX-backed packages also exist (`hyper-jax` covers MAP only; `hrr` 
 If `bayes-hdc` is useful in your research, please cite both the software and the accompanying short paper:
 
 ```bibtex
-@software{singh2026bayeshdc,
+@software{bayeshdc2026,
   author  = {R.S.},
   title   = {bayes-hdc: Probabilistic Vector Symbolic Architectures and
              Calibrated Hyperdimensional Computing in {JAX}},
   year    = {2026},
   url     = {https://github.com/rlogger/bayes-hdc},
-  version = {0.4.0a0}
+  version = {0.5.0a0}
 }
 ```
 
