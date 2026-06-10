@@ -1,5 +1,5 @@
 {
-  "title": "bayes-hdc: Probabilistic Vector Symbolic Architectures and Calibrated Hyperdimensional Computing in JAX",
+  "title": "bayes-hdc: Calibrated, Differentiable Hyperdimensional Computing in JAX",
   "description": "A JAX-native library for hyperdimensional computing (HDC) and vector symbolic architectures (VSA) with a built-in probabilistic layer (PVSA): Gaussian and Dirichlet hypervector types with closed-form moment propagation under bind, bundle, permute and cleanup; reparameterisation gradients for variational codebook learning; first-class group actions with property-based equivariance verifiers; temperature-scaling calibration; and split-conformal prediction sets with finite-sample coverage guarantees. Eight classical VSA models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB) under a uniform API.",
   "license": "MIT",
   "upload_type": "software",

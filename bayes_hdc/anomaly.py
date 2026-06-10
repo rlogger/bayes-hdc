@@ -137,8 +137,10 @@ class HDCAnomalyScorer:
         >>> key = jax.random.PRNGKey(0)
         >>> normal = jax.random.normal(key, (50, 1024))
         >>> scorer = HDCAnomalyScorer.create(dimensions=1024).fit(normal)
-        >>> float(scorer.score(normal[0]))   # near zero — already in-distribution
-        0.97...
+        >>> in_dist = float(scorer.score(normal[0]))
+        >>> far_away = float(scorer.score(normal[0] + 100.0))
+        >>> in_dist < far_away   # in-distribution scores lower than an outlier
+        True
     """
 
     centroid: jax.Array  # (dimensions,)
@@ -364,8 +366,10 @@ class ConformalAnomalyDetector:
         >>> normal = jax.random.normal(key, (200, 1024))
         >>> scorer = HDCAnomalyScorer.create(dimensions=1024).fit(normal[:100])
         >>> detector = ConformalAnomalyDetector.create(scorer).fit(normal[100:])
-        >>> float(detector.pvalue(normal[0]))  # in-distribution -> p-value ~ uniform
-        0.4...
+        >>> p = float(detector.pvalue(normal[0]))    # in-distribution -> not extreme
+        >>> p_out = float(detector.pvalue(-normal[0]))  # anti-correlated -> anomalous
+        >>> p > p_out and p_out < 0.05
+        True
     """
 
     scorer: HDCAnomalyScorer
