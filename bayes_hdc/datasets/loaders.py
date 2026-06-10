@@ -5,9 +5,10 @@
 
 Sklearn-backed loaders (``load_iris``, ``load_wine``, ...) ship with
 the library and work offline. OpenML-backed loaders (``load_isolet``,
-``load_ucihar``, ``load_mnist``, ``load_fashion_mnist``) download on
-first use and cache in the user's scikit-learn home; downstream calls
-reuse the cache.
+``load_mnist``, ``load_fashion_mnist``) download on first use and cache
+in the user's scikit-learn home. ``load_ucihar`` and ``load_emg`` fetch
+the official UCI archive and the original authors' ``dataset.mat``
+respectively, cached under ``~/.cache/bayes_hdc``.
 """
 
 from __future__ import annotations
@@ -283,6 +284,11 @@ def load_isolet(
     )
 
 
+_UCIHAR_URL = (
+    "https://archive.ics.uci.edu/static/public/240/human+activity+recognition+using+smartphones.zip"
+)
+
+
 def load_ucihar(
     test_size: float = DEFAULT_TEST_SIZE,
     random_state: int = DEFAULT_SEED,
@@ -290,17 +296,59 @@ def load_ucihar(
     """UCI Human Activity Recognition — 6-class, 561 features, 10 299 samples.
 
     Anguita, Ghio, Oneto, Parra, Reyes-Ortiz (2013). Standard HDC
-    benchmark. OpenML hosts it under the name ``har`` (dataset id 1478).
+    benchmark. Downloads the official UCI archive on first use and keeps
+    the **canonical subject-disjoint split** (7 352 train / 2 947 test —
+    no subject appears in both), so accuracies are comparable to the
+    literature. ``test_size`` and ``random_state`` are ignored: the
+    official partition is always used.
     """
-    X, y = _fetch_openml_cached("har", version=1)
-    return _build(
-        "ucihar",
-        "UCI Human Activity Recognition — 6-class, 561 features, 10 299 samples "
-        "(Anguita et al. 2013).",
-        np.asarray(X),
-        np.asarray(y),
-        test_size,
-        random_state,
+    import io
+    import urllib.request
+    import zipfile
+
+    del test_size, random_state  # official subject-disjoint split is fixed
+    cached = _cache_dir() / "ucihar_official.npz"
+    if not cached.exists():
+        outer_path = _cache_dir() / "ucihar.zip"
+        if not outer_path.exists():
+            urllib.request.urlretrieve(_UCIHAR_URL, outer_path)  # noqa: S310 — fixed https URL
+        with zipfile.ZipFile(outer_path) as outer:
+            inner_bytes = outer.read("UCI HAR Dataset.zip")
+        with zipfile.ZipFile(io.BytesIO(inner_bytes)) as z:
+
+            def read_txt(name: str) -> np.ndarray:
+                with z.open(f"UCI HAR Dataset/{name}") as fh:
+                    return np.loadtxt(fh)
+
+            np.savez_compressed(
+                cached,
+                X_train=read_txt("train/X_train.txt").astype(np.float32),
+                y_train=read_txt("train/y_train.txt").astype(np.int32),
+                X_test=read_txt("test/X_test.txt").astype(np.float32),
+                y_test=read_txt("test/y_test.txt").astype(np.int32),
+            )
+    arr = np.load(cached)
+    X_tr, X_te = arr["X_train"], arr["X_test"]
+    n_tr = X_tr.shape[0]
+    y_all = _normalise_labels(np.concatenate([arr["y_train"], arr["y_test"]]))
+    y_tr, y_te = y_all[:n_tr], y_all[n_tr:]
+    X = np.vstack([X_tr, X_te])
+    y = y_all
+    return HDCDataset(
+        name="ucihar",
+        X=X,
+        y=y,
+        X_train=X_tr,
+        y_train=y_tr,
+        X_test=X_te,
+        y_test=y_te,
+        n_classes=int(y.max() + 1),
+        n_features=int(X.shape[1]),
+        description=(
+            "UCI Human Activity Recognition — 6-class, 561 features; official "
+            "subject-disjoint 7 352/2 947 split (Anguita et al. 2013)."
+        ),
+        classes=("walking", "walking_up", "walking_down", "sitting", "standing", "laying"),
     )
 
 
