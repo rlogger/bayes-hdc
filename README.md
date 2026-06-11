@@ -150,9 +150,9 @@ Pure Python on top of `jax` + `numpy`; no compiled extensions.
 ## Contributing
 
 [Good first issues](https://github.com/rlogger/bayes-hdc/labels/good%20first%20issue)
-are scoped and mentored. Setup and style: [`CONTRIBUTING.md`](CONTRIBUTING.md);
-paths to maintainership: [`COMMUNITY.md`](COMMUNITY.md). Questions and
-show-and-tell go in [Discussions](https://github.com/rlogger/bayes-hdc/discussions).
+are scoped and mentored; setup and style live in
+[`CONTRIBUTING.md`](CONTRIBUTING.md). Questions and show-and-tell go in
+[Discussions](https://github.com/rlogger/bayes-hdc/discussions).
 If the library is useful to you, consider starring the repo — it genuinely
 helps others find it.
 

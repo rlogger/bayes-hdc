@@ -66,14 +66,7 @@ Bayes-HDC follows functional programming principles:
 5. If adding a new primitive, confirm it is `jit`- and `vmap`-compatible and returns a `jax.Array`.
 6. Open a PR referencing any related issues. The PR template is pre-filled.
 
-CI enforces the same checks across Ubuntu, macOS, and Windows on Python 3.9–3.13.
-
-## Review expectations
-
-- A maintainer will respond within 7 days.
-- Tests must pass on all CI jobs before merge.
-- PRs that add a public API require a docstring, a unit test, and a `CHANGELOG.md` entry.
-- PRs that change a public API require a deprecation path unless the release is a pre-1.0 breaking change, in which case call it out explicitly in the PR description.
+CI enforces the same checks on Ubuntu and macOS across Python 3.9–3.13.
 
 ## Release process
 
@@ -85,12 +78,6 @@ Releases follow [Semantic Versioning](https://semver.org).
 4. Tag: `git tag -s vX.Y.Z -m "Release vX.Y.Z"`.
 5. Push: `git push origin main --tags`. The `publish.yml` workflow builds the wheel and uploads to TestPyPI, then PyPI.
 6. Create a GitHub release referencing the changelog.
-
-## Governance
-
-The project is currently maintained by a single maintainer (see `CITATION.cff`).
-Active contributors who land three substantive merged pull requests
-will be invited to become maintainers with commit access.
 
 ## Security
 
@@ -108,5 +95,5 @@ Each new source file must carry the SPDX header:
 
 ```python
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 R.S.
+# Copyright (c) 2026 bayes-hdc contributors
 ```
