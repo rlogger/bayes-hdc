@@ -19,9 +19,9 @@ from __future__ import annotations
 # =====================================================================
 # 1. Install
 # ---------------------------------------------------------------------
-# Until the PyPI release lands (imminent), install from GitHub:
+# Bayes-HDC is on PyPI:
 #
-#     pip install git+https://github.com/rlogger/bayes-hdc
+#     pip install bayes-hdc
 #
 # CPU JAX is pulled in as a default. For GPU/TPU follow the JAX install
 # matrix at https://jax.readthedocs.io/en/latest/installation.html and

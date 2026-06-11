@@ -8,6 +8,7 @@
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml/badge.svg?branch=main" /></a>
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml/badge.svg?branch=main" /></a>
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml/badge.svg?branch=main" /></a>
+  <a href="https://pypi.org/project/bayes-hdc/"><img alt="PyPI" src="https://img.shields.io/pypi/v/bayes-hdc" /></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.9–3.13-blue.svg" />
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
 </p>
@@ -23,7 +24,7 @@
 Hyperdimensional computing (HDC, also known as vector symbolic architectures) represents data as ~10,000-dimensional vectors combined with cheap elementwise algebra: fast, noise-robust, trivially parallel, and a natural fit for edge hardware. Its weak spot is that predictions come out as raw similarity scores with no notion of confidence. **bayes-hdc** is the first general-purpose library to fix that: hypervectors that carry distributions, calibrated probabilities, and conformal prediction with finite-sample coverage guarantees. It is JAX end to end — every type is a pytree, so `jit`, `vmap`, `grad`, and `pmap` compose with everything.
 
 ```bash
-pip install git+https://github.com/rlogger/bayes-hdc   # not yet on PyPI
+pip install bayes-hdc
 ```
 
 ## Anomaly detection with a guaranteed false-positive rate
