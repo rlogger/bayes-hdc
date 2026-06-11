@@ -1,16 +1,18 @@
 cff-version: 1.2.0
-title: "Bayes-HDC: Probabilistic Vector Symbolic Architectures for Hyperdimensional Computing"
+title: "bayes-hdc: Calibrated, Differentiable Hyperdimensional Computing in JAX"
 message: "If you use this software, please cite it as below."
 type: software
 authors:
-  - family-names: S.
-    given-names: R.
-    email: rlogger@users.noreply.github.com
+  - family-names: Singh
+    given-names: Rajdeep
+    orcid: "https://orcid.org/0009-0006-2971-0219"
+    affiliation: "University of Southern California"
+    email: rajdeeps@usc.edu
 repository-code: "https://github.com/rlogger/bayes-hdc"
 url: "https://github.com/rlogger/bayes-hdc"
 license: MIT
-version: 0.5.0a0
-date-released: "2026-06-07"
+version: 0.5.0a1
+date-released: "2026-06-11"
 keywords:
   - Bayesian hyperdimensional computing
   - probabilistic vector symbolic architectures

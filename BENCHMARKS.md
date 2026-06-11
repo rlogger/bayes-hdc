@@ -223,7 +223,7 @@ story.
 
 | Check | Value |
 |---|---|
-| Unit tests passing | 625 (+ 1 xfailed for GraphEncoder.encode_edges jit limitation) |
+| Unit tests passing | 666 (+ 2 skipped network-gated, 1 xfailed for GraphEncoder.encode_edges jit limitation) |
 | Line coverage | 93 % on 23 modules |
 | Lint (`ruff check`) | clean |
 | Format (`ruff format --check`) | clean |
@@ -234,7 +234,7 @@ story.
 ## Figures
 
 The commit includes paper-ready figures under
-[`benchmarks/figures/`](benchmarks/figures/) — 10 PDFs + 10 PNGs at 150 DPI.
+[`benchmarks/figures/`](benchmarks/figures/) — 10 PNGs at 150 DPI (PDF versions regenerable via `make figures`).
 
 ### Accuracy bar chart
 

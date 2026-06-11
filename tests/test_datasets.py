@@ -13,6 +13,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+pytest.importorskip("sklearn")
+
 from bayes_hdc.datasets import (
     ALL_DATASETS,
     HDCDataset,

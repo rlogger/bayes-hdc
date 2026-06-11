@@ -8,6 +8,9 @@
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml/badge.svg?branch=main" /></a>
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml/badge.svg?branch=main" /></a>
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml/badge.svg?branch=main" /></a>
+  <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://codecov.io/gh/rlogger/bayes-hdc/graph/badge.svg" /></a>
+  <a href="https://pypi.org/project/bayes-hdc/"><img alt="PyPI" src="https://img.shields.io/pypi/v/bayes-hdc" /></a>
+  <a href="https://doi.org/10.5281/zenodo.20635099"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.20635099.svg" /></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.9–3.13-blue.svg" />
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
 </p>
@@ -20,10 +23,10 @@
   <a href="https://github.com/rlogger/bayes-hdc/discussions">Discussions</a>
 </p>
 
-**bayes-hdc** is a JAX library for hyperdimensional computing (HDC/VSA) whose predictions come with statistical guarantees. Existing HDC libraries — [TorchHD](https://github.com/hyperdimensional-computing/torchhd), [hdlib](https://github.com/cumbof/hdlib), [HoloVec](https://github.com/Twistient/HoloVec) — ship the deterministic substrate; bayes-hdc is the first general-purpose library to add a probabilistic layer on top of it: hypervectors that carry distributions, calibrated probabilities, and conformal prediction with finite-sample coverage. Every type is a JAX pytree, so `jit`, `vmap`, `grad`, and `pmap` compose with everything.
+Hyperdimensional computing (HDC, also known as vector symbolic architectures) represents data as ~10,000-dimensional vectors combined with cheap elementwise algebra: fast, noise-robust, trivially parallel, and a natural fit for edge hardware. Its weak spot is that predictions come out as raw similarity scores with no notion of confidence. **bayes-hdc** is the first general-purpose library to fix that: hypervectors that carry distributions, calibrated probabilities, and conformal prediction with finite-sample coverage guarantees. It is JAX end to end — every type is a pytree, so `jit`, `vmap`, `grad`, and `pmap` compose with everything.
 
 ```bash
-pip install git+https://github.com/rlogger/bayes-hdc   # PyPI release imminent
+pip install bayes-hdc
 ```
 
 ## Anomaly detection with a guaranteed false-positive rate
@@ -36,23 +39,29 @@ distribution-free, not tuned by hand. No other HDC library ships this.
   <img src="assets/anomaly_demo.svg" alt="Conformal anomaly detection: empirical false-positive rate tracks the target alpha" width="640" />
 </p>
 
+Copy-paste runnable:
+
 ```python
-from bayes_hdc import RandomEncoder, MAP, fit_anomaly_pipeline
+import numpy as np
+from bayes_hdc.sklearn import HDAnomalyDetector
 
-encoder  = RandomEncoder.create(num_features=F, num_values=V, dimensions=10_000,
-                                vsa_model=MAP.create(dimensions=10_000))
-detector = fit_anomaly_pipeline(encoder, normal_train, calibration, alpha=0.05)
+rng = np.random.default_rng(0)
+X_normal = rng.normal(size=(500, 16)).astype("float32")        # fit on normal data only
+X_test   = np.vstack([rng.normal(size=(50, 16)),
+                      rng.normal(loc=6.0, size=(50, 16))]).astype("float32")
 
-test_hv = encoder.encode_batch(test)
-flags   = detector.predict_batch(test_hv, alpha=0.05)  # per-point: FP rate <= alpha
-pvals   = detector.pvalue_batch(test_hv)               # split-conformal p-values
-fdr     = detector.predict_fdr(test_hv, q=0.1)         # batch: false-discovery rate <= q
+det = HDAnomalyDetector(alpha=0.05).fit(X_normal)
+labels = det.predict(X_test)        # +1 inlier / -1 outlier; marginal FP rate <= alpha
+pvals  = det.score_samples(X_test)  # split-conformal p-values
 ```
 
-On one-class versions of digits, breast-cancer, and wine it beats
-IsolationForest, LOF, and OneClassSVM on AUROC on two of three datasets
-while holding the false-positive rate at the target — a knob none of those
-baselines have. Numbers and the harness: [BENCHMARKS.md](BENCHMARKS.md).
+The JAX-native pipeline underneath (custom encoders, `fit_anomaly_pipeline`,
+Benjamini-Hochberg FDR control across a batch of queries) is walked through
+in [`tutorials/02_anomaly_detection.py`](tutorials/02_anomaly_detection.py).
+On one-class versions of three small standard datasets it has the best AUROC
+on two of three against IsolationForest, LOF, and OneClassSVM, while holding
+the false-positive rate at the target — a knob none of those baselines have.
+Numbers and harness: [BENCHMARKS.md](BENCHMARKS.md).
 
 ## Calibrated probabilities and prediction sets
 
@@ -67,17 +76,16 @@ probs = TemperatureCalibrator.create().fit(logits_cal, y_cal).calibrate(logits_t
 
 conformal = ConformalClassifier.create(alpha=0.1).fit(probs_cal, y_cal)
 sets      = conformal.predict_set(probs)        # (n, k) bool mask
-coverage  = conformal.coverage(probs, y_test)   # >= 0.9, finite-sample guarantee
+coverage  = conformal.coverage(probs, y_test)   # >= 1-alpha in expectation (marginal)
 ```
 
-Prefer plain feature matrices? The scikit-learn wrappers encode internally
-and slot into pipelines, `cross_val_score`, and `GridSearchCV` unchanged:
+The scikit-learn wrapper covers classification too — it encodes internally
+and slots into pipelines, `cross_val_score`, and `GridSearchCV` unchanged:
 
 ```python
-from bayes_hdc.sklearn import HDClassifier, HDAnomalyDetector
+from bayes_hdc.sklearn import HDClassifier
 
 HDClassifier(encoder="kernel").fit(X_train, y_train).predict_proba(X_test)
-HDAnomalyDetector(alpha=0.05).fit(X_normal).predict(X_test)   # +1 / -1
 ```
 
 ## Benchmarks
@@ -86,7 +94,7 @@ Standard HDC datasets, 5 seeds, both encoders tuned with the same bandwidth
 search on identical splits (UCI-HAR uses the official subject-disjoint
 split). Full protocol and the anomaly table: [BENCHMARKS.md](BENCHMARKS.md).
 
-| Dataset | bayes-hdc | TorchHD (tuned) | ECE raw → calibrated | Coverage @ α=0.1 |
+| Dataset | bayes-hdc accuracy | TorchHD accuracy (tuned) | bayes-hdc ECE, raw → calibrated | Coverage @ α=0.1 |
 |---|---|---|---|---|
 | ISOLET | **0.895 ± 0.004** | 0.882 ± 0.006 | 0.845 → **0.022** | 0.901 |
 | UCI-HAR | 0.849 ± 0.006 | **0.871 ± 0.005** | 0.633 → **0.031** | 0.904 |
@@ -108,8 +116,8 @@ the probabilistic and uncertainty-quantification layer.
 | [TorchHD](https://github.com/hyperdimensional-computing/torchhd) | PyTorch | 8 | — | partial |
 | [HoloVec](https://github.com/Twistient/HoloVec) | NumPy / PyTorch / JAX | 8 | — | partial |
 | [hdlib](https://github.com/cumbof/hdlib) | NumPy | generic | — | — |
-| [vsapy](https://github.com/vsapy/vsapy) | NumPy | 5 | — | — |
-| [NengoSPA](https://github.com/nengo/nengo-spa) | Nengo (spiking) | 2 | — | — |
+| [vsapy](https://github.com/vsapy/vsapy) | NumPy | 6 | — | — |
+| [NengoSPA](https://github.com/nengo/nengo-spa) | Nengo (spiking) | 3 | — | — |
 | **bayes-hdc** | **JAX** | **8** | **Gaussian/Dirichlet HVs, conformal classifier + regressor + anomaly detector** | **end-to-end** |
 
 Design rationale and per-primitive paper attributions:
@@ -129,9 +137,9 @@ in [`tutorials/`](tutorials/README.md).
 
 ## Status
 
-Alpha (`0.5.0a0`): the API may shift before 1.0. 666 tests at 94% line
+Alpha (`0.5.0a1`): the API may shift before 1.0. 666 tests at 93% line
 coverage run on Ubuntu and macOS across Python 3.9–3.13 on every push;
-property-based tests verify the VSA algebraic laws, gradient correctness
+tests verify the VSA algebraic laws on randomized inputs, gradient correctness
 against finite differences, and the conformal coverage and FDR guarantees
 directly. Sharp edges: GPU/TPU paths are tested in CI on CPU only, the
 variational-training API is the most likely to change, and `bayes_hdc.sklearn`
@@ -142,9 +150,9 @@ Pure Python on top of `jax` + `numpy`; no compiled extensions.
 ## Contributing
 
 [Good first issues](https://github.com/rlogger/bayes-hdc/labels/good%20first%20issue)
-are scoped and mentored. Setup and style: [`CONTRIBUTING.md`](CONTRIBUTING.md);
-paths to maintainership: [`COMMUNITY.md`](COMMUNITY.md). Questions and
-show-and-tell go in [Discussions](https://github.com/rlogger/bayes-hdc/discussions).
+are scoped and mentored; setup and style live in
+[`CONTRIBUTING.md`](CONTRIBUTING.md). Questions and show-and-tell go in
+[Discussions](https://github.com/rlogger/bayes-hdc/discussions).
 If the library is useful to you, consider starring the repo — it genuinely
 helps others find it.
 
@@ -152,10 +160,10 @@ helps others find it.
 
 ```bibtex
 @software{bayeshdc2026,
-  author  = {R.S.},
+  author  = {Singh, Rajdeep},
   title   = {bayes-hdc: Calibrated, Differentiable Hyperdimensional Computing in JAX},
   url     = {https://github.com/rlogger/bayes-hdc},
-  version = {0.5.0a0},
+  version = {0.5.0a1},
   year    = {2026}
 }
 ```

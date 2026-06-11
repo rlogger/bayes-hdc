@@ -18,7 +18,7 @@
 
   <!-- target alpha = 0.05 dashed line (y = 250 - 0.05/0.20*160 = 250 - 40 = 210) -->
   <line x1="90" y1="210" x2="580" y2="210" stroke="#9aa1ab" stroke-width="1.5" stroke-dasharray="5 4"/>
-  <text x="584" y="214" font-size="11" fill="#69707d">target α = 0.05</text>
+  <text x="576" y="204" font-size="11" fill="#69707d" text-anchor="end">target α = 0.05</text>
 
   <!-- naive threshold: drifts away from target as data changes (desaturated red) -->
   <polyline fill="none" stroke="#c0564b" stroke-width="2.5"

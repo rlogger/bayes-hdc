@@ -42,7 +42,7 @@ jobs:
       - name: Install package from build
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,datasets,examples]"
 
       - name: Run tests
         run: pytest tests/ -v -k "not benchmark"
@@ -62,6 +62,7 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
 
   publish-pypi:
     runs-on: ubuntu-latest
@@ -76,3 +77,5 @@ jobs:
           path: dist/
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true

@@ -132,16 +132,14 @@ class HDCAnomalyScorer:
             select the default distance metric (static).
 
     Example:
-        >>> import jax.numpy as jnp
+        >>> import jax, jax.numpy as jnp
         >>> from bayes_hdc.anomaly import HDCAnomalyScorer
-        >>> normal = jnp.array(
-        ...     [[1.0, 0.0], [0.9, 0.1], [1.1, -0.1]],
-        ...     dtype=jnp.float32,
-        ... )
-        >>> scorer = HDCAnomalyScorer.create(dimensions=2).fit(normal)
-        >>> float(scorer.score(normal[0])) >= 0.0
-        True
-        >>> float(scorer.score(jnp.array([-1.0, 0.0]))) > float(scorer.score(normal[0]))
+        >>> key = jax.random.PRNGKey(0)
+        >>> normal = jax.random.normal(key, (50, 1024))
+        >>> scorer = HDCAnomalyScorer.create(dimensions=1024).fit(normal)
+        >>> in_dist = float(scorer.score(normal[0]))
+        >>> far_away = float(scorer.score(normal[0] + 100.0))
+        >>> in_dist < far_away   # in-distribution scores lower than an outlier
         True
     """
 
@@ -362,17 +360,15 @@ class ConformalAnomalyDetector:
             :math:`(n+1)` correction).
 
     Example:
-        >>> import jax.numpy as jnp
+        >>> import jax, jax.numpy as jnp
         >>> from bayes_hdc.anomaly import HDCAnomalyScorer, ConformalAnomalyDetector
-        >>> normal = jnp.array(
-        ...     [[1.0, 0.0], [0.9, 0.1], [1.1, -0.1], [0.95, 0.05]],
-        ...     dtype=jnp.float32,
-        ... )
-        >>> scorer = HDCAnomalyScorer.create(dimensions=2).fit(normal[:2])
-        >>> detector = ConformalAnomalyDetector.create(scorer).fit(normal[2:])
-        >>> float(detector.pvalue(normal[0])) > 0.0
-        True
-        >>> bool(detector.predict(jnp.array([-1.0, 0.0]), alpha=0.5))
+        >>> key = jax.random.PRNGKey(0)
+        >>> normal = jax.random.normal(key, (200, 1024))
+        >>> scorer = HDCAnomalyScorer.create(dimensions=1024).fit(normal[:100])
+        >>> detector = ConformalAnomalyDetector.create(scorer).fit(normal[100:])
+        >>> p = float(detector.pvalue(normal[0]))    # in-distribution -> not extreme
+        >>> p_out = float(detector.pvalue(-normal[0]))  # anti-correlated -> anomalous
+        >>> p > p_out and p_out < 0.05
         True
     """
 
