@@ -8,6 +8,7 @@
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/rlogger/bayes-hdc/actions/workflows/tests.yml/badge.svg?branch=main" /></a>
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/rlogger/bayes-hdc/actions/workflows/docs.yml/badge.svg?branch=main" /></a>
   <a href="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/rlogger/bayes-hdc/actions/workflows/codeql.yml/badge.svg?branch=main" /></a>
+  <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://codecov.io/gh/rlogger/bayes-hdc/graph/badge.svg" /></a>
   <a href="https://pypi.org/project/bayes-hdc/"><img alt="PyPI" src="https://img.shields.io/pypi/v/bayes-hdc" /></a>
   <a href="https://doi.org/10.5281/zenodo.20635099"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.20635099.svg" /></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.9–3.13-blue.svg" />
