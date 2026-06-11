@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- Doctest examples for the conformal classifier, regressor, and anomaly detector APIs.
 
 ## [0.5.0a1] - 2026-06-11
 
