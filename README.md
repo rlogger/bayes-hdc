@@ -134,7 +134,7 @@ in [`tutorials/`](tutorials/README.md).
 
 ## Status
 
-Alpha (`0.5.0a0`): the API may shift before 1.0. 666 tests at 93% line
+Alpha (`0.5.0a1`): the API may shift before 1.0. 666 tests at 93% line
 coverage run on Ubuntu and macOS across Python 3.9–3.13 on every push;
 tests verify the VSA algebraic laws on randomized inputs, gradient correctness
 against finite differences, and the conformal coverage and FDR guarantees
@@ -157,10 +157,10 @@ helps others find it.
 
 ```bibtex
 @software{bayeshdc2026,
-  author  = {R.S.},
+  author  = {Singh, Rajdeep},
   title   = {bayes-hdc: Calibrated, Differentiable Hyperdimensional Computing in JAX},
   url     = {https://github.com/rlogger/bayes-hdc},
-  version = {0.5.0a0},
+  version = {0.5.0a1},
   year    = {2026}
 }
 ```

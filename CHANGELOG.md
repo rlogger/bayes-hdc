@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [0.5.0a1] - 2026-06-11
+
+### Fixed
+
+- Citation metadata now carries the author's real identity (Rajdeep Singh,
+  ORCID 0009-0006-2971-0219, USC) in `.zenodo.json`, `CITATION.cff`, and the
+  README BibTeX block; the previous placeholder ORCID failed Zenodo's
+  archive validation. No code changes.
+
 ## [0.5.0a0] - 2026-06-10
 
 First PyPI release. Everything below was developed since the
