@@ -42,7 +42,7 @@ jobs:
       - name: Install package from build
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,datasets,examples]"
 
       - name: Run tests
         run: pytest tests/ -v -k "not benchmark"
