@@ -201,6 +201,17 @@ class ConformalClassifier:
     Attributes:
         threshold: Scalar quantile :math:`\hat{q}` learned from calibration.
         alpha: Target miscoverage rate :math:`\alpha` (static).
+
+    Example:
+        >>> import jax.numpy as jnp
+        >>> from bayes_hdc.uncertainty import ConformalClassifier
+        >>> cal_probs = jnp.array(
+        ...     [[0.8, 0.2], [0.3, 0.7], [0.6, 0.4], [0.2, 0.8]]
+        ... )
+        >>> cal_labels = jnp.array([0, 1, 0, 1])
+        >>> classifier = ConformalClassifier.create(alpha=0.25).fit(cal_probs, cal_labels)
+        >>> classifier.predict_set(jnp.array([[0.7, 0.3]])).tolist()
+        [[True, False]]
     """
 
     threshold: jax.Array
@@ -333,6 +344,18 @@ class ConformalRegressor:
         output_dim: Number of regression output dimensions.
         n_calibration: Number of calibration points used to fit the
             quantile.
+
+    Example:
+        >>> import jax.numpy as jnp
+        >>> from bayes_hdc.uncertainty import ConformalRegressor
+        >>> preds = jnp.array([0.0, 1.0, 2.0, 3.0])
+        >>> targets = jnp.array([0.1, 0.8, 2.2, 2.7])
+        >>> regressor = ConformalRegressor.create(alpha=0.25).fit(preds, targets)
+        >>> regressor.n_calibration
+        4
+        >>> lower, upper = regressor.predict_interval(jnp.array([2.5]))
+        >>> bool(lower[0] < 2.5 < upper[0])
+        True
     """
 
     quantile: jax.Array  # (output_dim,)
