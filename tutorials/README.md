@@ -32,6 +32,7 @@ Available now:
   one-shot anomaly detection from first principles: conformal
   p-values, the coverage guarantee shown empirically, naive-threshold
   comparison, multi-VSA, streaming, and a tabular fraud-style demo.
+| [`03_sequences.py`](03_sequences.py) | Sequence and HierarchicalSequence encoding; flat-vs-hierarchical capacity comparison (why hierarchical stays near-perfect at T=800 where flat collapses to ~31%) |
 
 In progress (numbers reserve reading order; files land as they are written):
 
