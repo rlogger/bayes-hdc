@@ -22,6 +22,13 @@ Available now
     (MAP / BSC / HRR), a streaming twist, and a tabular fraud-style
     demo. This is the one to read after the quickstart.
 
+``03_sequences.py``
+    Sequence encoding from first principles. Builds an item codebook,
+    encodes and retrieves with the flat ``Sequence`` and the chunked
+    ``HierarchicalSequence``, then sweeps sequence length to show why
+    the hierarchical variant stays near-perfect at ``T = 800`` where
+    flat permute-bundle collapses to about 31 % retrieval.
+
 In progress
 -----------
 
