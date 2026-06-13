@@ -251,7 +251,7 @@ class HDAnomalyDetector(OutlierMixin, BaseEstimator):
     def predict(self, X: Any) -> np.ndarray:
         """+1 for inliers, -1 for outliers (scikit-learn convention)."""
         pvals = self.pvalue(X)
-        return np.where(pvals < self.alpha, -1, 1).astype(int)
+        return np.where(pvals <= self.alpha, -1, 1).astype(int)
 
     def score_samples(self, X: Any) -> np.ndarray:
         """Higher = more normal (scikit-learn convention).
