@@ -5,12 +5,15 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
 pytest.importorskip("sklearn")
 
 from sklearn.datasets import make_blobs, make_classification  # noqa: E402
+from sklearn.exceptions import NotFittedError  # noqa: E402
 from sklearn.model_selection import cross_val_score  # noqa: E402
 from sklearn.pipeline import make_pipeline  # noqa: E402
 from sklearn.preprocessing import StandardScaler  # noqa: E402
@@ -172,3 +175,36 @@ def test_anomaly_get_params_roundtrip():
     assert det.get_params()["alpha"] == 0.05
     det.set_params(alpha=0.01)
     assert det.get_params()["alpha"] == 0.01
+
+
+def test_anomaly_warns_when_alpha_below_resolution_floor():
+    # n=20, calibration_fraction=0.3 -> n_cal=6 -> floor = 1/7 ~= 0.143.
+    # alpha=0.05 is below the floor, so no point can ever be flagged.
+    X_norm, _ = make_blobs(n_samples=20, n_features=4, centers=1, random_state=0)
+    rng = np.random.default_rng(0)
+    X_out = rng.normal(loc=15.0, size=(10, 4))
+    with pytest.warns(UserWarning, match="conformal resolution floor"):
+        det = HDAnomalyDetector(alpha=0.05, dimensions=2000, random_state=0).fit(X_norm)
+    # The warning's premise: even extreme outliers cannot be flagged at this alpha.
+    assert (det.predict(X_out) == -1).sum() == 0
+
+
+def test_anomaly_no_warning_when_alpha_attainable():
+    X_norm, _ = make_blobs(n_samples=300, n_features=4, centers=1, random_state=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any UserWarning would fail the test
+        HDAnomalyDetector(alpha=0.05, dimensions=2000, random_state=0).fit(X_norm)
+
+
+def test_estimators_raise_not_fitted_before_fit():
+    clf = HDClassifier(dimensions=1000)
+    det = HDAnomalyDetector(dimensions=1000)
+    X = np.zeros((3, 4), dtype=np.float32)
+    with pytest.raises(NotFittedError):
+        clf.predict(X)
+    with pytest.raises(NotFittedError):
+        clf.predict_proba(X)
+    with pytest.raises(NotFittedError):
+        det.predict(X)
+    with pytest.raises(NotFittedError):
+        det.pvalue(X)
