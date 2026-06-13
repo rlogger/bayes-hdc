@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added tutorials/03_sequences.py (2026-06-12)
+
+- `tutorials/03_sequences.py`: sequence-encoding walkthrough covering `Sequence`,    `HierarchicalSequence`, and the flat-vs-hierarchical capacity comparison.
+
 ### Added
 
 - Doctest examples for the conformal classifier, regressor, and anomaly detector APIs.
