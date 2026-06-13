@@ -481,7 +481,12 @@ class ConformalAnomalyDetector:
         """
         score = self.score(query_hv)
         n = self.n_calibration
-        ge_count = jnp.sum((self.calibration_scores >= score).astype(jnp.float32))
+        # ``calibration_scores`` is stored sorted ascending (see ``fit``), so the
+        # number of calibration scores >= ``score`` is an O(log n) binary search
+        # rather than an O(n) scan. ``side="left"`` returns the first index whose
+        # value is >= ``score``; everything from there to the end is the >= count.
+        # This is exact (identical to the masked sum) and vmaps cleanly.
+        ge_count = n - jnp.searchsorted(self.calibration_scores, score, side="left")
         return (1.0 + ge_count) / (n + 1.0)
 
     def pvalue_batch(self, queries: jax.Array) -> jax.Array:

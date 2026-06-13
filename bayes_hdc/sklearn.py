@@ -34,6 +34,7 @@ chosen ``alpha``.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import jax
@@ -42,6 +43,7 @@ import numpy as np
 
 try:
     from sklearn.base import BaseEstimator, ClassifierMixin, OutlierMixin
+    from sklearn.utils.validation import check_is_fitted
 except ImportError as exc:  # pragma: no cover - exercised only without sklearn
     raise ImportError(
         "bayes_hdc.sklearn requires scikit-learn. Install it with "
@@ -137,10 +139,12 @@ class HDClassifier(ClassifierMixin, BaseEstimator):
         return self.encoder_.encode_batch(jnp.asarray(_as_f32(X)))
 
     def predict(self, X: Any) -> np.ndarray:
+        check_is_fitted(self, "classifier_")
         idx = np.asarray(self.classifier_.predict(self._encode(X)))
         return self.classes_[idx]
 
     def predict_proba(self, X: Any) -> np.ndarray:
+        check_is_fitted(self, "classifier_")
         return np.asarray(self.classifier_.predict_proba(self._encode(X)))
 
 
@@ -216,6 +220,24 @@ class HDAnomalyDetector(OutlierMixin, BaseEstimator):
             k_neighbors=self.k_neighbors,
         ).fit(normal_hvs)
         self.detector_ = ConformalAnomalyDetector.create(scorer).fit(cal_hvs)
+
+        # Conformal p-values live on the grid {1/(n_cal+1), ..., 1}, so the
+        # smallest attainable p-value is 1/(n_cal+1). If ``alpha`` is below that
+        # floor, ``predict`` can never flag *any* point as an outlier (no matter
+        # how extreme) and the detector silently returns all-inliers. Warn loudly
+        # rather than letting users mistake "0 detections" for "0 anomalies".
+        n_cal = int(self.detector_.n_calibration)
+        floor = 1.0 / (n_cal + 1.0)
+        if self.alpha < floor:
+            warnings.warn(
+                f"alpha={self.alpha:g} is below the conformal resolution floor "
+                f"1/(n_calibration+1)={floor:g} (n_calibration={n_cal}). No point "
+                f"can be flagged as an outlier at this alpha. Increase the amount "
+                f"of fit data, raise calibration_fraction, or use a larger alpha "
+                f"(alpha >= {floor:g}).",
+                UserWarning,
+                stacklevel=2,
+            )
         return self
 
     def _encode(self, X: Any) -> jax.Array:
@@ -223,12 +245,13 @@ class HDAnomalyDetector(OutlierMixin, BaseEstimator):
 
     def pvalue(self, X: Any) -> np.ndarray:
         """Split-conformal p-values; small = anomalous."""
+        check_is_fitted(self, "detector_")
         return np.asarray(self.detector_.pvalue_batch(self._encode(X)))
 
     def predict(self, X: Any) -> np.ndarray:
         """+1 for inliers, -1 for outliers (scikit-learn convention)."""
         pvals = self.pvalue(X)
-        return np.where(pvals < self.alpha, -1, 1).astype(int)
+        return np.where(pvals <= self.alpha, -1, 1).astype(int)
 
     def score_samples(self, X: Any) -> np.ndarray:
         """Higher = more normal (scikit-learn convention).
