@@ -10,10 +10,10 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 authors = [
-    {name = "R.S.", email = "rlogger@users.noreply.github.com"},
+    {name = "Rajdeep Singh", email = "rajdeeps@usc.edu"},
 ]
 maintainers = [
-    {name = "R.S.", email = "rlogger@users.noreply.github.com"},
+    {name = "Rajdeep Singh", email = "rajdeeps@usc.edu"},
 ]
 # Keywords are searchable on PyPI and indexed by some search engines.
 # Front-load the discoverable terms; redundancy here is good.
