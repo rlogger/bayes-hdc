@@ -74,7 +74,7 @@ $$
 \end{aligned}
 $$
 
-`bind_gaussian` returns a `GaussianHV` with exactly these moments. It is not a Monte Carlo estimate. It is not a delta-method approximation. It is the analytic answer.
+`bind_gaussian` returns a `GaussianHV` with exactly these moments: the analytic calculation rather than a Monte Carlo or delta-method estimate.
 
 The sum (bundle) is trivial under independence:
 
@@ -115,7 +115,7 @@ The library is deliberately FP-shaped.
 
 - **Pure functions.** Core ops — `bind_gaussian`, `bundle_gaussian`,
   `permute_gaussian`, `cleanup_gaussian`, `inverse_gaussian`, `kl_gaussian` —
-  have no side effects, no global state, no dependency on time.
+  avoid side effects and hidden state; their outputs depend only on their inputs.
 
 - **Small, typed API.** Every public function has explicit argument types
   and a return type. `Any` is avoided. Shape contracts are stated in the
