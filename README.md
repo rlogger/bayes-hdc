@@ -112,17 +112,20 @@ libraries don't provide. Every number reproduces via `make bench-canonical`.
 
 ## In the HDC library landscape
 
-Eight VSA models (BSC, MAP, HRR, FHRR, BSBC, CGR, MCR, VTB) under one
-API; the differentiation is the probabilistic layer.
+Different tools for different jobs. TorchHD is the field's most mature
+library, with the largest dataset collection and a JMLR paper behind it: for
+deterministic HDC in PyTorch it should be your default. bayes-hdc exists for
+one job the others don't do — uncertainty quantification with finite-sample
+guarantees on the same substrate, in JAX.
 
-| Library | Backend | VSA models | Probabilistic / UQ | Differentiable |
-|---|---|---:|---|---|
-| [TorchHD](https://github.com/hyperdimensional-computing/torchhd) | PyTorch | 8 | — | partial |
-| [HoloVec](https://github.com/Twistient/HoloVec) | NumPy / PyTorch / JAX | 8 | — | partial |
-| [hdlib](https://github.com/cumbof/hdlib) | NumPy | generic | — | — |
-| [vsapy](https://github.com/vsapy/vsapy) | NumPy | 6 | — | — |
-| [NengoSPA](https://github.com/nengo/nengo-spa) | Nengo (spiking) | 3 | — | — |
-| **bayes-hdc** | **JAX** | **8** | **Gaussian/Dirichlet HVs, conformal classifier + regressor + anomaly detector** | **end-to-end** |
+| Library | Backend | VSA models | Dataset loaders | Calibration / conformal | Peer-reviewed paper |
+|---|---|---:|---:|---|---|
+| [TorchHD](https://github.com/hyperdimensional-computing/torchhd) | PyTorch | 8 | **129** | — | **JMLR 2023** |
+| [hdlib](https://github.com/cumbof/hdlib) | NumPy | generic | — | — | **JOSS 2023** |
+| [HoloVec](https://github.com/Twistient/HoloVec) | NumPy / PyTorch / JAX | 8 | — | — | — |
+| [vsapy](https://github.com/vsapy/vsapy) | NumPy | 6 | — | — | — |
+| [NengoSPA](https://github.com/nengo/nengo-spa) | Nengo (spiking) | 3 | — | — | **Frontiers 2014** (Nengo) |
+| **bayes-hdc** | JAX | 8 | 9 | **classifier + regressor + anomaly detector, finite-sample guarantees** | — (in preparation) |
 
 Design rationale and per-primitive paper attributions:
 [`DESIGN.md`](DESIGN.md) · [`docs/LITERATURE_AUDIT.md`](docs/LITERATURE_AUDIT.md).
