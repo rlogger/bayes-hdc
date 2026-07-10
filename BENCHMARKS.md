@@ -65,6 +65,13 @@ isolating the effect of the underlying classifier's logit distribution.
 
 ## Conformal coverage (Bayes-HDC only — no equivalent in TorchHD)
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/anomaly_demo_dark.svg">
+    <img src="assets/anomaly_demo.svg" alt="Conformal anomaly detection: empirical false-positive rate tracks the target alpha while a naive threshold drifts" width="640">
+  </picture>
+</p>
+
 Split-conformal APS (Romano et al. 2020) at α = 0.1 target (≥ 0.90 coverage):
 
 | Dataset | target | empirical | mean set size |

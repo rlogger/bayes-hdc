@@ -39,10 +39,7 @@ Fit on normal data only. Flag outliers at a false-positive rate that holds by
 theorem, not by threshold tuning — finite-sample, distribution-free.
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/anomaly_demo_dark.svg">
-    <img src="assets/anomaly_demo.svg" alt="Conformal anomaly detection: empirical false-positive rate tracks the target alpha" width="640">
-  </picture>
+  <img src="assets/quickstart.gif" alt="Live demo: fit on normal data, FPR 0.049 against a 0.050 target, 50/50 anomalies caught" width="700">
 </p>
 
 ```python
@@ -50,9 +47,9 @@ import numpy as np
 from bayes_hdc.sklearn import HDAnomalyDetector
 
 rng = np.random.default_rng(0)
-X_normal = rng.normal(size=(500, 16)).astype("float32")
-X_test   = np.vstack([rng.normal(size=(50, 16)),
-                      rng.normal(loc=6.0, size=(50, 16))]).astype("float32")
+X_normal = 5.0 + rng.normal(size=(500, 16))          # sensors around a setpoint
+X_test   = np.vstack([5.0 + rng.normal(size=(50, 16)),   # healthy
+                      rng.normal(size=(50, 16))])        # signal dropout
 
 det = HDAnomalyDetector(alpha=0.05).fit(X_normal)
 labels = det.predict(X_test)        # +1 inlier / -1 outlier; marginal FP rate <= alpha
