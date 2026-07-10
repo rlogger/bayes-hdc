@@ -39,7 +39,10 @@ Fit on normal data only. Flag outliers at a false-positive rate that holds by
 theorem, not by threshold tuning — finite-sample, distribution-free.
 
 <p align="center">
-  <img src="assets/quickstart.gif" alt="Live demo: fit on normal data, FPR 0.049 against a 0.050 target, 50/50 anomalies caught" width="700">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/anomaly_demo_dark.svg">
+    <img src="assets/anomaly_demo.svg" alt="Conformal anomaly detection: empirical false-positive rate tracks the target alpha" width="640">
+  </picture>
 </p>
 
 ```python
@@ -61,6 +64,12 @@ of three one-class benchmarks — while holding the false-positive rate at
 target, a knob none of those baselines have. The JAX-native pipeline
 (custom encoders, batch FDR control) is in
 [`tutorials/02_anomaly_detection.py`](tutorials/02_anomaly_detection.py).
+
+Live, on CPU:
+
+<p align="center">
+  <img src="assets/quickstart.gif" alt="Live demo: fit on normal data, FPR 0.049 against a 0.050 target, 50/50 anomalies caught" width="700">
+</p>
 
 ## Calibrated probabilities and prediction sets
 
