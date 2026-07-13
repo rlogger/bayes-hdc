@@ -8,4 +8,4 @@ sphinx-design>=0.5
 sphinx-autodoc-typehints>=2.0
 # SEO and discoverability.
 sphinx-sitemap>=2.5
-sphinxext-opengraph>=0.9
+sphinxext-opengraph>=0.13.0
