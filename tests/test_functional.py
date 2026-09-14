@@ -10,6 +10,30 @@ import pytest
 from bayes_hdc import functional as F
 
 
+@pytest.mark.parametrize("axis", [0, 1, -2, -1])
+def test_bundle_cgr_reduces_the_requested_input_axis(axis):
+    vectors = jnp.array([[0, 2, 2], [1, 2, 1]])
+    expected = jnp.array([0, 2, 1]) if axis in (0, -2) else jnp.array([2, 1])
+    actual = jax.jit(lambda x: F.bundle_cgr(x, q=3, axis=axis))(vectors)
+    assert jnp.array_equal(actual, expected)
+
+
+@pytest.mark.parametrize("axis", [-3, 2])
+def test_bundle_cgr_rejects_axis_outside_input_rank(axis):
+    with pytest.raises(ValueError, match="axis"):
+        F.bundle_cgr(jnp.zeros((2, 3), dtype=jnp.int32), q=3, axis=axis)
+
+
+@pytest.mark.parametrize("x_batch,y_batch", [((), (3,)), ((3,), ()), ((2, 1), (3,))])
+def test_bind_vtb_preserves_broadcast_batch_dimensions(x_batch, y_batch):
+    x = jnp.broadcast_to(jnp.array([1.0, 2.0, 0.0, 1.0]), x_batch + (4,))
+    y = jnp.arange(1, 1 + 4 * 3, dtype=jnp.float32).reshape(3, 4)
+    y = y[0] if not y_batch else y
+    expected = x.reshape(x_batch + (2, 2)) @ y.reshape(y_batch + (2, 2))
+    expected = expected.reshape(expected.shape[:-2] + (4,))
+    assert jnp.array_equal(F.bind_vtb(x, y), expected)
+
+
 class TestBSCOperations:
     """Test Binary Spatter Code operations."""
 

@@ -23,7 +23,7 @@ test: ## Run tests with coverage (skips network-gated tests)
 		-k "not benchmark" -m "not network"
 
 test-all: ## Run all tests including benchmarks and network
-	$(PYTHON) -m pytest tests/ -v --cov=bayes_hdc --cov-report=term-missing
+	$(PYTHON) -m pytest tests/ -v --cov=bayes_hdc --cov-report=term-missing -m ""
 
 lint: ## Run linter
 	ruff check bayes_hdc/ tests/ examples/ benchmarks/

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve finite-sample conformal coverage for small calibration sets and aggregate scalar regression coverage correctly.
+- Keep anomaly training and calibration data disjoint, track fitted zero centroids explicitly, and retain complex FHRR phases when scoring.
+- Validate scikit-learn inputs and align anomaly decision margins with threshold ties.
+- Correct negative-axis CGR bundling, broadcast VTB binding, and boolean BSC inputs in LVQ training.
+- Return attention weights consistent with multihead retrieval and restore directed graph neighbor coordinates.
+- Stabilize mixture variance for large means and make graph encoder entry points agree under JIT, including empty graphs.
+- Skip network tests by default, retain explicit opt-in, and align static type checking with the CI Python version.
+- Require JAX and JAXlib versions that support the dataclass registration APIs used during import.
+
 ### Added
 
 - Doctest examples for the conformal classifier, regressor, and anomaly detector APIs.

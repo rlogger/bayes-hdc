@@ -8,7 +8,7 @@ of data (discrete features, continuous values, images) into hypervectors.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import jax
 import jax.numpy as jnp
@@ -17,6 +17,9 @@ from bayes_hdc import functional as F
 from bayes_hdc._compat import register_dataclass
 from bayes_hdc.constants import EPS
 from bayes_hdc.vsa import VSAModel, create_vsa_model
+
+if TYPE_CHECKING:
+    from bayes_hdc.structures import HierarchicalSequence
 
 
 @register_dataclass
@@ -469,24 +472,10 @@ class GraphEncoder:
         Returns:
             Graph hypervector of shape (dimensions,)
 
-        Notes:
-            This Python-for-loop implementation is **not** ``jax.jit``-
-            compilable — it uses ``int(jnp.clip(...))`` on a loop index,
-            which forces a host sync per edge. For jit-friendly batched
-            encoding, prefer :meth:`encode_batch` (which delegates to
-            the vmapped functional path).
+        Empty edge arrays return the zero hypervector. This method and
+        :meth:`encode_batch` use the same JIT-compatible implementation.
         """
-        edge_hvs = []
-        for i in range(edges.shape[0]):
-            # Clamp node indices to valid range to avoid out-of-bounds access
-            u = int(jnp.clip(edges[i, 0], 0, self.num_nodes - 1))
-            v = int(jnp.clip(edges[i, 1], 0, self.num_nodes - 1))
-            bound = F.bind_map(
-                self.node_embeddings[u],
-                F.permute(self.node_embeddings[v], 1),
-            )
-            edge_hvs.append(bound)
-        return F.bundle_map(jnp.stack(edge_hvs), axis=0)
+        return self.encode_batch(edges)
 
     @jax.jit
     def encode_batch(self, edges: jax.Array) -> jax.Array:
@@ -500,11 +489,15 @@ class GraphEncoder:
 
         Args:
             edges: Array of shape ``(num_edges, 2)`` with node indices.
+                Out-of-bounds indices are clamped to valid range.
 
         Returns:
-            Graph hypervector of shape ``(dimensions,)``.
+            Normalized graph hypervector of shape ``(dimensions,)``,
+            or zeros for an empty graph.
         """
-        return F.graph_encode(edges, self.node_embeddings, directed=True)
+        edges = jnp.clip(edges.astype(jnp.int32), 0, self.num_nodes - 1)
+        encoded = F.graph_encode(edges, self.node_embeddings, directed=True)
+        return encoded / (jnp.linalg.norm(encoded) + EPS)
 
 
 @register_dataclass
@@ -630,7 +623,7 @@ class TokenEncoder:
         self,
         token_ids: jax.Array,
         chunk_size: int = 16,
-    ):
+    ) -> "HierarchicalSequence":
         """Two-level chunked encoding for long-horizon sequences.
 
         Returns a :class:`~bayes_hdc.structures.HierarchicalSequence`

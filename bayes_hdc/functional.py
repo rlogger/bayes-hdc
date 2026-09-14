@@ -426,6 +426,10 @@ def bundle_cgr(vectors: jax.Array, q: int, axis: int = 0) -> jax.Array:
     Returns:
         Bundled hypervector with mode value at each dimension
     """
+    # Resolve the input axis before one_hot appends its category dimension.
+    if not -vectors.ndim <= axis < vectors.ndim:
+        raise ValueError(f"axis {axis} is out of bounds for array of dimension {vectors.ndim}")
+    axis = axis % vectors.ndim
     one_hot = jax.nn.one_hot(vectors, q)
     counts = jnp.sum(one_hot, axis=axis)
     return jnp.argmax(counts, axis=-1).astype(jnp.int32)
@@ -529,7 +533,8 @@ def bind_vtb(x: jax.Array, y: jax.Array) -> jax.Array:
     n = round(d**0.5)
     X = x.reshape(*x.shape[:-1], n, n)
     Y = y.reshape(*y.shape[:-1], n, n)
-    return (X @ Y).reshape(*x.shape[:-1], d)
+    product = X @ Y
+    return product.reshape(*product.shape[:-2], d)
 
 
 @jax.jit

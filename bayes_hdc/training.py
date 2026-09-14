@@ -192,7 +192,9 @@ def train_variational_codebook(
     """
     state0 = adam_init(init_params)
 
-    def step_fn(carry, _):
+    def step_fn(
+        carry: tuple[Any, AdamState, jax.Array], _: None
+    ) -> tuple[tuple[Any, AdamState, jax.Array], jax.Array]:
         params, opt_state, key = carry
         key, subkey = jax.random.split(key)
         loss, grads = jax.value_and_grad(loss_fn)(params, subkey)

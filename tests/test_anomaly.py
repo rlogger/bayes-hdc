@@ -26,6 +26,55 @@ from bayes_hdc.embeddings import RandomEncoder
 DIMS = 256
 
 
+@pytest.mark.parametrize("k_neighbors", [1, 2])
+def test_complex_scorer_preserves_phase(k_neighbors: int) -> None:
+    normal = jnp.array([[1j, 1j], [1j, 1j]])
+    scorer = HDCAnomalyScorer.create(dimensions=2, vsa_model="fhrr", k_neighbors=k_neighbors).fit(
+        normal
+    )
+
+    assert jnp.iscomplexobj(scorer.centroid)
+    assert jnp.isclose(scorer.score(normal[0]), 0.0, atol=1e-6)
+    assert jnp.isclose(scorer.score(-normal[0]), 2.0, atol=1e-6)
+    assert jnp.isclose(jax.jit(scorer.score)(jnp.ones(2)), 1.0, atol=1e-6)
+
+
+@pytest.mark.parametrize("metric", ["hamming", "cosine"])
+@pytest.mark.parametrize("k_neighbors", [1, 2])
+def test_calibration_preserves_fitted_zero_centroid(metric: str, k_neighbors: int) -> None:
+    train = (
+        jnp.zeros((2, 2), dtype=jnp.bool_)
+        if metric == "hamming"
+        else jnp.array([[1.0, 0.0], [-1.0, 0.0]])
+    )
+    calibration = jnp.ones((3, 2), dtype=train.dtype)
+    scorer = HDCAnomalyScorer.create(
+        dimensions=2, distance_metric=metric, k_neighbors=k_neighbors
+    ).fit(train)
+    detector = ConformalAnomalyDetector.create(scorer).fit(calibration)
+
+    assert scorer.fitted
+    assert jnp.array_equal(detector.scorer.centroid, scorer.centroid)
+    assert jnp.array_equal(detector.scorer.reference, scorer.reference)
+    assert jnp.array_equal(detector.calibration_scores, jnp.sort(scorer.score_batch(calibration)))
+
+
+@pytest.mark.parametrize("prefit", [False, True])
+def test_detector_fit_composes_under_jit(prefit: bool) -> None:
+    scorer = HDCAnomalyScorer.create(dimensions=2, vsa_model="bsc", k_neighbors=2)
+    if prefit:
+        scorer = scorer.fit(jnp.zeros((2, 2), dtype=jnp.bool_))
+    calibration = jnp.array([[True, False], [True, True], [False, True]])
+    detector = ConformalAnomalyDetector.create(scorer)
+    expected = detector.fit(calibration)
+    actual = jax.jit(detector.fit)(calibration)
+
+    assert actual.scorer.fitted
+    assert jnp.array_equal(actual.scorer.centroid, expected.scorer.centroid)
+    assert jnp.array_equal(actual.scorer.reference, expected.scorer.reference)
+    assert jnp.array_equal(actual.calibration_scores, expected.calibration_scores)
+
+
 # ----------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------

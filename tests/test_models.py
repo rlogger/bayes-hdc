@@ -495,6 +495,18 @@ class TestLVQClassifier:
         pred = clf.predict(x)
         assert 0 <= pred < 3
 
+    @pytest.mark.parametrize("label", [0, 1])
+    def test_fit_accepts_native_boolean_bsc_vectors(self, label):
+        clf = LVQClassifier.create(num_classes=2, dimensions=4, vsa_model="bsc").replace(
+            prototypes=jnp.array([[True, False, False, False], [True, True, True, True]])
+        )
+        samples = jnp.array([[True, False, True, False]])
+        labels = jnp.array([label])
+        expected = clf.fit(samples.astype(jnp.float32), labels, epochs=1, lr=1.0)
+        actual = clf.fit(samples, labels, epochs=1, lr=1.0)
+        assert actual.prototypes.dtype == jnp.bool_
+        assert jnp.array_equal(actual.prototypes, expected.prototypes)
+
 
 class TestRegularizedLSClassifier:
     """Tests for RegularizedLSClassifier."""

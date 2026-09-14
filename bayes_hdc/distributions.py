@@ -494,12 +494,11 @@ class MixtureHV:
         r"""Overall mixture variance via the law of total variance.
 
         .. math::
-            \mathrm{Var}[X] = \sum_k \pi_k (\sigma_k^2 + \mu_k^2)
-                              - \left(\sum_k \pi_k \mu_k\right)^2
+            \mathrm{Var}[X] = \sum_k \pi_k
+                \left(\sigma_k^2 + (\mu_k - \mathbb{E}[X])^2\right)
         """
         overall_mean = self.mean()
-        second_moment = jnp.sum(self.weights[:, None] * (self.var + self.mu**2), axis=0)
-        return second_moment - overall_mean**2
+        return jnp.sum(self.weights[:, None] * (self.var + (self.mu - overall_mean) ** 2), axis=0)
 
     def collapse_to_gaussian(self) -> GaussianHV:
         """Moment-matched Gaussian approximation of the mixture.

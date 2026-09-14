@@ -43,7 +43,8 @@ import numpy as np
 
 try:
     from sklearn.base import BaseEstimator, ClassifierMixin, OutlierMixin
-    from sklearn.utils.validation import check_is_fitted
+    from sklearn.utils.multiclass import check_classification_targets
+    from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 except ImportError as exc:  # pragma: no cover - exercised only without sklearn
     raise ImportError(
         "bayes_hdc.sklearn requires scikit-learn. Install it with "
@@ -57,8 +58,11 @@ from bayes_hdc.models import CentroidClassifier
 __all__ = ["HDClassifier", "HDAnomalyDetector"]
 
 
-def _as_f32(X: Any) -> np.ndarray:
-    return np.asarray(X, dtype=np.float32)
+def _check_features(X: Any, n_features: int) -> np.ndarray:
+    X = check_array(X, dtype=np.float32)
+    if X.shape[1] != n_features:
+        raise ValueError(f"X has {X.shape[1]} features, but the estimator expects {n_features}")
+    return X
 
 
 class HDClassifier(ClassifierMixin, BaseEstimator):
@@ -121,8 +125,10 @@ class HDClassifier(ClassifierMixin, BaseEstimator):
         raise ValueError(f"encoder must be 'projection' or 'kernel', got {self.encoder!r}")
 
     def fit(self, X: Any, y: Any) -> HDClassifier:
-        X = _as_f32(X)
-        y = np.asarray(y)
+        X, y = check_X_y(X, y, dtype=np.float32)
+        check_classification_targets(y)
+        if self.vsa_model != "map":
+            raise ValueError(f"vsa_model must be 'map', got {self.vsa_model!r}")
         self.classes_, y_idx = np.unique(y, return_inverse=True)
         self.n_features_in_ = X.shape[1]
         key = jax.random.PRNGKey(int(self.random_state))
@@ -136,7 +142,7 @@ class HDClassifier(ClassifierMixin, BaseEstimator):
         return self
 
     def _encode(self, X: Any) -> jax.Array:
-        return self.encoder_.encode_batch(jnp.asarray(_as_f32(X)))
+        return self.encoder_.encode_batch(jnp.asarray(_check_features(X, self.n_features_in_)))
 
     def predict(self, X: Any) -> np.ndarray:
         check_is_fitted(self, "classifier_")
@@ -162,7 +168,7 @@ class HDAnomalyDetector(OutlierMixin, BaseEstimator):
     ----------
     alpha : float, default=0.05
         Target false-positive rate; ``predict`` flags a point as an
-        outlier when its conformal p-value is below ``alpha``.
+        outlier when its conformal p-value is at most ``alpha``.
     dimensions : int, default=10000
         Hypervector dimensionality.
     distance_metric : str or None, default=None
@@ -194,15 +200,21 @@ class HDAnomalyDetector(OutlierMixin, BaseEstimator):
         self.random_state = random_state
 
     def fit(self, X: Any, y: Any = None) -> HDAnomalyDetector:
-        X = _as_f32(X)
+        X = check_array(X, dtype=np.float32, ensure_min_samples=2)
+        if not 0.0 < self.alpha < 1.0:
+            raise ValueError(f"alpha must be in (0, 1), got {self.alpha}")
+        if not 0.0 < self.calibration_fraction < 1.0:
+            raise ValueError(
+                f"calibration_fraction must be in (0, 1), got {self.calibration_fraction}"
+            )
         self.n_features_in_ = X.shape[1]
         rng = np.random.default_rng(int(self.random_state))
         n = X.shape[0]
         perm = rng.permutation(n)
-        n_cal = max(2, int(round(self.calibration_fraction * n)))
+        # Both splits must remain nonempty and disjoint, even for tiny inputs
+        # or calibration fractions close to one.
+        n_cal = min(n - 1, max(2, int(round(self.calibration_fraction * n))))
         cal_idx, fit_idx = perm[:n_cal], perm[n_cal:]
-        if fit_idx.size == 0:  # tiny inputs: reuse the calibration split
-            fit_idx = cal_idx
 
         key = jax.random.PRNGKey(int(self.random_state))
         self.encoder_ = ProjectionEncoder.create(
@@ -241,7 +253,7 @@ class HDAnomalyDetector(OutlierMixin, BaseEstimator):
         return self
 
     def _encode(self, X: Any) -> jax.Array:
-        return self.encoder_.encode_batch(jnp.asarray(_as_f32(X)))
+        return self.encoder_.encode_batch(jnp.asarray(_check_features(X, self.n_features_in_)))
 
     def pvalue(self, X: Any) -> np.ndarray:
         """Split-conformal p-values; small = anomalous."""
@@ -262,5 +274,8 @@ class HDAnomalyDetector(OutlierMixin, BaseEstimator):
         return self.pvalue(X)
 
     def decision_function(self, X: Any) -> np.ndarray:
-        """Signed margin: ``pvalue - alpha`` (>= 0 inlier, < 0 outlier)."""
-        return self.pvalue(X) - self.alpha
+        """Signed margin (>= 0 inlier, < 0 outlier), including threshold ties."""
+        margin = self.pvalue(X) - self.alpha
+        # predict includes p == alpha in the outlier region. Move exact zero
+        # down by one representable step so the margin's sign agrees.
+        return np.where(margin == 0, np.nextafter(margin, -np.inf), margin)

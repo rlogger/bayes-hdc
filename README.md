@@ -106,20 +106,21 @@ libraries don't provide. Every number reproduces via `make bench-canonical`.
 
 ## In the HDC library landscape
 
-Different tools for different jobs. TorchHD is the field's most mature
-library, with the largest dataset collection and a JMLR paper behind it: for
-deterministic HDC in PyTorch it should be your default. bayes-hdc exists for
-one job the others don't do — uncertainty quantification with finite-sample
-guarantees on the same substrate, in JAX.
+Choose a library by the task and the APIs you need. The links below point
+to the relevant project documentation.
 
-| Library | Backend | VSA models | Dataset loaders | Calibration / conformal | Peer-reviewed paper |
-|---|---|---:|---:|---|---|
-| [TorchHD](https://github.com/hyperdimensional-computing/torchhd) | PyTorch | 8 | **129** | — | **JMLR 2023** |
-| [hdlib](https://github.com/cumbof/hdlib) | NumPy | generic | — | — | **JOSS 2023** |
-| [HoloVec](https://github.com/Twistient/HoloVec) | NumPy / PyTorch / JAX | 8 | — | — | — |
-| [vsapy](https://github.com/vsapy/vsapy) | NumPy | 6 | — | — | — |
-| [NengoSPA](https://github.com/nengo/nengo-spa) | Nengo (spiking) | 3 | — | — | **Frontiers 2014** (Nengo) |
-| **bayes-hdc** | JAX | 8 | 9 | **classifier + regressor + anomaly detector, finite-sample guarantees** | — (in preparation) |
+| Library / runtime | Use it for | Concrete tools |
+|---|---|---|
+| [TorchHD](https://torchhd.readthedocs.io/en/stable/classifiers.html)<br>PyTorch | Benchmarking HDC classification pipelines | OnlineHD and AdaptHD classifiers; feature encoders; [dataset loaders](https://torchhd.readthedocs.io/en/stable/datasets.html). |
+| [hdlib](https://cumbof.github.io/hdlib/model/classification.html)<br>NumPy | Selecting features for a vector-space classifier | Forward/backward feature selection; binary and bipolar `Vector` / `Space` APIs. |
+| [HoloVec](https://github.com/Twistient/HoloVec)<br>NumPy; optional PyTorch/JAX | Comparing encoding and retrieval methods | Scalar, sequence, and spatial encoders; item stores; resonator cleanup. |
+| [vsapy](https://github.com/vsapy/vsapy)<br>NumPy | Encoding hierarchical documents or cyclic values | `CSPvec` sequences; JSON encoding; linear and circular number-line encoders. |
+| [NengoSPA](https://www.nengo.ai/nengo-spa/v1.3.0/)<br>Nengo | Simulating symbolic reasoning in spiking neural networks | Semantic pointers; associative memories; action selection and routing. |
+| **bayes-hdc**<br>JAX | Returning prediction sets, intervals, and anomaly p-values | Gaussian/Dirichlet hypervectors; temperature scaling; split-conformal calibration. |
+
+Conformal coverage and false-positive bounds require a held-out calibration
+split and exchangeable calibration/test data. Temperature scaling alone does
+not provide these guarantees.
 
 Design rationale and per-primitive paper attributions:
 [`DESIGN.md`](DESIGN.md) · [`docs/LITERATURE_AUDIT.md`](docs/LITERATURE_AUDIT.md).

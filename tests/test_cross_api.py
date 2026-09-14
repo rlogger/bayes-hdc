@@ -934,21 +934,12 @@ class TestCrossCutting:
 
 
 # =====================================================================
-# Known limitations: xfail with explanation
+# Graph encoder JIT compatibility
 # =====================================================================
 
 
-@pytest.mark.xfail(
-    reason=(
-        "GraphEncoder.encode_edges uses Python int() on traced array values inside "
-        "a Python for-loop, so it cannot be jit-compiled. The functional alternative "
-        "graph_encode uses jax.vmap and is jit-friendly. This is an API "
-        "inconsistency, not a correctness bug: the eager call works."
-    ),
-    strict=True,
-)
-def test_graph_encoder_encode_edges_is_not_jit_compilable():
-    """GraphEncoder.encode_edges should jit cleanly, but currently can't."""
+def test_graph_encoder_encode_edges_is_jit_compilable():
+    """GraphEncoder preserves its eager encoding when compiled with JIT."""
     enc = GraphEncoder.create(num_nodes=10, dimensions=D, vsa_model="map", key=KEY)
     edges = jnp.array([[0, 1], [1, 2], [2, 3]], dtype=jnp.int32)
-    jax.jit(enc.encode_edges)(edges)
+    assert jnp.allclose(jax.jit(enc.encode_edges)(edges), enc.encode_edges(edges))

@@ -130,6 +130,8 @@ class HDCAnomalyScorer:
             over. ``k_neighbors == 1`` uses the centroid alone (static).
         vsa_model_name: Name of the underlying VSA model. Used only to
             select the default distance metric (static).
+        fitted: Whether a reference set has been learned (static). A
+            fitted centroid may legitimately be the zero vector.
 
     Example:
         >>> import jax, jax.numpy as jnp
@@ -149,6 +151,7 @@ class HDCAnomalyScorer:
     distance_metric: str = field(metadata=dict(static=True), default="cosine")
     k_neighbors: int = field(metadata=dict(static=True), default=1)
     vsa_model_name: str = field(metadata=dict(static=True), default="map")
+    fitted: bool = field(metadata=dict(static=True), default=False)
 
     @staticmethod
     def create(
@@ -198,7 +201,8 @@ class HDCAnomalyScorer:
         if distance_metric == "hamming":
             centroid = jnp.zeros((dimensions,), dtype=jnp.bool_)
         else:
-            centroid = jnp.zeros((dimensions,), dtype=jnp.float32)
+            dtype = jnp.complex64 if vsa_model_name == "fhrr" else jnp.float32
+            centroid = jnp.zeros((dimensions,), dtype=dtype)
 
         reference = jnp.zeros((max(n_reference, 0), dimensions), dtype=centroid.dtype)
 
@@ -248,7 +252,7 @@ class HDCAnomalyScorer:
             summed = jnp.sum(hvs_float, axis=0)
             centroid = summed > (n / 2.0)
         else:
-            summed = jnp.sum(hvs.astype(jnp.float32), axis=0)
+            summed = jnp.sum(hvs.astype(jnp.result_type(hvs.dtype, jnp.float32)), axis=0)
             centroid = summed / (jnp.linalg.norm(summed) + EPS)
 
         if self.k_neighbors > 1:
@@ -266,6 +270,7 @@ class HDCAnomalyScorer:
             distance_metric=self.distance_metric,
             k_neighbors=self.k_neighbors,
             vsa_model_name=self.vsa_model_name,
+            fitted=True,
         )
 
     def _similarity(self, x: jax.Array, y: jax.Array) -> jax.Array:
@@ -275,11 +280,12 @@ class HDCAnomalyScorer:
             matches = jnp.logical_not(jnp.logical_xor(x.astype(jnp.bool_), y.astype(jnp.bool_)))
             return jnp.mean(matches.astype(jnp.float32), axis=-1)
         # Cosine similarity in [-1, 1].
-        x_f = x.astype(jnp.float32)
-        y_f = y.astype(jnp.float32)
+        dtype = jnp.result_type(x.dtype, y.dtype, jnp.float32)
+        x_f = x.astype(dtype)
+        y_f = y.astype(dtype)
         x_norm = x_f / (jnp.linalg.norm(x_f, axis=-1, keepdims=True) + EPS)
         y_norm = y_f / (jnp.linalg.norm(y_f, axis=-1, keepdims=True) + EPS)
-        return jnp.sum(x_norm * y_norm, axis=-1)
+        return jnp.real(jnp.sum(jnp.conj(x_norm) * y_norm, axis=-1))
 
     def score(self, query: jax.Array) -> jax.Array:
         r"""Compute the nonconformity score of a single ``query``.
@@ -413,7 +419,7 @@ class ConformalAnomalyDetector:
         on a separate "training" split, then call this :meth:`fit` on a
         held-out calibration split — that is the split-conformal
         protocol of Lei et al. (2018)). If the underlying scorer has
-        not yet been fitted (zero-norm centroid), it is auto-fitted on
+        not yet been fitted, it is auto-fitted on
         the same data as a convenience; this collapses into the
         in-sample variant and the FPR guarantee then holds only
         asymptotically.
@@ -438,14 +444,15 @@ class ConformalAnomalyDetector:
         if n == 0:
             raise ValueError("Cannot fit ConformalAnomalyDetector: normal_data_hvs is empty (n=0).")
 
-        # Auto-fit the scorer if it has not been trained yet (centroid
-        # is still all-zeros from `create`). This is a convenience for
+        # Auto-fit the scorer if it has not been trained yet. A zero
+        # centroid is valid for BSC and cancelling cosine references,
+        # so its norm cannot be used to infer fitted state. This is a
+        # convenience for
         # the in-sample case; for proper split-conformal guarantees the
         # caller should fit the scorer on a separate proper-training
         # split first.
         scorer = self.scorer
-        cent_norm = jnp.linalg.norm(scorer.centroid.astype(jnp.float32))
-        if float(cent_norm) < EPS:
+        if not scorer.fitted:
             scorer = scorer.fit(hvs)
 
         cal_scores = scorer.score_batch(hvs).astype(jnp.float32)

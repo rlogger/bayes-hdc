@@ -378,10 +378,17 @@ class LVQClassifier:
             for i in range(len(train_hvs)):
                 x, y_true = train_hvs[i], int(train_labels[i])
                 pred = int(clf.predict(x))
+                # Native BSC hypervectors are booleans, which cannot be
+                # subtracted. Compute their LVQ displacement in real space.
+                difference = (
+                    x.astype(jnp.float32) - clf.prototypes[pred].astype(jnp.float32)
+                    if self.vsa_model_name == "bsc"
+                    else x - clf.prototypes[pred]
+                )
                 if pred == y_true:
-                    delta = lr * (x - clf.prototypes[pred])
+                    delta = lr * difference
                 else:
-                    delta = -lr * (x - clf.prototypes[pred])
+                    delta = -lr * difference
                 if self.vsa_model_name != "bsc":
                     new_p = clf.prototypes[pred] + delta
                     new_p = new_p / (jnp.linalg.norm(new_p) + EPS)

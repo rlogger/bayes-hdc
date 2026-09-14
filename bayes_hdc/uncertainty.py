@@ -36,6 +36,7 @@ model — so existing pipelines get calibration without retraining.
 
 from __future__ import annotations
 
+import math
 import warnings
 from dataclasses import dataclass, field
 
@@ -44,6 +45,17 @@ import jax.numpy as jnp
 
 from bayes_hdc._compat import register_dataclass
 from bayes_hdc.constants import EPS
+
+
+def _conformal_quantile(scores: jax.Array, alpha: float) -> jax.Array:
+    """Select the finite-sample order statistic, including the infinity atom."""
+    n = scores.shape[0]
+    rank = math.ceil((n + 1) * (1.0 - alpha))
+    if rank > n:
+        # No finite calibration score can attain the requested coverage.
+        return jnp.full(scores.shape[1:], jnp.inf)
+    return jnp.sort(scores, axis=0)[rank - 1]
+
 
 # ----------------------------------------------------------------------
 # Temperature scaling
@@ -220,6 +232,8 @@ class ConformalClassifier:
     @staticmethod
     def create(alpha: float = 0.1) -> ConformalClassifier:
         """Build an untrained wrapper. Call :meth:`fit` on a calibration set."""
+        if not (0.0 < alpha < 1.0):
+            raise ValueError(f"alpha must be in (0, 1), got {alpha}")
         return ConformalClassifier(threshold=jnp.asarray(1.0), alpha=float(alpha))
 
     def fit(
@@ -233,10 +247,22 @@ class ConformalClassifier:
             calibration_probs: Class probabilities of shape ``(n, k)``.
             calibration_labels: Integer labels of shape ``(n,)``.
 
+        The threshold is the ``ceil((n + 1) * (1 - alpha))``-th
+        smallest calibration score. If that rank exceeds ``n``, the
+        threshold is infinite and prediction sets include every class.
+
         Returns:
             A new :class:`ConformalClassifier` with the fitted threshold.
         """
+        calibration_probs = jnp.asarray(calibration_probs)
+        calibration_labels = jnp.asarray(calibration_labels)
+        if calibration_probs.ndim != 2 or calibration_probs.shape[1] == 0:
+            raise ValueError("calibration_probs must have shape (n, k) with k >= 1")
         n = calibration_probs.shape[0]
+        if n == 0:
+            raise ValueError("calibration_probs must contain at least one calibration point")
+        if calibration_labels.shape != (n,):
+            raise ValueError(f"calibration_labels must have shape ({n},)")
 
         # APS score per calibration sample.
         sort_idx = jnp.argsort(-calibration_probs, axis=-1)
@@ -249,9 +275,7 @@ class ConformalClassifier:
 
         scores = cumsums[jnp.arange(n), ranks]
 
-        # Finite-sample corrected quantile: ceil((n+1)(1-alpha)) / n.
-        q = jnp.clip(jnp.ceil((n + 1) * (1.0 - self.alpha)) / n, 0.0, 1.0)
-        threshold = jnp.quantile(scores, q)
+        threshold = _conformal_quantile(scores, self.alpha)
 
         return ConformalClassifier(threshold=threshold, alpha=self.alpha)
 
@@ -308,8 +332,8 @@ class ConformalRegressor:
     :math:`\{(x_i, y_i)\}_{i=1}^{n}` exchangeable with the test point,
     the absolute-residual nonconformity score is
     :math:`s_i = |y_i - \hat f(x_i)|`. Sort the calibration scores and
-    take the empirical
-    :math:`\lceil (n+1)(1-\alpha) \rceil / n` quantile :math:`q`. The
+    take the :math:`\lceil (n+1)(1-\alpha) \rceil`-th smallest score
+    :math:`q`, or infinity if this rank exceeds :math:`n`. The
     prediction interval at a new point :math:`x` is
     :math:`[\hat f(x) - q, \hat f(x) + q]`. Lei et al. (2018,
     *Distribution-Free Predictive Inference for Regression*) prove
@@ -391,12 +415,14 @@ class ConformalRegressor:
 
         Returns:
             A fitted ``ConformalRegressor`` whose ``quantile`` field
-            holds the empirical
-            :math:`\\lceil (n+1)(1-\\alpha) \\rceil / n` residual quantile
-            per output column.
+            holds the finite-sample residual order statistic per output
+            column. If the calibration set is too small to support the
+            requested coverage, intervals are unbounded.
         """
-        preds = predictions_cal
-        targets = targets_cal
+        preds = jnp.asarray(predictions_cal)
+        targets = jnp.asarray(targets_cal)
+        if preds.ndim not in (1, 2) or targets.ndim not in (1, 2):
+            raise ValueError("calibration predictions and targets must have shape (n,) or (n, k)")
         if preds.ndim == 1:
             preds = preds[:, None]
         if targets.ndim == 1:
@@ -419,11 +445,7 @@ class ConformalRegressor:
             )
 
         residuals = jnp.abs(targets - preds)  # (n, k)
-        # Per-column quantile at level ⌈(n+1)(1−α)⌉ / n. Clamp to [0, 1]
-        # so that absurdly small n behaves sensibly.
-        level = jnp.ceil((n + 1) * (1.0 - self.alpha)) / n
-        level = jnp.clip(level, 0.0, 1.0)
-        q = jnp.quantile(residuals, level, axis=0)  # (k,)
+        q = _conformal_quantile(residuals, self.alpha)  # (k,)
 
         return ConformalRegressor(
             quantile=q,
@@ -469,8 +491,14 @@ class ConformalRegressor:
         Returns:
             Per-output coverage of shape ``(output_dim,)``.
         """
-        preds = predictions if predictions.ndim > 1 else predictions[None, :]
-        tgts = targets if targets.ndim > 1 else targets[None, :]
+        # A 1-D input is a batch of scalar outputs when output_dim == 1,
+        # and a single multi-output prediction otherwise.
+        if self.output_dim == 1:
+            preds = predictions[:, None] if predictions.ndim == 1 else predictions
+            tgts = targets[:, None] if targets.ndim == 1 else targets
+        else:
+            preds = predictions[None, :] if predictions.ndim == 1 else predictions
+            tgts = targets[None, :] if targets.ndim == 1 else targets
         lower = preds - self.quantile
         upper = preds + self.quantile
         in_interval = (tgts >= lower) & (tgts <= upper)

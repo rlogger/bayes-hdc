@@ -7,12 +7,17 @@ from __future__ import annotations
 
 import jax
 import jax.numpy as jnp
+import pytest
 
 from bayes_hdc.metrics import (
     expected_calibration_error,
     negative_log_likelihood,
 )
-from bayes_hdc.uncertainty import ConformalClassifier, TemperatureCalibrator
+from bayes_hdc.uncertainty import (
+    ConformalClassifier,
+    ConformalRegressor,
+    TemperatureCalibrator,
+)
 
 # ----------------------------------------------------------------------
 # Helper: synthetic overconfident classifier
@@ -197,3 +202,79 @@ def test_conformal_coverage_is_jit_compatible() -> None:
     jitted = jax.jit(wrapper.coverage)
     cov = jitted(test_probs, test_labels)
     assert 0.0 <= float(cov) <= 1.0
+
+
+@pytest.mark.parametrize("alpha", [0.0, 1.0, -0.1, 1.1, float("nan")])
+def test_conformal_classifier_rejects_invalid_alpha(alpha: float) -> None:
+    with pytest.raises(ValueError, match="alpha"):
+        ConformalClassifier.create(alpha=alpha)
+
+
+def test_conformal_classifier_small_calibration_set_includes_all_classes() -> None:
+    # With two calibration points, finite thresholds can only guarantee 2/3
+    # coverage. Requesting 90% must therefore include every class.
+    wrapper = ConformalClassifier.create(alpha=0.1).fit(
+        jnp.array([[0.9, 0.1], [0.8, 0.2]]), jnp.array([0, 0])
+    )
+    assert jnp.isinf(wrapper.threshold)
+    assert jnp.all(wrapper.predict_set(jnp.array([[0.95, 0.05], [0.2, 0.8]])))
+
+
+def test_conformal_classifier_uses_calibration_order_statistic() -> None:
+    wrapper = ConformalClassifier.create(alpha=0.5).fit(
+        jnp.array([[0.6, 0.4], [0.7, 0.3], [0.8, 0.2], [0.9, 0.1]]),
+        jnp.zeros(4, dtype=jnp.int32),
+    )
+    # ceil(5 * 0.5) = 3: choose the third calibration score exactly.
+    assert jnp.isclose(wrapper.threshold, 0.8)
+
+
+def test_conformal_classifier_rejects_empty_calibration() -> None:
+    with pytest.raises(ValueError, match="calibration point"):
+        ConformalClassifier.create().fit(jnp.empty((0, 2)), jnp.empty((0,), dtype=jnp.int32))
+
+
+def test_conformal_regressor_small_calibration_set_has_unbounded_intervals() -> None:
+    wrapper = ConformalRegressor.create(alpha=0.1, output_dim=2).fit(
+        jnp.zeros((2, 2)), jnp.array([[1.0, 3.0], [2.0, 4.0]])
+    )
+    lower, upper = wrapper.predict_interval(jnp.array([[100.0, -100.0]]))
+    assert jnp.all(jnp.isneginf(lower))
+    assert jnp.all(jnp.isposinf(upper))
+
+
+def test_conformal_regressor_uses_calibration_order_statistic() -> None:
+    wrapper = ConformalRegressor.create(alpha=0.5).fit(
+        jnp.zeros(4), jnp.array([1.0, 2.0, 3.0, 100.0])
+    )
+    assert jnp.array_equal(wrapper.quantile, jnp.array([3.0]))
+
+
+def test_conformal_regressor_scalar_coverage_aggregates_the_batch() -> None:
+    wrapper = ConformalRegressor.create(alpha=0.5).fit(jnp.zeros(3), jnp.ones(3))
+    predictions = jnp.zeros(3)
+    targets = jnp.array([0.0, 0.5, 2.0])
+    coverage = jax.jit(wrapper.coverage)(predictions, targets)
+    assert coverage.shape == (1,)
+    assert jnp.allclose(coverage, jnp.array([2.0 / 3.0]))
+    assert jnp.array_equal(coverage, wrapper.coverage(predictions[:, None], targets[:, None]))
+
+
+def test_conformal_regressor_preserves_single_multi_output_coverage() -> None:
+    wrapper = ConformalRegressor.create(alpha=0.5, output_dim=2).fit(
+        jnp.zeros((3, 2)), jnp.ones((3, 2))
+    )
+    coverage = wrapper.coverage(jnp.zeros(2), jnp.array([0.0, 2.0]))
+    assert jnp.array_equal(coverage, jnp.array([1.0, 0.0]))
+
+
+def test_conformal_quantiles_compose_under_jit() -> None:
+    classifier = ConformalClassifier.create(alpha=0.5)
+    fitted = jax.jit(classifier.fit)(
+        jnp.array([[0.6, 0.4], [0.7, 0.3], [0.8, 0.2], [0.9, 0.1]]),
+        jnp.zeros(4, dtype=jnp.int32),
+    )
+    assert jnp.isclose(fitted.threshold, 0.8)
+    regressor = ConformalRegressor.create(alpha=0.5)
+    fitted_regressor = jax.jit(regressor.fit)(jnp.zeros(4), jnp.arange(1.0, 5.0))
+    assert jnp.array_equal(fitted_regressor.quantile, jnp.array([3.0]))

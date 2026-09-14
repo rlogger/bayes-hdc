@@ -104,6 +104,37 @@ def test_classifier_invalid_encoder_raises():
         HDClassifier(dimensions=1000, encoder="nope").fit(X, y)
 
 
+@pytest.mark.parametrize(
+    "X,y",
+    [
+        (np.ones((3, 2)), [0]),
+        (np.ones((3, 2)), [0.1, 0.2, 0.3]),
+        (np.array([[1.0, np.nan], [2.0, 3.0]]), [0, 1]),
+        (np.ones(3), [0, 1, 0]),
+    ],
+)
+def test_classifier_rejects_invalid_training_data(X, y):
+    with pytest.raises(ValueError):
+        HDClassifier(dimensions=16).fit(X, y)
+
+
+def test_classifier_rejects_unsupported_vsa_model():
+    with pytest.raises(ValueError, match="vsa_model"):
+        HDClassifier(dimensions=16, vsa_model="bsc").fit(np.ones((3, 2)), [0, 1, 0])
+
+
+@pytest.mark.parametrize(
+    "estimator", [HDClassifier(dimensions=16), HDAnomalyDetector(dimensions=16, alpha=0.2)]
+)
+def test_estimators_validate_prediction_features(estimator):
+    X = np.arange(80, dtype=np.float32).reshape(40, 2)
+    estimator.fit(X, np.arange(40) % 2)
+    with pytest.raises(ValueError, match="features"):
+        estimator.predict(np.ones((3, 1)))
+    with pytest.raises(ValueError, match="NaN"):
+        estimator.predict(np.full((3, 2), np.nan))
+
+
 def test_classifier_kernel_gamma_tunable_in_gridsearch():
     from sklearn.model_selection import GridSearchCV
 
@@ -194,6 +225,42 @@ def test_anomaly_no_warning_when_alpha_attainable():
     with warnings.catch_warnings():
         warnings.simplefilter("error")  # any UserWarning would fail the test
         HDAnomalyDetector(alpha=0.05, dimensions=2000, random_state=0).fit(X_norm)
+
+
+@pytest.mark.parametrize("n", [2, 3, 5])
+@pytest.mark.parametrize("calibration_fraction", [0.01, 0.3, 0.99])
+def test_anomaly_tiny_splits_remain_nonempty_and_disjoint(n, calibration_fraction):
+    X = np.arange(1, 1 + n * 3, dtype=np.float32).reshape(n, 3)
+    det = HDAnomalyDetector(
+        dimensions=16, alpha=0.9, k_neighbors=2, calibration_fraction=calibration_fraction
+    ).fit(X)
+    n_cal = det.detector_.n_calibration
+    assert 1 <= n_cal < n
+    fit_idx = np.random.default_rng(0).permutation(n)[n_cal:]
+    expected = np.asarray(det.encoder_.encode_batch(X[fit_idx]))
+    np.testing.assert_allclose(det.detector_.scorer.reference, expected)
+
+
+@pytest.mark.parametrize("n", [0, 1])
+def test_anomaly_requires_enough_data_for_disjoint_splits(n):
+    with pytest.raises(ValueError, match="minimum of 2"):
+        HDAnomalyDetector(dimensions=16).fit(np.ones((n, 2)))
+
+
+@pytest.mark.parametrize("parameter", ["alpha", "calibration_fraction"])
+@pytest.mark.parametrize("value", [-0.1, 0.0, 1.0, 1.1, np.nan])
+def test_anomaly_rejects_invalid_probabilities(parameter, value):
+    with pytest.raises(ValueError, match=parameter):
+        HDAnomalyDetector(dimensions=16, **{parameter: value}).fit(np.ones((3, 2)))
+
+
+def test_anomaly_decision_function_includes_threshold_ties(monkeypatch):
+    det = HDAnomalyDetector(alpha=0.5)
+    monkeypatch.setattr(det, "pvalue", lambda X: np.array([0.25, 0.5, 0.75]))
+    predictions = det.predict(None)
+    margins = det.decision_function(None)
+    np.testing.assert_array_equal(predictions, [-1, -1, 1])
+    np.testing.assert_array_equal(margins >= 0, predictions == 1)
 
 
 def test_estimators_raise_not_fitted_before_fit():

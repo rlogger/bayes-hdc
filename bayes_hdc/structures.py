@@ -387,8 +387,11 @@ class Graph:
         )
 
     def neighbors(self, node_hv: jax.Array) -> jax.Array:
-        """Return the approximate neighbor multiset of a node."""
-        return F.bind_map(self.value, F.inverse_map(node_hv))
+        """Return the approximate neighbor multiset (outgoing for directed graphs)."""
+        neighbors = F.bind_map(self.value, F.inverse_map(node_hv))
+        if self.directed:
+            neighbors = F.permute(neighbors, shifts=-1)
+        return neighbors
 
     def contains_edge(self, u_hv: jax.Array, v_hv: jax.Array) -> jax.Array:
         """Return dimension-normalised dot similarity of edge (u, v).

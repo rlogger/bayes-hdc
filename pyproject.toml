@@ -88,8 +88,8 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "jax>=0.4.20",
-    "jaxlib>=0.4.20",
+    "jax>=0.4.29",
+    "jaxlib>=0.4.27",
 ]
 
 [project.optional-dependencies]
@@ -149,14 +149,14 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=bayes_hdc --cov-report=term-missing"
+addopts = "-v --cov=bayes_hdc --cov-report=term-missing -m 'not network'"
 markers = [
     "benchmark: performance benchmark tests (run with -m benchmark to execute)",
     "network: tests requiring network (OpenML, etc.); skipped by default, run with -m network",
 ]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 warn_return_any = false
 warn_unused_configs = true
 warn_redundant_casts = true

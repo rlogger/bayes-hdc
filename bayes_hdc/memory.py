@@ -137,6 +137,8 @@ class AttentionMemory:
         temperature: float = 1.0,
         num_heads: int = 1,
     ) -> "AttentionMemory":
+        if num_heads < 1:
+            raise ValueError(f"num_heads must be >= 1, got {num_heads}")
         if num_heads > 1 and dimensions % num_heads != 0:
             raise ValueError(
                 f"dimensions ({dimensions}) must be divisible by num_heads ({num_heads})"
@@ -167,15 +169,26 @@ class AttentionMemory:
 
     @jax.jit
     def retrieve(self, query: jax.Array) -> jax.Array:
+        result, _ = self.retrieve_with_weights(query)
+        return result
+
+    @jax.jit
+    def retrieve_with_weights(self, query: jax.Array) -> tuple:
+        """Retrieve a value and the attention weights used to compute it.
+
+        Weights have shape ``(num_entries,)`` for one head and
+        ``(num_heads, num_entries)`` for multiple heads.
+        """
         q = query.reshape(-1)
         if self.keys.shape[0] == 0:
-            return jnp.zeros(self.dimensions)
+            weight_shape = (0,) if self.num_heads == 1 else (self.num_heads, 0)
+            return jnp.zeros(self.dimensions), jnp.zeros(weight_shape)
 
         if self.num_heads == 1:
             scale = (self.dimensions**0.5) * self.temperature
             scores = self.keys @ q / scale
             weights = jax.nn.softmax(scores)
-            return jnp.sum(self.values * weights[:, None], axis=0)
+            return jnp.sum(self.values * weights[:, None], axis=0), weights
         else:
             head_dim = self.dimensions // self.num_heads
             q_heads = q.reshape(self.num_heads, head_dim)
@@ -186,19 +199,7 @@ class AttentionMemory:
             scores = jnp.einsum("hd,nhd->hn", q_heads, k_heads) / scale
             weights = jax.nn.softmax(scores, axis=-1)
             result = jnp.einsum("hn,nhd->hd", weights, v_heads)
-            return result.reshape(-1)
-
-    @jax.jit
-    def retrieve_with_weights(self, query: jax.Array) -> tuple:
-        q = query.reshape(-1)
-        if self.keys.shape[0] == 0:
-            return jnp.zeros(self.dimensions), jnp.array([])
-
-        scale = (self.dimensions**0.5) * self.temperature
-        scores = self.keys @ q / scale
-        weights = jax.nn.softmax(scores)
-        result = jnp.sum(self.values * weights[:, None], axis=0)
-        return result, weights
+            return result.reshape(-1), weights
 
 
 __all__ = ["SparseDistributedMemory", "HopfieldMemory", "AttentionMemory"]
