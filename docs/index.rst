@@ -80,7 +80,7 @@ Alpha. Gaussian and Dirichlet posteriors, conformal prediction
 calibration, probabilistic resonator, posterior predictive checks,
 streaming Bayesian updates, multi-device sharding, 11 standard HDC
 datasets, and equivariance verifiers. **644 tests, 92 % line
-coverage**, Ubuntu + macOS × Python 3.9–3.13 on every push.
+coverage**, Ubuntu + macOS × Python 3.9–3.14 on every push.
 
 The public API may shift before 1.0; behaviour changes are called out in
 ``CHANGELOG.md``.

@@ -66,7 +66,7 @@ Bayes-HDC follows functional programming principles:
 5. If adding a new primitive, confirm it is `jit`- and `vmap`-compatible and returns a `jax.Array`.
 6. Open a PR referencing any related issues. The PR template is pre-filled.
 
-CI enforces the same checks on Ubuntu and macOS across Python 3.9–3.13.
+CI enforces the same checks on Ubuntu and macOS across Python 3.9–3.14.
 
 ## Release process
 

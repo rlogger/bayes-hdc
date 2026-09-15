@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Doctest examples for the conformal classifier, regressor, and anomaly detector APIs.
 - `tutorials/03_sequences.py`: sequence-encoding walkthrough covering `Sequence`, `HierarchicalSequence`, and the flat-vs-hierarchical capacity comparison.
+- Python 3.14 support in the package metadata and CI test matrix.
 
 ## [0.5.0a1] - 2026-06-11
 

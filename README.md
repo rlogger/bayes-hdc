@@ -12,7 +12,7 @@
   <a href="https://codecov.io/gh/rlogger/bayes-hdc"><img alt="Coverage" src="https://codecov.io/gh/rlogger/bayes-hdc/graph/badge.svg" /></a>
   <a href="https://pypi.org/project/bayes-hdc/"><img alt="PyPI" src="https://img.shields.io/pypi/v/bayes-hdc" /></a>
   <a href="https://doi.org/10.5281/zenodo.20635099"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.20635099.svg" /></a>
-  <img alt="Python" src="https://img.shields.io/badge/python-3.9–3.13-blue.svg" />
+  <img alt="Python" src="https://img.shields.io/badge/python-3.9–3.14-blue.svg" />
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
 </p>
 
@@ -140,7 +140,7 @@ Sixteen more in [`examples/`](examples/README.md), two worked tutorials in
 ## Status
 
 Alpha (`0.5.0a1`); API may shift before 1.0. 666 tests, 93% coverage, CI on
-Ubuntu + macOS × Python 3.9–3.13: algebraic laws on randomized inputs,
+Ubuntu + macOS × Python 3.9–3.14: algebraic laws on randomized inputs,
 gradients vs finite differences, and the coverage/FDR guarantees tested
 directly. Pure Python on `jax` + `numpy`, no compiled extensions. Sharp
 edges: GPU/TPU tested on CPU CI only; the variational-training API is the
