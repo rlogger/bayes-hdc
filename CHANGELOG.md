@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `examples/fhrr_demo.py`: complex-phasor binding, bundling, permutation, and sequence retrieval with FHRR hypervectors.
 - Doctest examples for the conformal classifier, regressor, and anomaly detector APIs.
 - `tutorials/03_sequences.py`: sequence-encoding walkthrough covering `Sequence`, `HierarchicalSequence`, and the flat-vs-hierarchical capacity comparison.
 

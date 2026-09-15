@@ -23,6 +23,7 @@ python examples/pvsa_quickstart.py
 | --- | --- |
 | [`pvsa_quickstart.py`](pvsa_quickstart.py) | 90-second tour through every PVSA primitive: construct `GaussianHV`, bind / bundle with closed-form moment propagation, expected similarity, similarity variance, `BayesianCentroidClassifier`, conformal coverage. |
 | [`basic_operations.py`](basic_operations.py) | Binding, bundling, permutation, similarity across MAP / BSC / HRR. |
+| [`fhrr_demo.py`](fhrr_demo.py) | Complex unit-phasor hypervectors with position-role permutation, binding, bundling, conjugate unbinding, and similarity-based sequence retrieval. |
 | [`classification_simple.py`](classification_simple.py) | End-to-end pipeline with `RandomEncoder` + `CentroidClassifier`. |
 
 ## Applications
