@@ -1,14 +1,14 @@
-# Paper [4]: Plate (2003) — Holographic Reduced Representations
+# Paper [4]: Plate (2003) — Holographic Reduced Representation
 
 ## Bibliographic
-- **Cited as (in repo bibliography):** T. A. Plate, *Holographic Reduced Representations: Distributed Representation for Cognitive Structures*, CSLI / Stanford, 2003 (book; supersedes Plate 1995 IEEE TNN paper).
-- **Verified metadata (Semantic Scholar paperId `c3577312cb178cc93459bda92e37076e1fa9af88`):** T. Plate, *Holographic Reduced Representation: Distributed Representation for Cognitive Structures*, 2003. Citations ≈ 255. The book is published by CSLI Publications (Stanford), ISBN 978-1-57586-430-9. (Note: the canonical title in the published volume is the **singular** form *"Holographic Reduced Representation"*; both forms are widely used in citing literature.)
-- **Free preprint of equivalent material:** T. A. Plate, "Holographic reduced representations," *IEEE Trans. Neural Networks*, 6(3):623–641, 1995. DOI `10.1109/72.377968`. Citations ≈ 720. Open PDF mirror: `redwood.berkeley.edu/wp-content/uploads/2020/08/Plate-HRR-IEEE-TransNN.pdf`.
+- **Cited as (in repo bibliography):** T. A. Plate, *Holographic Reduced Representation: Distributed Representation for Cognitive Structures*, CSLI / Stanford, 2003 (book; supersedes Plate 1995 IEEE TNN paper).
+- **Verified metadata (Semantic Scholar paperId `c3577312cb178cc93459bda92e37076e1fa9af88`):** T. Plate, *Holographic Reduced Representation: Distributed Representation for Cognitive Structures*, 2003. Citations ≈ 255. The book is published by CSLI Publications (Stanford), paperback ISBN 978-1-57586-430-3 ([publisher catalogue](https://press.uchicago.edu/ucp/books/book/distributed/H/bo3643252.html)). (Note: the canonical title in the published volume is the **singular** form *"Holographic Reduced Representation"*; both forms are widely used in citing literature.)
+- **Earlier journal article covering the HRR algebra:** T. A. Plate, "Holographic reduced representations," *IEEE Trans. Neural Networks*, 6(3):623–641, 1995. DOI `10.1109/72.377968`. Citations ≈ 720. Open PDF mirror: `redwood.berkeley.edu/wp-content/uploads/2020/08/Plate-HRR-IEEE-TransNN.pdf`.
 - **Source consulted for this audit:** the IEEE TNN 1995 version (pages 623–628) — Plate's 2003 book is an expanded restatement of the same algebra; the binding/inverse equations are identical. **All quoted equations below are from Plate 1995 verbatim.**
 - **`examples/basic_operations.py:18` already cites Plate 1995** by full reference, which is consistent with using the 1995 paper as a citation surrogate when the 2003 book is paywalled.
 
 ## Summary (200 words)
-Plate proposes **Holographic Reduced Representations (HRRs)** as a fixed-dimensionality alternative to Smolensky's tensor product. Items are real-valued vectors in `ℝ^n` whose elements are i.i.d. with mean 0 and variance `1/n` (so expected `‖x‖ = 1`). Two operations are defined: **circular convolution** as binding, `t_j = (c ⊛ x)_j = Σ_{k=0}^{n-1} c_k · x_{(j-k) mod n}` (Plate 1995 Fig. 4, p. 625), and **circular correlation** as the (approximate) decoder. Crucially, Plate proves correlation = convolution-with-the-involution: "The correlation of c̃ and t̃ is equivalent to the convolution of t̃ with the involution of c̃. The involution of c̃ is the vector d̃ = c̃* such that **d_i = c_{-i}**, where subscripts are modulo-n. For example, if c̃ = (c_0, c_1, c_2, c_3), then **c̃* = (c_0, c_3, c_2, c_1)**" (p. 627). The binding is implementable via FFT (`F^{-1}(F(c) ⊙ F(x))`). Plate gives capacity / SNR analysis (`η_i ~ N(0,(n-1)/n²)`), demonstrates representations of pairs, sequences, stacks, and frame-like structures, and pairs the convolution memory with a clean-up associative item memory (Fig. 6). Successors: FHRR (Plate), MAP (Gayler), VTB (Gosmann–Eliasmith), Hadamard / Voicu, and modern HD-classifier work — see Kleyko et al. 2023 (paper [1]) for the lineage.
+Plate proposes **Holographic Reduced Representations (HRRs)** as a fixed-dimensionality alternative to Smolensky's tensor product. Items are real-valued vectors in `ℝ^n` whose elements are i.i.d. with mean 0 and variance `1/n` (so expected `‖x‖ = 1`). Two operations are defined: **circular convolution** as binding, `t_j = (c ⊛ x)_j = Σ_{k=0}^{n-1} c_k · x_{(j-k) mod n}` (Plate 1995 Fig. 4, p. 625), and **circular correlation** as the (approximate) decoder. Crucially, Plate proves correlation = convolution-with-the-involution: "The correlation of c̃ and t̃ is equivalent to the convolution of t̃ with the involution of c̃. The involution of c̃ is the vector d̃ = c̃* such that **d_i = c_{-i}**, where subscripts are modulo-n. For example, if c̃ = (c_0, c_1, c_2, c_3), then **c̃* = (c_0, c_3, c_2, c_1)**" (p. 627). The binding is implementable via FFT (`F^{-1}(F(c) ⊙ F(x))`). Plate gives capacity / SNR analysis (`η_i ~ N(0,(n-1)/n²)`), demonstrates representations of pairs, sequences, stacks, and frame-like structures, and pairs the convolution memory with a clean-up associative item memory (Fig. 6). Successors: FHRR (Plate), MAP (Gayler), VTB (Gosmann–Eliasmith), Hadamard / Voicu, and modern HD-classifier work — see Kleyko et al. 2023 (paper [18]) for the lineage.
 
 ## Paper → code map
 
@@ -79,7 +79,7 @@ These are docstring / wording-only suggestions; the user can apply or ignore. **
 
 2. **(Trivial, docstring polish.) `bayes_hdc/vsa.py:159–164`, `class HRR` docstring.** Says "Real-valued vectors with circular convolution binding, normalized sum bundling, cosine similarity." A one-sentence reference such as "Plate (1995, IEEE TNN; book version 2003)" would mirror what `bayes_hdc/vsa.py:215` (the FHRR class) ought to say as well.
 
-3. **(Trivial, citation hygiene.) `examples/basic_operations.py:18`** already cites Plate 1995 — that's good. If the project bibliography prefers the 2003 book as the canonical citation (as paper [4] in the master list), consider adding the 2003 book as the *primary* citation and Plate 1995 as the *open-access preprint* in a "see also" line. This is purely a stylistic choice.
+3. **(Trivial, citation hygiene.) `examples/basic_operations.py:18`** already cites Plate 1995 — that's good. If the project bibliography prefers the 2003 book as the canonical citation (as paper [4] in the master list), consider adding the 2003 book as the *primary* citation and Plate 1995 as the *earlier journal article* in a "see also" line. This is purely a stylistic choice.
 
 ## Substantive findings (for user review)
 
@@ -104,12 +104,12 @@ Primary (matches master bibliography):
   publisher = {CSLI Publications},
   address   = {Stanford, CA},
   year      = {2003},
-  isbn      = {978-1-57586-430-9},
+  isbn      = {978-1-57586-430-3},
   series    = {CSLI Lecture Notes}
 }
 ```
 
-Open-access preprint (recommended as a "see also"):
+Earlier journal article (recommended as a "see also", not a preprint of the 2003 book):
 ```bibtex
 @article{plate1995hrr,
   author  = {Plate, Tony A.},

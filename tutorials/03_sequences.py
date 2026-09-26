@@ -103,8 +103,10 @@ print(f"  Retrieval accuracy at T={T_SHORT}: {acc_hier_short:.3f}  (expect ~1.0)
 
 # ── 5.  Capacity comparison across sequence lengths ───────────────────────────
 #
-# The flat representation bundles T terms; its per-item SNR scales as 1/sqrt(T)
-# (Plate 2003 §6.2), so retrieval degrades past T~200 for d=4096.
+# The flat representation bundles T terms; for fixed dimension its per-item
+# SNR scales as 1/sqrt(T) (Frady, Kleyko & Sommer 2018,
+# https://doi.org/10.1162/neco_a_01084). There is no universal retrieval cutoff;
+# it also depends on the codebook and required retrieval accuracy.
 #
 # Hierarchical retrieval keeps a cached chunk codebook: it trades additional
 # persistent storage for reduced within-chunk interference. Fixed CHUNK means

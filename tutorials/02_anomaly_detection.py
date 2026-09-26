@@ -114,7 +114,7 @@ def section_2_simplest() -> ProjectionEncoder:
     calib = synth_cluster(k_cal, 300, centre=[2.0, -1.0])
     holdout = synth_cluster(k_hold, 500, centre=[2.0, -1.0])
 
-    print("\n  Split-conformal protocol (Lei et al. 2018):")
+    print("\n  Split-conformal outlier protocol (Bates et al. 2023):")
     print("    fit scorer on the train split, fit p-values on calibration,")
     print("    evaluate on a disjoint holdout split.\n")
 

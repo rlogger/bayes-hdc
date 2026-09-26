@@ -307,8 +307,7 @@ def load_isolet(
 ) -> HDCDataset:
     """ISOLET — 26-class spoken-letter recognition, 617 features.
 
-    Fanty & Cole (1990). The canonical HDC benchmark since Rahimi,
-    Kanerva, Rabaey (2016). OpenML pools all 7 797 utterances, so this
+    Fanty & Cole (1990). OpenML pools all 7 797 utterances, so this
     loader uses a stratified random split; for the canonical
     isolet1-4/isolet5 (6 238/1 559) split, fetch from the UCI archive
     or use TorchHD's ``ISOLET`` dataset class.
@@ -317,7 +316,7 @@ def load_isolet(
     return _build(
         "isolet",
         "ISOLET — 26-class spoken-letter recognition, 617 features, 7 797 samples "
-        "(Fanty & Cole 1990; Rahimi et al. 2016 HDC benchmark).",
+        "(Fanty & Cole 1990).",
         np.asarray(X),
         np.asarray(y),
         test_size,

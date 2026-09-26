@@ -4,24 +4,24 @@
 
 - **Authors:** Simon D. Levy, Suraj Bajracharya, Ross W. Gayler.
 - **Title:** Learning Behavior Hierarchies via High-Dimensional Sensor Projection.
-- **Venue:** *Learning Rich Representations from Low-Level Sensors: Papers from the AAAI 2013 Workshop*, Technical Report WS-13-15, pp. 25–27 (4 pages including title block).
+- **Venue:** *Learning Rich Representations from Low-Level Sensors: Papers from the AAAI 2013 Workshop*, Technical Report WS-13-15, pp. 25–27 (3 pages).
 - **PDF:** https://cdn.aaai.org/ocs/ws/ws1006/7075-30615-1-PB.pdf
-- **Bibliographic note:** the bibliography entry attributes the paper to the "Twenty-Seventh AAAI Conference on Artificial Intelligence (AAAI)" main proceedings. The paper actually appeared in the **co-located AAAI 2013 workshop track** (workshop on *Learning Rich Representations from Low-Level Sensors*), not the main conference. The page range "1–4" in the bibliography is also a relative count — actual pages in the workshop volume are 25–27.
+- **Bibliographic note:** the bibliography entry attributes the paper to the "Twenty-Seventh AAAI Conference on Artificial Intelligence (AAAI)" main proceedings. The paper actually appeared in the **co-located AAAI 2013 workshop track** (workshop on *Learning Rich Representations from Low-Level Sensors*), not the main conference. The page range "1–4" in the bibliography is also incorrect: the paper occupies three pages, 25–27, in the workshop volume.
 
 ## Summary (200 words)
 
 Levy, Bajracharya & Gayler argue that non-trivial sensor-actuator policies can be encoded entirely in a Vector Symbolic Architecture rather than as an explicit subsumption finite-state machine (Brooks). Sensor and actuator labels become bipolar `{−1, +1}^N` random hypervectors with `N > 1000`. Binding is element-wise multiplication `⊗` (self-inverse: `X ⊗ X ⊗ Y = Y`); bundling is element-wise addition. A behaviour hierarchy is a single bundle of rule terms, each rule being a sensor-state vector bound to an action vector. For the corral-escape task (V-REP simulator, two wheels, one touch sensor, two light sensors), the controller is hand-coded as one ~3 000-element vector summing eight terms (light-seeking variants + obstacle-avoidance + cruise). At runtime the live sensor-bundle is bound element-wise into the controller, and dot-products against the actuator basis vectors recover `(±1, ±1)` wheel commands; orthogonal cross-terms collapse to noise. The work is explicitly framed as a *position paper*: the authors note "our network weights are hand-coded rather than learned" and propose evolutionary learning as future work — so despite the title, no learning is demonstrated. The contribution is the encoding scheme (a "high-dimensional sensor projection") and the proof-of-concept that a subsumption-equivalent policy fits inside one VSA bundle.
 
-**Successor citations:** Neubert, Schubert & Protzel, *A Vector Symbolic Architecture for Robotics* (Frontiers in Neurorobotics 2019); the Kleyko et al. VSA survey (arXiv:2112.15424). Levy himself extended this thread in subsequent W&L undergraduate-research papers on VSA-controlled robots.
+**Successor citations:** Neubert, Schubert & Protzel, *An Introduction to Hyperdimensional Computing for Robotics* (*KI – Künstliche Intelligenz*, 2019; [publisher](https://doi.org/10.1007/s13218-019-00623-z)); the Kleyko et al. VSA survey (arXiv:2112.15424). Levy himself extended this thread in subsequent W&L undergraduate-research papers on VSA-controlled robots.
 
 ## Paper → code map
 
 | Paper concept | bayes-hdc primitive (if any) | Status |
 |---|---|---|
-| Bipolar `{−1, +1}^N` random hypervectors | `bayes_hdc.vsa.MAP.random`, `BSC.random` | **Present.** MAP uses bipolar; BSC uses binary. |
+| Bipolar `{−1, +1}^N` random hypervectors | `bayes_hdc.vsa.MAP.random`, `BSC.random` | **Different random-vector convention.** The paper uses bipolar vectors; this library's `MAP.random` uses normalized Gaussian vectors. `BSC.random` supplies binary vectors. |
 | Element-wise multiplication binding `⊗` | `MAP.bind`, `bind_map` | **Present** (this is exactly the MAP/Gayler bipolar binding). |
 | Element-wise addition bundling | `MAP.bundle` | **Present.** |
-| Self-inverse `X ⊗ X ⊗ Y = Y` | property of MAP and BSC; checked in `tests/test_functional.py` | **Present.** |
+| Self-inverse `X ⊗ X ⊗ Y = Y` | holds for the paper's bipolar MAP; BSC is self-inverse under XOR | **Convention-dependent.** It does not hold for this library's Gaussian MAP random vectors. |
 | Cleanup via Hopfield-style stored vectors | `bayes_hdc.memory` (Hopfield-style associative cleanup) | **Present** as a generic primitive; not used in any robot-control example. |
 | Sensor-bundle binding into a controller bundle, then dot-product against actuator basis | none | **Missing as an example.** The pattern is one bind + one dot-product, both already supported, but no example wires it up for a behaviour-policy. |
 | Subsumption-style behaviour hierarchy | none | **Out of scope.** bayes-hdc has no robot-control or behaviour-hierarchy module. |

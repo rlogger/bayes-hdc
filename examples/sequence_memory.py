@@ -19,8 +19,8 @@ The example encodes a 12-token sentence and retrieves each position in turn,
 reporting the recovered token, its cosine similarity to the ground truth, and
 the retrieval confidence gap.
 
-The permute-then-bundle construction for sequences was introduced
-contemporaneously by Sahlgren, Holst & Kanerva (2008) and Kanerva (2009);
+The permute-then-bundle construction for sequences is described by
+Sahlgren, Holst & Kanerva (2008) and Kanerva (2009);
 see *Permutations as a Means to Encode Order in Word Space*, Proc. 30th
 Annual Conf. of the Cognitive Science Society, pp. 1300-1305, and
 *Hyperdimensional Computing: An Introduction*, Cognitive Computation

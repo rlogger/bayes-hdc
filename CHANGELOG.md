@@ -98,9 +98,11 @@ same d.
   un-permute. Without that intermediate cleanup the noise from both
   layers sums to the same magnitude as the flat case — a subtle
   point easy to miss when reading only the structural definition.
-  References: Plate (2003) §6.2; Frady, Kleyko & Sommer (2018,
-  Neural Computation 30(6)) for the recurrent-network capacity
-  theory the hierarchical construction is the static analogue of.
+  Reference correction: Plate (1995), *Holographic Reduced
+  Representations*, provides HRR background; Frady, Kleyko & Sommer
+  (2018, Neural Computation 30(6):1449–1513) analyze sequence indexing
+  and working memory in recurrent networks. These sources do not
+  establish capacity for this implementation with its chunk cache.
 - **`benchmarks/benchmark_sequence_capacity.py`** — sweeps
   T ∈ {16, 32, 64, 128, 200, 300, 400, 600, 800} at d = 4 096,
   codebook = 256, 3 seeds. Numbers added to BENCHMARKS.md:
@@ -300,9 +302,10 @@ fixed in this batch.
   Liang et al. 2026 *ConformalHDC* (arXiv:2602.21446) — concurrent
   conformal-HDC algorithm; Furlong & Eliasmith 2024 (Cogn. Neurodyn.)
   — probabilistic VSA via SSP / fractional binding; Rachkovskij 2024
-  (Cogn. Comp.) — shift-equivariance for HDC sequences; Bryant et al.
+  (Cogn. Comp.) — shift-equivariance for HDC sequences; Bryant & Aygun
   2024 *HDVQ-VAE* — static-codebook contrast to our trained-codebook
-  contribution; Nesy-GeMs ICLR'23 HD-VAE — workshop precedent.
+  contribution. The former HD-VAE workshop attribution has been removed
+  because no matching primary paper was identified.
 - **"First" claims softened throughout**. README, `paper/paper.md`
   §State-of-the-field, `paper/paper_mloss.md` §2 + §7, and
   `bayes_hdc/training.py` module docstring now distinguish "first

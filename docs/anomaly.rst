@@ -12,7 +12,9 @@ hypervector space (``1 - cosine`` to the centroid by default, a k-NN
 mean, or Hamming distance for BSC). The conformal layer turns that
 score into a p-value via the standard
 :math:`(1 + \#\{s_\text{cal} \ge s_\text{query}\}) / (n + 1)`
-construction (Laxhammar 2014; Bates, Candès, Lei & Romano 2023).
+construction (Bates, Candès, Lei, Romano & Sesia, 2023,
+`Testing for Outliers with Conformal p-values
+<https://doi.org/10.1214/22-AOS2244>`_).
 
 Both classes are registered JAX pytrees, so ``score`` / ``pvalue`` /
 ``predict`` compose under ``jit`` and ``vmap``, and ``score`` is

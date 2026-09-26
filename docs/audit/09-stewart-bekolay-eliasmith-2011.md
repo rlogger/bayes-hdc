@@ -2,8 +2,8 @@
 
 ## Bibliographic
 
-- **Citation as numbered in repo:** [9] T. Stewart, T. Bekolay, and C. Eliasmith, "Neural Representations of Compositional Structures: Representing and Manipulating Vector Spaces with Spiking Neurons," *Connection Science*, vol. 22, no. 3, pp. 145-153, 2011.
-- **Verified metadata (Semantic Scholar paperId `fa8694489cc2b1e3dd6b34fea3afb6fa05ccd24a`):** Stewart, Bekolay & Eliasmith, *Connection Science*, 2011, DOI `10.1080/09540091.2011.571761`, 40 forward citations as of Apr 2026. Note: the repo's volume number "22" appears to be a small bibliographic error — the canonical *Connection Science* publication is Volume 23, Issue 2 (2011), pages 145-153. Consider correcting the volume in the citations file.
+- **Citation as numbered in repo:** [9] T. Stewart, T. Bekolay, and C. Eliasmith, "Neural Representations of Compositional Structures: Representing and Manipulating Vector Spaces with Spiking Neurons," *Connection Science*, vol. 23, no. 2, pp. 145–153, 2011.
+- **Verified metadata (Semantic Scholar paperId `fa8694489cc2b1e3dd6b34fea3afb6fa05ccd24a`):** Stewart, Bekolay & Eliasmith, *Connection Science*, 2011, DOI `10.1080/09540091.2011.571761`, 40 forward citations as of Apr 2026. The [publisher record](https://doi.org/10.1080/09540091.2011.571761) specifies Volume 23, Issue 2 (2011), pages 145–153; the earlier `22(3)` citation was incorrect.
 - **Access status:** Bronze open access via Taylor & Francis. Full PDF not retrieved during audit (audit relied on title, abstract metadata, citation graph, and the paper's well-documented role in the Eliasmith-lab corpus). Title alone unambiguously specifies the topic: spiking-neuron implementation of vector-space operations for VSA.
 
 ## Summary (200 words)
@@ -44,11 +44,11 @@ Same exhaustive sweep as Paper [8] (excluding `.venv`, `.egg-info`, `_build`, `_
 
 ## Substantive findings (for user review)
 
-1. **The right substantive finding (per the audit brief).** The library does not implement spiking-neuron VSA / SPA / NEF, and this is correct given its abstract-vector + JAX scope. Recommendation: add a one-paragraph "Related approaches not implemented" note to `DESIGN.md` citing Stewart & Eliasmith 2011 (Paper [8]), Stewart-Bekolay-Eliasmith 2011 (this paper), Stewart-Tang-Eliasmith 2010 (the cleanup paper), and Rasmussen-Eliasmith 2011 (inductive reasoning). The user has approved adding this section.
+1. **The right substantive finding (per the audit brief).** The library does not implement spiking-neuron VSA / SPA / NEF, and this is correct given its abstract-vector + JAX scope. Recommendation: add a one-paragraph "Related approaches not implemented" note to `DESIGN.md` citing Stewart & Eliasmith 2012 (Paper [8]), Stewart-Bekolay-Eliasmith 2011 (this paper), Stewart-Tang-Eliasmith 2011 (the cleanup paper), and Rasmussen-Eliasmith 2011 (inductive reasoning). The user has approved adding this section.
 
 2. **Suggested DESIGN.md paragraph (draft for user review):**
 
-   > **Related approaches not implemented.** A neighbouring research line implements VSA primitives on populations of *spiking neurons* via the Neural Engineering Framework (NEF) and the Semantic Pointer Architecture (SPA), tracing to Stewart & Eliasmith 2011 [Oxford Handbook of Compositionality] and Stewart, Bekolay & Eliasmith 2011 [*Connection Science* 23(2):145-153], with cleanup memory in Stewart, Tang & Eliasmith 2010 and inductive reasoning in Rasmussen & Eliasmith 2011. That line targets neuromorphic and cognitive-architecture goals (notably Spaun, Eliasmith et al. 2012, *Science*) using leaky-integrate-and-fire neurons, decoded representations, and ODE-based dynamics, typically implemented in Nengo. `bayes-hdc` is deliberately scoped to the abstract-vector substrate that those neural networks compute *on*, and to a probabilistic Bayesian extension of it; we do not implement spiking neurons, NEF encoding/decoding, or SPA pointer hierarchies, and we do not provide bridges to Nengo. Recent HDC-spiking bridge work (Orchard & Jarvis 2023; Sumanasena et al. 2025) is similarly out of scope.
+   > **Related approaches not implemented.** A neighbouring research line implements VSA primitives on populations of *spiking neurons* via the Neural Engineering Framework (NEF) and the Semantic Pointer Architecture (SPA), tracing to Stewart & Eliasmith 2012 [Oxford Handbook of Compositionality] and Stewart, Bekolay & Eliasmith 2011 [*Connection Science* 23(2):145-153], with cleanup memory in Stewart, Tang & Eliasmith 2011 and inductive reasoning in Rasmussen & Eliasmith 2011. That line targets neuromorphic and cognitive-architecture goals (notably Spaun, Eliasmith et al. 2012, *Science*) using leaky-integrate-and-fire neurons, decoded representations, and ODE-based dynamics, typically implemented in Nengo. `bayes-hdc` is deliberately scoped to the abstract-vector substrate that those neural networks compute *on*, and to a probabilistic Bayesian extension of it; we do not implement spiking neurons, NEF encoding/decoding, or SPA pointer hierarchies, and we do not provide bridges to Nengo. Recent HDC-spiking bridge work (Orchard & Jarvis 2023; Sumanasena et al. 2025) is similarly out of scope.
 
    The user can shorten or relocate this paragraph as they prefer.
 
@@ -75,4 +75,4 @@ Same exhaustive sweep as Paper [8] (excluding `.venv`, `.egg-info`, `_build`, `_
 }
 ```
 
-This is the paper to cite when a `DESIGN.md` "Related approaches not implemented" note names the foundational vector-space-on-spikes derivation. Pair with Paper [8] for the cognitive-architecture framing and with Stewart-Tang-Eliasmith 2010 for the cleanup-memory primitive.
+This is the paper to cite when a `DESIGN.md` "Related approaches not implemented" note names the foundational vector-space-on-spikes derivation. Pair with Paper [8] for the cognitive-architecture framing and with Stewart-Tang-Eliasmith 2011 for the cleanup-memory primitive.

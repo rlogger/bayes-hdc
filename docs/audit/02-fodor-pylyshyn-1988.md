@@ -29,7 +29,7 @@
 
 **Algorithms / equations.** No algorithms; this is a philosophical and theoretical-psychology paper. The substantive technical content is two definitional clauses for Classical architecture: (1) representations have a generative combinatorial syntax/semantics with a distinction between atomic and molecular constituents; (2) mental processes are sensitive to that constituent structure (so an inference from `P&Q` to `P` operates on form, not on content alone).
 
-**Terminology.** Coins / canonises: "Classical architecture", "language of thought", "structure-sensitivity", "systematicity", "productivity"; uses "physical symbol system" (Newell 1980) as the Classical paradigm.
+**Terminology discussed (not all originated in this paper):** "Classical architecture", "language of thought", "structure-sensitivity", "systematicity", "productivity"; uses "physical symbol system" (Newell 1980) as the Classical paradigm.
 
 **Demonstrated tasks.** None demonstrated empirically. The paper is argument: a network that infers `A` from `A&B` *via spreading activation alone* does not satisfy clause (2) and so does not qualify as Classical at the cognitive level.
 

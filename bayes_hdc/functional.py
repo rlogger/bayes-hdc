@@ -175,7 +175,7 @@ def vector_intersect(
     y: jax.Array,
     atoms: jax.Array,
 ) -> jax.Array:
-    r"""Holistic vector intersection (Gayler & Levy 2009).
+    r"""Soft vector intersection inspired by Gayler & Levy (2009).
 
     Given two bundle hypervectors ``x`` and ``y`` and a known atom set
     ``atoms`` of shape ``(N, d)``, return a bundle hypervector that
@@ -188,10 +188,10 @@ def vector_intersect(
     is large when ``a_i`` is similar to both inputs and zero when either
     cosine is non-positive. The output is :math:`\sum_i s_i \cdot a_i`.
 
-    This is the explicit-atom-set realisation of the cleanup-memory
-    construction in Gayler & Levy (2009, §"Distributed Implementation"
-    Figure 2). It is a soft logical AND on bundles, the primitive that
-    makes VSA-based graph isomorphism / analogical mapping possible.
+    Inspired by the vector-intersection operation in Gayler & Levy
+    (2009), this implementation uses an explicit atom set and a product
+    of positive cosine similarities. It is a soft logical AND heuristic,
+    not a reproduction of their neural cleanup circuit.
 
     Args:
         x: First bundle hypervector of shape ``(d,)``.
@@ -223,10 +223,11 @@ def transformation_vector(a: jax.Array, b: jax.Array) -> jax.Array:
 
     The transformation vector encodes "the rule that maps :math:`a` to
     :math:`b`": applying it via :func:`bind_map` recovers :math:`b` from
-    :math:`a`, and bundles of transformation vectors over many example
-    pairs serve as a learned rule under the Rasmussen-Eliasmith (2011)
-    inductive-reasoning recipe and Kanerva's (2010) "Dollar of Mexico"
-    analogical-mapping construction.
+    :math:`a`. Bundling transformations over example pairs is related to
+    the rule-generation construction of Rasmussen & Eliasmith (2011),
+    which uses circular convolution and an approximate HRR inverse.
+    This function uses MAP binding and its element-wise reciprocal.
+    Kanerva (2010) discusses related analogical mappings with binary vectors.
 
     For Binary Spatter Codes (where XOR is self-inverse and
     ``inverse_bsc`` is the identity) this collapses to ``bind_bsc(a, b)``;
@@ -300,8 +301,8 @@ def cleanup(
     memory, useful for error correction and symbol retrieval after a
     bind / unbind sequence has introduced approximation noise. This is
     the abstract-vector cleanup operation of Kanerva (2009); for the
-    spiking-neuron implementation see Stewart, Tang & Eliasmith (2010,
-    *Cognitive Systems Research* 12: 84-92), which is out of scope here.
+    spiking-neuron implementation see Stewart, Tang & Eliasmith (2011,
+    *Cognitive Systems Research* 12(2): 84-92), which is out of scope here.
     Resonator networks (Frady et al. 2020) are a related but distinct
     factorisation algorithm built on top of cleanup.
 
@@ -315,8 +316,10 @@ def cleanup(
         Most similar vector from memory, or (vector, similarity) if return_similarity=True
 
     References:
-    Kanerva, P. (2009). Hyperdimensional Computing: An Introduction.
-    Cognitive Computation 1(2): 139-159.
+    Kanerva, P. (2009). Hyperdimensional Computing: An Introduction to
+    Computing in Distributed Representation with High-Dimensional Random
+    Vectors. Cognitive Computation 1(2): 139-159.
+    https://doi.org/10.1007/s12559-009-9009-8
     """
     if memory.ndim != 2 or memory.shape[0] == 0:
         raise ValueError("memory must be a non-empty array of shape (n, d)")
@@ -345,8 +348,8 @@ def bind_hrr(x: jax.Array, y: jax.Array) -> jax.Array:
 
     Circular convolution in the spatial domain is equivalent to element-wise
     multiplication in the Fourier domain, making it efficient to compute via
-    the FFT. This is the canonical HRR binding of Plate (1995, 1994/2003);
-    Jones & Mewhort (2007) is the canonical cognitive-science application
+    the FFT. This is the HRR binding described by Plate (1995, 2003);
+    Jones & Mewhort (2007) describe a cognitive-science application
     (the BEAGLE composite holographic lexicon).
 
     Args:
@@ -378,7 +381,7 @@ def inverse_hrr(x: jax.Array) -> jax.Array:
     The involution is the vector ``x*`` with ``(x*)_i = x_{(-i) mod d}`` — i.e.
     the first element is preserved and the remaining ``d - 1`` elements are
     reversed. For a length-4 example ``[c_0, c_1, c_2, c_3]`` this returns
-    ``[c_0, c_3, c_2, c_1]``, matching Plate (1995, §II.F) verbatim.
+    ``[c_0, c_3, c_2, c_1]``, using the involution of Plate (1995).
 
     The involution is an *approximate* inverse: ``bind_hrr(x, inverse_hrr(x))``
     resembles the unit impulse for random normalized vectors. Individual
@@ -397,8 +400,8 @@ def inverse_hrr(x: jax.Array) -> jax.Array:
 
     References:
     Plate, T. A. (1995). Holographic Reduced Representations. IEEE
-    Transactions on Neural Networks 6(3): 623-641. (See §II.F for the
-    involution definition.)
+    Transactions on Neural Networks 6(3): 623-641.
+    https://doi.org/10.1109/72.377968
     """
     return jnp.concatenate([x[..., :1], jnp.flip(x[..., 1:], axis=-1)], axis=-1)
 

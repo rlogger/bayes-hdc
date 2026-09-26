@@ -146,8 +146,13 @@ un-permute. At `chunk_size = 16`, both layers carry only `O(√T)`
 items, and the per-layer SNR is dominated by `1/√(chunk_size)` and
 `1/√(n_chunks)` rather than `1/√T`. Reproduce with
 `python benchmarks/benchmark_sequence_capacity.py`. References:
-Plate (2003) §6.2 on flat-bundle capacity; Frady, Kleyko & Sommer
-(2018) on hierarchical recurrent-network indexing.
+Plate (1995), *Holographic Reduced Representations*
+([DOI](https://doi.org/10.1109/72.377968)), provides HRR background;
+Frady, Kleyko & Sommer (2018), *A Theory of Sequence Indexing and
+Working Memory in Recurrent Neural Networks*
+([DOI](https://doi.org/10.1162/neco_a_01084)), analyzes recurrent
+sequence memory. Neither reference establishes the capacity of this
+implementation with its additional chunk cache.
 
 ## Canonical HDC benchmark datasets
 
@@ -208,7 +213,9 @@ Documented here so they are not silently absent from the benchmarks
 story.
 
 - **ConformalHDC** (Liang, Poursiami, Yang, Cooper, Jaiswal, Parsa,
-  Fortin & Shahbaba 2026, *arXiv:2602.21446*). Concurrent algorithmic
+  Fortin & Shahbaba 2026, *ConformalHDC: Uncertainty-Aware Hyperdimensional
+  Computing with Application to Neural Decoding*,
+  [arXiv:2602.21446](https://arxiv.org/abs/2602.21446)). Related algorithmic
   work on conformal prediction for HDC; cited in the README, paper,
   and bibliography. A like-for-like comparison on their reported
   hippocampal-neural-decoding dataset would cash out the

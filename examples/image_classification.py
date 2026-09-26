@@ -3,8 +3,7 @@
 
 """Image classification with classical HDC.
 
-The reference HDC pipeline for vision (Imani et al. 2017,
-Hassan et al. 2018, Hersche et al. 2019) is:
+This example applies the following HDC pipeline to images:
 
 1. encode each image as a single hypervector via random projection;
 2. bundle per-class training hypervectors into a class prototype;
@@ -22,8 +21,8 @@ hypervectors:
   hypervectors per class (Kanerva 2009, Rahimi et al. 2016). The
   fastest path; no iteration.
 - :class:`~bayes_hdc.AdaptiveHDC` — iterative prototype refinement with
-  misclassification-driven updates (Imani et al. 2017 "VoiceHD",
-  generalised). Improvement is evaluated, not assumed.
+  misclassification-driven updates. This is the library's prototype
+  refinement heuristic; improvement is evaluated, not assumed.
 - :class:`~bayes_hdc.RegularizedLSClassifier` — closed-form ridge
   regression in hypervector space; auto-selects primal vs. dual form.
 
@@ -174,7 +173,7 @@ def main() -> None:
         print(f"  {true_c:>3d} | " + " ".join(f"{v:>4d}" for v in cells))
 
     print(
-        "\nClassical HDC vision pipeline (Imani et al. 2017, Hassan et al. 2018):"
+        "\nHDC image-classification pipeline:"
         "\n  random projection → bundle → centroid / adaptive / ridge classifier."
         "\nFor calibrated probabilities and conformal prediction sets on top of"
         "\nthe same encoder, see examples/activity_recognition.py."

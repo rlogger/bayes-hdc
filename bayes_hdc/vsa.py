@@ -6,10 +6,9 @@
 This module provides different VSA models, each with their own binding,
 bundling, and similarity operations. All models follow a consistent API.
 
-The term *Vector Symbolic Architecture* was coined by Gayler (2003) as
-an umbrella for the family of fixed-dimensional algebraic models (HRR,
-BSC, MAP, ...) that descend from Smolensky's tensor-product binding
-(Smolensky 1990) but compress it to a fixed dimension.
+Gayler (2003) describes *Vector Symbolic Architectures* as a family of
+algebraic models for distributed symbolic representations. The survey
+by Kleyko et al. (2023) compares models including HRR, BSC, and MAP.
 
 References:
 Gayler, R. W. (2003). Vector Symbolic Architectures answer Jackendoff's
@@ -20,7 +19,8 @@ Computing in Distributed Representation with High-Dimensional Random
 Vectors. Cognitive Computation 1(2): 139-159.
 Kleyko, D., Rachkovskij, D. A., Osipov, E., Rahimi, A. (2023).
 A Survey on Hyperdimensional Computing aka Vector Symbolic
-Architectures, Part I. ACM Computing Surveys 55(6): Article 130.
+Architectures, Part I: Models and Data Transformations.
+ACM Computing Surveys 55(6): Article 130. https://doi.org/10.1145/3538531
 """
 
 import math
@@ -69,16 +69,16 @@ class BSC(VSAModel):
     """Binary Spatter Codes (BSC).
 
     Binary hypervectors with XOR binding, majority bundling, Hamming similarity.
-    Originally introduced by Kanerva (1997) as the *Spatter Code*; the BSC
-    acronym was retro-fitted by the modern HDC literature (Kleyko et al. 2023
-    Part I §2.3.6). The canonical introduction to the operations is
-    Kanerva (2009).
+    The operations are described by Kanerva (1997, 2009) and reviewed
+    alongside other VSA models by Kleyko et al. (2023).
 
     References:
     Kanerva, P. (1997). Fully Distributed Representation. In Proc. RWC '97,
     pp. 358-365.
-    Kanerva, P. (2009). Hyperdimensional Computing: An Introduction.
-    Cognitive Computation 1(2): 139-159.
+    Kanerva, P. (2009). Hyperdimensional Computing: An Introduction to
+    Computing in Distributed Representation with High-Dimensional Random
+    Vectors. Cognitive Computation 1(2): 139-159.
+    https://doi.org/10.1007/s12559-009-9009-8
     """
 
     @staticmethod
@@ -132,13 +132,12 @@ class MAP(VSAModel):
 
     Real-valued vectors with element-wise multiply binding, normalized sum
     bundling, cosine similarity. The MAP scheme was introduced by
-    Gayler (1998) and is the running example in Gayler (2003) where the
-    term "Vector Symbolic Architecture" itself is coined.
+    Gayler (1998) and is used as an example in Gayler (2003).
 
     References:
     Gayler, R. W. (1998). Multiplicative binding, representation operators
-    and analogy. In K. Holyoak, D. Gentner, B. Kokinov (eds.), Advances in
-    Analogy Research, pp. 1-4. New Bulgarian University Press.
+    and analogy. Poster abstract in K. Holyoak, D. Gentner, B. Kokinov
+    (eds.), Advances in Analogy Research. New Bulgarian University.
     Gayler, R. W. (2003). Vector Symbolic Architectures answer Jackendoff's
     challenges for cognitive neuroscience. arXiv:cs/0412059.
     """
@@ -196,7 +195,7 @@ class HRR(VSAModel):
     """Holographic Reduced Representations (HRR).
 
     Real-valued vectors with circular convolution binding, normalized sum
-    bundling, cosine similarity. HRR was introduced by Plate (1995, IEEE
+    bundling, cosine similarity. HRR is described by Plate (1995, IEEE
     TNN) as a fixed-dimensional alternative to Smolensky's tensor-product
     binding; the book-length treatment is Plate (2003). Circular
     convolution is the canonical single-argument shift-equivariant
@@ -262,7 +261,7 @@ class FHRR(VSAModel):
     """Fourier Holographic Reduced Representations (FHRR).
 
     Complex-valued unit-phasor vectors with element-wise multiply binding,
-    normalized sum bundling. FHRR was introduced by Plate (1994/2003) as
+    normalized sum bundling. FHRR is described by Plate (2003) as
     the frequency-domain dual of HRR: circular convolution in the spatial
     domain becomes element-wise complex multiplication in the Fourier
     domain.
@@ -334,14 +333,16 @@ class BSBC(VSAModel):
     XOR binding and majority bundling do not preserve this sparsity pattern;
     this is not the sparsity-preserving block-binding algebra sometimes
     also called B-SBC. The BSC operations carry over directly (Kanerva
-    1997); the sparse-block construction follows the line traced in
-    Kleyko et al. (2023) Part I §2.3.7 (sparse binary HDC family).
+    1997). For the distinct sparse binary VSA models in the literature,
+    see Kleyko et al. (2023).
 
     References:
     Kanerva, P. (1997). Fully Distributed Representation. In Proc. RWC '97,
     pp. 358-365.
     Kleyko, D., Rachkovskij, D. A., Osipov, E., Rahimi, A. (2023).
-    A Survey on HDC aka VSA, Part I. ACM Computing Surveys 55(6).
+    A Survey on Hyperdimensional Computing aka Vector Symbolic Architectures,
+    Part I: Models and Data Transformations. ACM Computing Surveys 55(6),
+    Article 130. https://doi.org/10.1145/3538531
     """
 
     block_size: int = field(metadata=dict(static=True), default=100)

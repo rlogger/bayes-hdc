@@ -29,7 +29,7 @@ None. Per the user directive, do **not** propose adding a TPR implementation, a 
 
 1. **TPR is genuinely out of scope and the framing is correct.** The repo does not claim to implement tensor-product binding, and there is no false advertising. No fix needed in code.
 
-2. **The citation, where it would naturally appear, is missing.** The library's whole reason for using *circular convolution* (rather than outer product) is to escape the O(d²) blow-up that TPR suffers. That is precisely the contribution of Smolensky 1990 → Plate 1995. Currently, neither `DESIGN.md` nor `README.md` nor the docstring of `bind_hrr` cites Smolensky 1990. This is a minor scholarly gap, not a code defect. The user may choose to add a one-line parenthetical citation in `DESIGN.md §1` (as suggested above) or leave the survey-style framing for `Kleyko et al. 2023` (paper [1]) to handle.
+2. **The citation, where it would naturally appear, is missing.** The library's whole reason for using *circular convolution* (rather than outer product) is to escape the O(d²) blow-up that TPR suffers. That is precisely the contribution of Smolensky 1990 → Plate 1995. Currently, neither `DESIGN.md` nor `README.md` nor the docstring of `bind_hrr` cites Smolensky 1990. This is a minor scholarly gap, not a code defect. The user may choose to add a one-line parenthetical citation in `DESIGN.md §1` (as suggested above) or leave the survey-style framing for `Kleyko et al. 2023` (paper [18]) to handle.
 
 3. **No invariant or law in the codebase needs to change.** All algebraic claims in `DESIGN.md §1` (commutativity of bind, associativity of bundle, distributivity, etc.) are about HRR/MAP/BSC and remain correct independently of Smolensky.
 

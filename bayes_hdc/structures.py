@@ -79,8 +79,10 @@ class HashTable:
     pattern (Kanerva 2010).
 
     References:
-    Kanerva, P. (2009). Hyperdimensional Computing: An Introduction.
-    Cognitive Computation 1(2): 139-159.
+    Kanerva, P. (2009). Hyperdimensional Computing: An Introduction to
+    Computing in Distributed Representation with High-Dimensional Random
+    Vectors. Cognitive Computation 1(2): 139-159.
+    https://doi.org/10.1007/s12559-009-9009-8
     Kanerva, P. (2010). What We Mean When We Say "What's the Dollar of
     Mexico?": Prototypes and Mapping in Concept Space. AAAI Tech. Rep.
     FS-10-08, pp. 2-6.
@@ -139,15 +141,16 @@ class Sequence:
 
     Each element is permuted according to its position before bundling,
     preserving order information. The permute-then-bundle construction
-    for sequences was introduced contemporaneously by Sahlgren et al.
-    (2008) and Kanerva (2009).
+    for sequences is described by Sahlgren et al. (2008) and Kanerva (2009).
 
     References:
     Sahlgren, M., Holst, A., Kanerva, P. (2008). Permutations as a
     Means to Encode Order in Word Space. Proc. 30th Annual Conference
     of the Cognitive Science Society, pp. 1300-1305.
-    Kanerva, P. (2009). Hyperdimensional Computing: An Introduction.
-    Cognitive Computation 1(2): 139-159.
+    Kanerva, P. (2009). Hyperdimensional Computing: An Introduction to
+    Computing in Distributed Representation with High-Dimensional Random
+    Vectors. Cognitive Computation 1(2): 139-159.
+    https://doi.org/10.1007/s12559-009-9009-8
     """
 
     value: jax.Array
@@ -201,7 +204,7 @@ class HierarchicalSequence:
     inspired by Frady, Kleyko & Sommer (2018, *A Theory of Sequence
     Indexing and Working Memory in Recurrent Neural Networks*, Neural
     Computation 30(6): 1449–1513) and the hierarchical-binding
-    discussion in Plate (2003) §10. The capacity gain has *two*
+    discussion in Plate (2003). The capacity gain has *two*
     sources, not one:
 
     1. **Structural** — partition the input into chunks of size

@@ -84,7 +84,7 @@ print(f"[3] iris test accuracy = {float(clf.score(test_hvs, y_test)):.3f}")
 # ---------------------------------------------------------------------
 # Raw cosine similarities make weak probabilities. TemperatureCalibrator
 # (Guo et al. 2017) learns one scalar T to fix that, and
-# ConformalClassifier (Lei et al. 2018; Liang et al. 2026 for HDC) gives
+# ConformalClassifier uses deterministic APS (Romano, Sesia & Candes 2020) for
 # a marginal coverage guarantee Pr(y* in C(x*)) >= 1 - alpha on a held
 # -out split with exchangeable calibration/test observations. Reserve separate
 # temperature/conformal/test portions before fitting either calibration stage.
@@ -120,7 +120,7 @@ print(
 # synthetic "in-distribution" cluster, take the (1 - alpha)-quantile of
 # in-distribution cosine distances using the finite-sample rank correction.
 # Test points exceeding the calibrated threshold have marginal
-# false-alarm rate <= alpha (Lei et al. 2018, applied to one class).
+# false-alarm rate <= alpha (Bates, Candes, Lei, Romano & Sesia 2023).
 # =====================================================================
 
 key_in, key_out = jax.random.split(jax.random.PRNGKey(7))

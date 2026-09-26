@@ -161,7 +161,7 @@ useful to you, a star helps others find it.
   author  = {Singh, Rajdeep},
   title   = {bayes-hdc: Calibrated, Differentiable Hyperdimensional Computing in JAX},
   url     = {https://github.com/rlogger/bayes-hdc},
-  doi     = {10.5281/zenodo.20635099},
+  doi     = {10.5281/zenodo.20635123},
   version = {0.5.0a1},
   year    = {2026}
 }

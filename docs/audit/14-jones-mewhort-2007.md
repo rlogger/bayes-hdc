@@ -2,7 +2,7 @@
 
 ## Bibliographic
 
-- **Citation as numbered in repo:** [14] M. N. Jones and D. J. Mewhort, "Representing Word Meaning and Order Information in a Composite Holographic Lexicon," *Psychological Review*, vol. 114, no. 1, pp. 1-37, 2007.
+- **Citation as numbered in repo:** [14] M. N. Jones and D. J. K. Mewhort, "Representing Word Meaning and Order Information in a Composite Holographic Lexicon," *Psychological Review*, vol. 114, no. 1, pp. 1-37, 2007.
 - **Verified metadata (Semantic Scholar paperId `d3cf28ab36ff7f7601a55c1e832736b2473a07f0`):** Jones (University of Colorado at Boulder, then Indiana University) & Mewhort (Queen's University), *Psychological Review* 114(1), 1-37, 2007. DOI `10.1037/0033-295X.114.1.1`. PubMed PMID `17227180`. **627 forward citations** as of April 2026 — one of the most-cited cognitive-science papers using HRR / circular convolution.
 - **Access status:** Closed-access via APA (`Psychological Review` is paywalled), but a preprint-style PDF was obtained via UC San Diego (`https://cseweb.ucsd.edu//~gary/PAPER-SUGGESTIONS/jones-mewhort-psych-rev-2007.pdf`); contents verified directly. Pagination, equations, and BEAGLE acronym confirmed against the original. The paper's abstract and the model description in the Kleyko 2023 *ACM Computing Surveys* HDC/VSA Part II survey (their reference [172]) match.
 

@@ -8,7 +8,7 @@
 - **DOI:** `10.1016/0165-0114(92)90216-Q`
 - **Affiliation:** Sección Biofísica, Facultad de Ciencias, Universidad de la República, Montevideo, Uruguay
 - **Citation count (Semantic Scholar, retrieved 2026-04-28):** 62
-- **Open access PDF:** Closed at the publisher; original 1992 paper not freely available. The 2008 follow-up "Vector Logic: A Natural Algebraic Representation of the Fundamental Logical Gates" (Mizraji, *J. Logic & Computation*, vol. 18, pp. 97–121) is openly hosted by the author and re-states the framework with a self-contained introduction; we used it to verify the framework's content.
+- **Open access PDF:** Closed at the publisher; original 1992 paper not freely available. The 2008 follow-up "Vector Logic: A Natural Algebraic Representation of the Fundamental Logical Gates" (Mizraji, *J. Logic & Computation*, 18(1):97–121, [DOI 10.1093/logcom/exm057](https://doi.org/10.1093/logcom/exm057)) is openly hosted by the author and re-states the framework with a self-contained introduction; we used it to verify the framework's content.
 - **Listed in our codebase?** No. `grep -ri "mizraji"` over `bayes_hdc/`, `examples/`, `benchmarks/`, all `*.md` and `*.rst` documentation, `CITATION.cff` and `pyproject.toml` returns zero hits. The paper is not currently a reference in this project.
 
 ## Summary (200 words)
@@ -36,13 +36,13 @@ None. There is no existing Mizraji citation to date-check, year-check, or de-dup
 
 ## Substantive findings (for user review)
 
-1. **Is a "Related approaches" mention warranted at all?** Mizraji is occasionally name-checked in HDC retrospective surveys as a *pre-VSA* attempt to give logical operators an algebraic vector representation, but Kleyko, Rachkovskij, Osipov & Rahimi's two-part HDC/VSA survey (2022/2023, refs [3] of Part II and the Part II PDF we read for paper [18]) does **not** cite Mizraji in either part — neither in the model overview nor in the cognitive-modelling / logic-and-inference subsection (Kleyko Part II §3.1.3.6 "General-purpose rule-based and logic-based inference with HVs"). That is the most authoritative recent landscape map of the field, and it leaves Mizraji out. So the historiographic case for adding Mizraji to our `DESIGN.md` is *weak*: he is not part of the lineage the field itself acknowledges.
+1. **Survey attribution.** Kleyko, Rachkovskij, Osipov & Rahimi's [Part I survey](https://arxiv.org/html/2111.06077v2) explicitly cites both Mizraji (1989) and Mizraji (1992) in its Tensor Product Representations discussion. The original report's claim that neither survey part acknowledges Mizraji was incorrect. Whether the library implements vector logic is a separate scope question; survey omission cannot justify excluding this historical citation.
 2. **The user direction "out of scope" matches the technical content.** The 1992 paper does not propose a high-dimensional symbol algebra, does not contemplate random codes, does not use binding-as-circular-convolution or binding-as-elementwise-product, and does not engage with similarity-based retrieval. It is a separate research programme — algebraic representation of *logical truth*, not algebraic representation of *symbolic structure*. Marking it out-of-scope is correct.
-3. **If a future revision wants to cite it,** the natural home is a sentence in `DESIGN.md` §1 along the lines of *"Earlier vector-as-logic constructions (Mizraji 1992; Plate 1995; Gallant 2013) are not VSAs in the modern sense; bayes-hdc follows the high-dimensional, random-coding lineage initiated by Plate, Kanerva, and Gayler."* This costs one citation and demarcates scope explicitly. The user should decide whether the demarcation is worth the citation budget; our recommendation is **no — leave Mizraji unmentioned**, because the surrounding survey literature (Kleyko Part II) does not cite it either.
+3. **If a future revision wants to cite it,** the natural home is a sentence in `DESIGN.md` §1 along the lines of *"Mizraji (1992) studies vector representations of logical truth values. Plate (1995) introduces HRR, a VSA model; it should not be classified as an excluded vector-logic approach."* This costs one citation and demarcates scope explicitly. A related-work citation can distinguish these approaches without implying that the library implements Mizraji's logic operators; Part I of the survey supports this historical connection.
 
 ## Recommended canonical citation
 
-If, against the recommendation above, the project chooses to cite Mizraji 1992:
+Canonical citation for Mizraji (1992):
 
 > E. Mizraji, "Vector logics: the matrix-vector representation of logical calculus," *Fuzzy Sets and Systems*, vol. 50, no. 2, pp. 179–185, 1992. doi:10.1016/0165-0114(92)90216-Q.
 

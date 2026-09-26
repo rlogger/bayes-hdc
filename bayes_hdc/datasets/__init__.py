@@ -17,7 +17,7 @@ Datasets currently supported:
 - **mnist / fashion_mnist** — loaded via scikit-learn's OpenML
   fetcher, cached in the user's scikit-learn home.
 - **isolet** — 26-class spoken-letter recognition (Fanty & Cole, 1990);
-  the canonical HDC benchmark since Rahimi et al. (2016). 617 features.
+  617 features.
 - **ucihar** — Human Activity Recognition using Smartphones (Anguita
   et al., 2013); 6-class, 561 features.
 

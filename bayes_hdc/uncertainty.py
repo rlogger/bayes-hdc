@@ -34,6 +34,18 @@ exposes raw scores or predictions — :class:`~bayes_hdc.models.CentroidClassifi
 the ridge classifier's linear scores,
 :class:`~bayes_hdc.models.HDRegressor.predict`, or a user-supplied
 model — so existing pipelines get calibration without retraining.
+
+References:
+Guo, C., Pleiss, G., Sun, Y., Weinberger, K. Q. (2017). On Calibration
+of Modern Neural Networks. ICML, PMLR 70: 1321-1330.
+https://proceedings.mlr.press/v70/guo17a.html
+Romano, Y., Sesia, M., Candès, E. (2020). Classification with Valid and
+Adaptive Coverage. Advances in Neural Information Processing Systems 33.
+https://arxiv.org/abs/2006.02544
+Lei, J., G'Sell, M., Rinaldo, A., Tibshirani, R. J., Wasserman, L. (2018).
+Distribution-Free Predictive Inference for Regression. Journal of the
+American Statistical Association 113(523): 1094-1111.
+https://doi.org/10.1080/01621459.2017.1307116
 """
 
 from __future__ import annotations
@@ -377,12 +389,12 @@ class ConformalRegressor:
     multivariate nonconformity score; this implementation gives
     marginal coverage per output dimension.)
 
-    Concurrent algorithmic work in HDC: Liang et al. (2026)
-    *ConformalHDC* (arXiv:2602.21446) develops adaptive nonconformity
-    scores tailored to prototype geometry. ``ConformalRegressor`` is
-    the simpler absolute-residual variant — sufficient for the
-    calibrated-regression use case. This wrapper uses absolute residuals
-    rather than a user-supplied score.
+    Related HDC work is Liang, Poursiami, Yang, Cooper, Jaiswal, Parsa,
+    Fortin & Shahbaba (2026), *ConformalHDC: Uncertainty-Aware
+    Hyperdimensional Computing with Application to Neural Decoding*,
+    arXiv preprint https://arxiv.org/abs/2602.21446. That paper studies
+    conformity scores for HDC classification; this wrapper implements
+    absolute-residual split-conformal regression as in Lei et al. (2018).
 
     Attributes:
         quantile: Empirical quantile of calibration residuals, of

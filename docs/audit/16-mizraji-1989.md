@@ -9,7 +9,7 @@
 - **DOI:** 10.1007/BF02458441 (Springer) / 10.1016/S0092-8240(89)80067-9 (ScienceDirect)
 - **PubMed ID:** 2924018
 - **Affiliation:** Sección Biofísica, Facultad de Ciencias, Universidad de la República, Montevideo, Uruguay
-- **Open access:** Paywalled at Springer / ScienceDirect; full PDF not consulted directly. Audit relies on the published abstract (PubMed 2924018), the formal description in subsequent Mizraji papers (e.g. *Memories in context*, 1999, BioSystems), and standard secondary references in Plate (2003) and Kleyko et al. 2023 (arXiv:2112.15424). **Flagged as not consulted in primary form.**
+- **Open access:** Paywalled at Springer / ScienceDirect; full PDF not consulted directly. Audit relies on the published abstract (PubMed 2924018), the formal description in subsequent Mizraji papers (e.g. *Memories in context*, 1999, BioSystems), and standard secondary references in Plate (2003) and Kleyko et al. Part I (2022 online / 2023 issue; [arXiv:2111.06077](https://arxiv.org/abs/2111.06077)), whose TPR section cites Mizraji (1989). **Flagged as not consulted in primary form.**
 - **Citation count (Semantic Scholar):** 46
 
 ## Summary (200 words)

@@ -486,7 +486,7 @@ class ConformalAnomalyDetector:
         Returns ``True`` iff the conformal p-value is at most
         :math:`\alpha`. The marginal false-positive rate of this rule
         is bounded by :math:`\alpha` under exchangeability
-        (Laxhammar, 2014; Bates et al., 2023).
+        (Bates et al., 2023).
 
         Args:
             query_hv: Query hypervector of shape ``(dimensions,)``.
@@ -597,8 +597,8 @@ def fit_anomaly_pipeline(
 ) -> ConformalAnomalyDetector:
     r"""Encode raw features then fit a split-conformal anomaly detector.
 
-    Convenience wrapper around the two-step protocol of
-    Lei et al. (2018):
+    Convenience wrapper for split-conformal outlier testing
+    (Bates et al., 2023), with an HDC scoring model:
 
     1. Encode raw features ``normal_data`` and ``calibration_data``
        with ``encoder.encode_batch`` to produce hypervectors.

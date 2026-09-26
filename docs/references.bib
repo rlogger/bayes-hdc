@@ -1,15 +1,14 @@
 % bayes-hdc — canonical bibliography
 % =================================
 %
-% This file is the single source of truth for the canonical citations
-% used throughout the codebase. Every primary HDC/VSA paper that the
-% library cites in a docstring, design note, or example points back to
-% one of the entries below by BibTeX key. The keys follow the
-% lastname-year-shortword convention so they are stable across renames.
+% Bibliographic records for literature cited by the project. Citation
+% keys are stable identifiers and may retain an earlier year when the
+% publication metadata is corrected. Notes describe relevance, not an
+% independent verification or reproduction of the cited experiments.
 %
-% The literature audit at docs/LITERATURE_AUDIT.md ties each paper to
-% the specific file:line locations where it is cited and records the
-% recommended canonical citation form. If you add a new citation,
+% The literature audit at docs/LITERATURE_AUDIT.md discusses the cited
+% methods. Its historical line references can drift as code changes.
+% If you add a new citation,
 % extend this file and reference it from the docstring rather than
 % inlining the BibTeX inside the source.
 
@@ -26,9 +25,8 @@
   pages   = {3--71},
   year    = {1988},
   doi     = {10.1016/0010-0277(88)90031-5},
-  note    = {Foundational connectionism critique; the systematicity-and-
-             productivity challenge that Vector Symbolic Architectures
-             aim to answer.}
+  note      = {Foundational connectionism critique; the systematicity and productivity
+               challenge that Vector Symbolic Architectures aim to answer.}
 }
 
 @article{smolensky1990tensor,
@@ -41,8 +39,7 @@
   pages   = {159--216},
   year    = {1990},
   doi     = {10.1016/0004-3702(90)90007-M},
-  note    = {The dimension-expanding tensor-product binding that HRR/MAP/BSC
-             compress to fixed dimension.}
+  note      = {Introduces tensor-product variable binding for structured representations.}
 }
 
 @inproceedings{gayler2003vsa,
@@ -57,9 +54,10 @@
   year      = {2003},
   eprint    = {cs/0412059},
   archivePrefix = {arXiv},
-  primaryClass  = {cs.AI},
+  primaryClass  = {cs.NE},
   doi       = {10.48550/arXiv.cs/0412059},
-  note      = {Coining citation for the term "Vector Symbolic Architecture".}
+  note      = {The arXiv copy was deposited in 2004 and slightly updates the 2003 conference
+               paper.}
 }
 
 % =============================================================
@@ -75,8 +73,8 @@
   pages   = {623--641},
   year    = {1995},
   doi     = {10.1109/72.377968},
-  note    = {Open-access primary source for HRR algebra; the involution and
-             FFT-based convolution definitions used by bind_hrr / inverse_hrr.}
+  note      = {Primary source for HRR algebra; the involution and FFT-based convolution and
+               approximate inverse definitions.}
 }
 
 @book{plate2003hrr,
@@ -86,11 +84,12 @@
   publisher = {CSLI Publications},
   address   = {Stanford, CA},
   year      = {2003},
-  isbn      = {978-1-57586-430-9},
+  isbn      = {978-1-57586-430-3},
   series    = {CSLI Lecture Notes},
-  note      = {Book-length treatment of HRR; expanded restatement of Plate
-               (1995, IEEE TNN). Also contains the capacity-bound formula
-               required_dimension() in bayes_hdc.metrics implements.}
+  note      = {Book-length treatment of holographic reduced representations. The capacity
+               approximation used by the required-dimension heuristic is stated in Stewart,
+               Tang, and Eliasmith (2011), Eq. (1), which credits Plate (2003).},
+  url       = {https://www.bibliovault.org/BV.book.epl?ISBN=9781575864303}
 }
 
 % =============================================================
@@ -104,9 +103,8 @@
   address   = {Tokyo, Japan},
   pages     = {358--365},
   year      = {1997},
-  note      = {Origin paper for what later became known as the Binary
-               Spatter Code (BSC). Defines XOR binding, majority bundling,
-               Hamming similarity.}
+  note      = {Tutorial on binary spatter-code representation using XOR binding and majority
+               bundling; earlier binary spatter-code work predates this paper.}
 }
 
 @article{kanerva2009hyperdimensional,
@@ -119,10 +117,8 @@
   pages   = {139--159},
   year    = {2009},
   doi     = {10.1007/s12559-009-9009-8},
-  note    = {The canonical HDC introduction. Coins "Hyperdimensional
-               Computing"; canonises bind / bundle / permute / similarity /
-               cleanup primitives plus the role-filler-binding pattern that
-               Kanerva (2010) demonstrates as "Dollar of Mexico".}
+  note      = {Introduction to hyperdimensional representations, their algebraic operations,
+               and cognitive applications.}
 }
 
 @inproceedings{kanerva2010dollar,
@@ -136,9 +132,7 @@
   year      = {2010},
   pages     = {2--6},
   url       = {https://redwood.berkeley.edu/wp-content/uploads/2020/05/kanerva2010what.pdf},
-  note      = {Worked-example exposition of role-filler binding for
-               analogical mapping; the substrate operation is from
-               Kanerva (2009).}
+  note      = {Worked example of role-filler representations and analogical mapping.}
 }
 
 % =============================================================
@@ -150,13 +144,12 @@
   title     = {Context Vectors: General Purpose Approximate Meaning
                Representations Self-organized from Raw Data},
   booktitle = {Computational Intelligence: Imitating Life},
-  editor    = {Jacek M. Zurada and Robert J. Marks II and Charles J. Robinson},
+  editor    = {Jacek M. Zurada and Marks, II, Robert J. and Charles J. Robinson},
   publisher = {IEEE Press},
   year      = {1994},
   pages     = {43--56},
   isbn      = {0-7803-1104-3},
-  note      = {Historical anchor for the corpus-trained context-vector
-               idea; ancestor of Random Indexing and BEAGLE.}
+  note      = {Early discussion of context vectors learned from raw data.}
 }
 
 @article{jones2007beagle,
@@ -170,8 +163,8 @@
   year      = {2007},
   doi       = {10.1037/0033-295X.114.1.1},
   pmid      = {17227180},
-  note      = {BEAGLE: the canonical "permute + bind to encode word
-               order" pattern in HDC/VSA cognitive science.}
+  note      = {BEAGLE integrates word co-occurrence and order information in holographic
+               lexical representations.}
 }
 
 % =============================================================
@@ -185,7 +178,7 @@
   booktitle = {The Oxford Handbook of Compositionality},
   editor    = {Markus Werning and Wolfram Hinzen and Edouard Machery},
   publisher = {Oxford University Press},
-  year      = {2011},
+  year      = {2012},
   pages     = {596--615},
   doi       = {10.1093/oxfordhb/9780199541072.013.0029}
 }
@@ -199,9 +192,7 @@
   number  = {2},
   pages   = {145--153},
   year    = {2011},
-  doi     = {10.1080/09540091.2011.571761},
-  note    = {Volume corrected to 23(2); some bibliographies list 22(3),
-               which does not match the DOI.}
+  doi     = {10.1080/09540091.2011.571761}
 }
 
 @article{stewart2011biologically,
@@ -213,8 +204,8 @@
   pages   = {84--92},
   year    = {2011},
   doi     = {10.1016/j.cogsys.2010.06.006},
-  note    = {Some bibliographies date this 2010 (the journal cover date);
-               the published volume is 2011 per the DOI / DBLP record.}
+  note      = {Published online in 2010; the journal volume appeared in 2011.},
+  number    = {2}
 }
 
 @article{rasmussen2011neural,
@@ -225,10 +216,7 @@
   number  = {1},
   pages   = {140--153},
   year    = {2011},
-  doi     = {10.1111/j.1756-8765.2010.01127.x},
-  note    = {The repo's reading-list entry calls the venue "Cognitive
-               Science"; the actual venue is "Topics in Cognitive Science"
-               (TopiCS), the affiliated short-form journal.}
+  doi     = {10.1111/j.1756-8765.2010.01127.x}
 }
 
 % =============================================================
@@ -246,10 +234,9 @@
   year      = {2009},
   pages     = {165--174},
   url       = {https://redwood.berkeley.edu/wp-content/uploads/2021/08/Gayler2009.pdf},
-  note      = {Origin of the holistic vector-intersection primitive
-               (bayes_hdc.vector_intersect) and the replicator-iteration
-               formulation of VSA-based graph-isomorphism analogical
-               mapping; demonstrated in examples/gayler_levy_analogy.py.}
+  note      = {Source for holistic vector intersection and distributed analogical mapping.
+               The repository graph example is a simplified heuristic, not a reproduction of
+               the paper.}
 }
 
 @inproceedings{levy2013learning,
@@ -263,10 +250,7 @@
   year      = {2013},
   publisher = {AAAI Press},
   url       = {https://cdn.aaai.org/ocs/ws/ws1006/7075-30615-1-PB.pdf},
-  note      = {The repo's reading-list entry attributes the paper to the
-               AAAI main conference; it actually appeared in the co-located
-               AAAI 2013 workshop track. Pages 25-27 in the workshop
-               volume.}
+  note      = {Workshop paper, not an AAAI main-conference paper.}
 }
 
 % =============================================================
@@ -314,7 +298,9 @@
   year    = {2023},
   doi     = {10.1145/3538531},
   eprint  = {2111.06077},
-  archivePrefix = {arXiv}
+  archivePrefix = {arXiv},
+  articleno = {130},
+  note      = {Published online in December 2022; volume 55, issue 6 is dated 2023.}
 }
 
 @article{kleyko2023survey2,
@@ -331,11 +317,7 @@
   articleno = {175},
   doi       = {10.1145/3558000},
   eprint    = {2112.15424},
-  archivePrefix = {arXiv},
-  note      = {Cite as 2023 (journal year). The arXiv v3 is also dated
-               2023; only v1 (Dec 2021) and v2 timestamps predate it.
-               Earlier shorthand "Kleyko et al. 2022 survey" referred to
-               the v1 preprint and is no longer canonical.}
+  archivePrefix = {arXiv}
 }
 
 % =============================================================
@@ -349,15 +331,20 @@
                Learning (ICML)},
   pages     = {1321--1330},
   year      = {2017},
-  url       = {https://proceedings.mlr.press/v70/guo17a.html}
+  url       = {https://proceedings.mlr.press/v70/guo17a.html},
+  volume    = {70},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR}
 }
 
-@article{romano2020classification,
+@inproceedings{romano2020classification,
   author  = {Yaniv Romano and Matteo Sesia and Emmanuel J. Cand{\`e}s},
   title   = {Classification with Valid and Adaptive Coverage},
-  journal = {Advances in Neural Information Processing Systems},
   volume  = {33},
-  year    = {2020}
+  year    = {2020},
+  booktitle = {Advances in Neural Information Processing Systems},
+  pages     = {3581--3591},
+  url       = {https://proceedings.neurips.cc/paper/2020/hash/244edd7e85dc81602b7615cd705545f5-Abstract.html}
 }
 
 % =============================================================
@@ -365,18 +352,18 @@
 % =============================================================
 
 @article{ramsauer2020hopfield,
-  author  = {Hubert Ramsauer and Bernhard Sch{\"a}fl and Johannes Lehner and
-             Philipp Seidl and Michael Widrich and Lukas Gruber and
-             Markus Holzleitner and Thomas Adler and David Kreil and
-             Michael K. Kopp and Günter Klambauer and Johannes Brandstetter and
-             Sepp Hochreiter},
+  author    = {Hubert Ramsauer and Bernhard Sch{\"a}fl and Johannes Lehner and
+             Philipp Seidl and Michael Widrich and Thomas Adler and Lukas Gruber and
+             Markus Holzleitner and Milena Pavlovi{\'c} and Geir Kjetil Sandve and
+             Victor Greiff and David Kreil and Michael Kopp and G{\"u}nter Klambauer and
+             Johannes Brandstetter and Sepp Hochreiter},
   title   = {Hopfield Networks is All You Need},
   journal = {arXiv preprint arXiv:2008.02217},
   year    = {2020},
   url     = {https://arxiv.org/abs/2008.02217},
-  note    = {The "modern continuous Hopfield network" implemented by
-             bayes_hdc.memory.HopfieldMemory; one-step softmax-attention
-             retrieval, distinct from Hopfield (1982).}
+  note      = {Continuous-state Hopfield networks and their relation to attention. The
+               repository uses a related attention-style retrieval rule; the citation alone
+               does not establish its capacity or convergence guarantees.}
 }
 
 @article{hopfield1982neural,
@@ -389,9 +376,8 @@
   pages   = {2554--2558},
   year    = {1982},
   doi     = {10.1073/pnas.79.8.2554},
-  note    = {Classical sign-thresholded recurrent Hopfield network;
-             distinct from Ramsauer et al. (2020) and from spiking-
-             neuron cleanup memories.}
+  note      = {Classical sign-thresholded recurrent Hopfield network; distinct from Ramsauer
+               et al. (2020) and from spiking- neuron cleanup memories.}
 }
 
 % =============================================================
@@ -405,8 +391,8 @@
                Science Society},
   pages     = {1300--1305},
   year      = {2008},
-  note      = {Permute-then-bundle sequence encoding; introduced
-               contemporaneously with Kanerva (2009).}
+  note      = {Permutation-based encoding of word-order information in random-indexing
+               models.}
 }
 
 % =============================================================
@@ -440,17 +426,15 @@
   pages     = {64--69},
   year      = {2016},
   doi       = {10.1145/2934583.2934624},
-  note      = {The canonical sEMG hand-gesture classification application;
-               see examples/emg_gesture_recognition.py.}
+  note      = {HDC hand-gesture classification from EMG signals. The repository example uses
+               synthetic features and does not reproduce this experiment.}
 }
 
 % =============================================================
 % Probabilistic VSA / SSP / Fractional Power Encoding line
 % (Berkeley Redwood + Waterloo Eliasmith group)
-% Added 2026-05-06 after the novelty audit identified these as
-% the closest concurrent / prior work on probabilistic VSA. Cite
-% these wherever GaussianHV, train_variational_codebook, or
-% probabilistic_resonator is introduced.
+% Related work on vector representations, distributions, and inference.
+% These citations do not establish equivalence to repository algorithms.
 % =============================================================
 
 @article{frady2018sequence,
@@ -466,8 +450,8 @@
   eprint  = {1803.00412},
   archivePrefix = {arXiv},
   primaryClass  = {cs.NE},
-  note    = {Capacity theory for recurrent permute-bundle sequence indexing;
-             the static analogue is what HierarchicalSequence implements.}
+  note      = {Capacity analysis for recurrent sequence memories; distinct from the
+               repository hierarchical sequence data structure.}
 }
 
 @article{frady2020variable,
@@ -480,8 +464,9 @@
   eprint  = {2009.06734},
   archivePrefix = {arXiv},
   primaryClass  = {cs.NE},
-  note    = {Foundational variance analysis for binding; closest prior
-             art to the closed-form Gaussian moments in bayes_hdc.distributions.}
+  note      = {Variable binding with sparse representations, including sparse block codes
+               and their relationship to tensor products.},
+  url       = {https://arxiv.org/abs/2009.06734}
 }
 
 @article{frady2022computing,
@@ -490,12 +475,14 @@
   title   = {Computing on Functions Using Randomized Vector Representations},
   journal = {arXiv preprint},
   volume  = {abs/2109.03429},
-  year    = {2022},
+  year      = {2021},
   eprint  = {2109.03429},
   archivePrefix = {arXiv},
-  primaryClass  = {cs.NE},
-  note    = {Fractional power encoding (FPE) on the Berkeley Redwood line;
-             cite alongside functional.fractional_power.}
+  primaryClass  = {cs.LG},
+  note      = {This entry cites the full 2021 preprint. A shorter conference version
+               appeared in NICE 2022 with the title suffix "(in brief)" and DOI
+               10.1145/3517343.3522597.},
+  url       = {https://arxiv.org/abs/2109.03429}
 }
 
 @inproceedings{komer2019ssp,
@@ -505,11 +492,10 @@
                Binding},
   booktitle = {Proceedings of the 41st Annual Meeting of the Cognitive
                Science Society (CogSci 2019)},
-  pages     = {2038--2044},
+  pages     = {2038--2043},
   year      = {2019},
-  note      = {The Semantic Pointer Architecture spatial-semantic-pointer
-               (SSP) formulation that underpins the Furlong-Eliasmith
-               probabilistic VSA line.}
+  note      = {Spatial semantic pointers encode continuous spaces using fractional binding.},
+  url       = {https://escholarship.org/uc/item/3zz346g1}
 }
 
 @inproceedings{furlong2022quasi,
@@ -520,9 +506,9 @@
                Science Society (CogSci 2022)},
   pages     = {259--266},
   year      = {2022},
-  note      = {The closest prior framing to PVSA; treats VSA bundles as
-               quasi-probability distributions in the Fourier-domain SSP
-               substrate.}
+  note      = {Interprets bundles and fractional binding in terms of quasi-probability
+               statements.},
+  url       = {https://escholarship.org/uc/item/33j7c63v}
 }
 
 @article{furlong2024probabilistic,
@@ -530,62 +516,59 @@
   title   = {Modelling Neural Probabilistic Computation Using Vector
              Symbolic Architectures},
   journal = {Cognitive Neurodynamics},
-  volume  = {19},
-  number  = {4},
+  volume    = {18},
+  number    = {6},
   year    = {2024},
   doi     = {10.1007/s11571-023-10031-7},
-  note    = {The most directly competing framing on probabilistic VSA;
-             cite next to GaussianHV / DirichletHV.}
+  note      = {Probabilistic operations on distributions represented by spatial semantic
+               pointers; published online in 2023 and assigned to the 2024 journal volume.},
+  pages     = {1--24}
 }
 
 @inproceedings{furlong2024mcmc,
-  author    = {P. Michael Furlong and Madeleine Bartlett and Nicole Sandra-Yaffa Dumont and
-               Pietro Simone and Terrence C. Stewart and Jeff Orchard and
+  author    = {P. Michael Furlong and Kathryn Simone and Nicole Sandra-Yaffa Dumont and
+               Madeleine Bartlett and Terrence C. Stewart and Jeff Orchard and
                Chris Eliasmith},
-  title     = {Biologically-Plausible {MCMC} Sampling from {VSA}-Encoded
-               Distributions},
+  title     = {Biologically-Plausible Markov Chain Monte Carlo Sampling from
+               Vector Symbolic Algebra-Encoded Distributions},
   booktitle = {Artificial Neural Networks and Machine Learning -- ICANN 2024},
   publisher = {Springer},
   year      = {2024},
   doi       = {10.1007/978-3-031-72341-4_7},
-  note      = {Direct prior art for the probabilistic resonator;
-               cite alongside resonator.probabilistic_resonator.}
+  note      = {MCMC sampling of VSA-encoded distributions. This is related probabilistic VSA
+               work, not the algorithm implemented by the repository resonator.},
+  pages     = {94--108}
 }
 
 % =============================================================
-% Bayesian / uncertainty / trainable HDC — concurrent algorithmic work
+% Bayesian / uncertainty / trainable HDC — related algorithmic work
 % =============================================================
 
 @inproceedings{ni2023dicehd,
-  author    = {Yang Ni and Cheng Chen and Prathyush Poduval and Han Zou and
-               Marco Mercati and Mohsen Imani},
-  title     = {{DiceHD}: A Generic and Stochastic Bayesian Hyperdimensional
-               Computing Framework},
+  author    = {Yang Ni and Hanning Chen and Prathyush Poduval and Zhuowen Zou and
+               Pietro Mercati and Mohsen Imani},
+  title     = {Brain-Inspired Trustworthy Hyperdimensional Computing with
+               Efficient Uncertainty Quantification},
   booktitle = {Proceedings of the IEEE/ACM International Conference on
                Computer-Aided Design (ICCAD 2023)},
   year      = {2023},
   doi       = {10.1109/ICCAD57390.2023.10323657},
-  note      = {Bayesian HDC via MC-dropout-style stochastic encoders;
-               concurrent algorithmic work on the uncertainty axis. Note
-               the mechanism differs: DiceHD uses Monte-Carlo over dropout
-               masks, while bayes-hdc uses closed-form moment propagation.}
+  note      = {Introduces DiceHD, an HDC method with uncertainty quantification using
+               stochastic masking.},
+  pages     = {1--9}
 }
 
 @article{kim2024trainable,
-  author  = {Junhwan Kim and Soyeon Lee and Mohsen Imani and Yeseong Kim},
-  title   = {Advancing Hyperdimensional Computing Based on Trainable Encoding
-             and Adaptive Training},
+  author    = {Jiseung Kim and Hyunsei Lee and Mohsen Imani and Yeseong Kim},
+  title     = {Advancing Hyperdimensional Computing Based on Trainable Encoding
+             and Adaptive Training for Efficient and Accurate Learning},
   journal = {ACM Transactions on Design Automation of Electronic Systems},
   volume  = {29},
-  number  = {3},
-  pages   = {Article 41},
+  number    = {5},
+  pages     = {1--25},
   year    = {2024},
   doi     = {10.1145/3665891},
-  note    = {Trainable HDC encoders via adaptive optimisers on deterministic
-             hypervectors; closest prior art to train_variational_codebook.
-             Distinction: their training is on point estimates; ours is
-             variational with reparameterisation gradients on distributional
-             primitives.}
+  note      = {Trainable HDC encoding and adaptive classifier training.}
 }
 
 @article{rachkovskij2024shiftequiv,
@@ -598,9 +581,11 @@
   doi     = {10.1007/s12559-024-10258-4},
   eprint  = {2112.15475},
   archivePrefix = {arXiv},
-  primaryClass  = {cs.NE},
-  note    = {Theory of shift-equivariant HDC sequence representations;
-             prior art for the equivariance angle in bayes_hdc.equivariance.}
+  primaryClass  = {cs.AI},
+  note      = {Sequence representations that preserve similarity and are equivariant to
+               sequence shifts.},
+  number    = {3},
+  pages     = {909--923}
 }
 
 @article{rachkovskij2022recursive,
@@ -612,59 +597,64 @@
   year    = {2022},
   eprint  = {2201.11691},
   archivePrefix = {arXiv},
-  primaryClass  = {cs.NE},
-  note    = {Earlier paper in the Rachkovskij shift-equivariance line.}
+  primaryClass  = {cs.AI},
+  note      = {Recursive-binding construction of sequence-position representations.},
+  url       = {https://arxiv.org/abs/2201.11691}
 }
 
 @article{liang2026conformalhdc,
-  author  = {Hong Liang and Mojan Poursiami and Bingyao Yang and
-             Andrew Cooper and Akhil Jaiswal and Maryam Parsa and
-             Daniel Fortin and Babak Shahbaba},
-  title   = {{ConformalHDC}: Adaptive Conformal Prediction for
-             Hyperdimensional Computing},
+  author    = {Ziyi Liang and Hamed Poursiami and Zhishun Yang and
+             Keiland Cooper and Akhilesh Jaiswal and Maryam Parsa and
+             Norbert Fortin and Babak Shahbaba},
+  title     = {{ConformalHDC}: Uncertainty-Aware Hyperdimensional Computing
+             with Application to Neural Decoding},
   journal = {arXiv preprint},
   volume  = {abs/2602.21446},
   year    = {2026},
   eprint  = {2602.21446},
   archivePrefix = {arXiv},
-  primaryClass  = {cs.LG},
-  note    = {Concurrent algorithmic priority on conformal prediction for HDC;
-             cite next to uncertainty.ConformalClassifier.}
+  primaryClass  = {stat.ML},
+  note      = {Prior work on conformal prediction for HDC; preprint submitted in February
+               2026.},
+  url       = {https://arxiv.org/abs/2602.21446}
 }
 
 @article{dewulf2025hdtransform,
-  author  = {Pieter Dewulf and Bernard De Baets and Michiel Stock},
-  title   = {The Hyperdimensional Transform: A Framework for Bayesian
-             Inference with Hypervectors},
+  author  = {Pieter Dewulf and De Baets, Bernard and Michiel Stock},
+  title     = {The Hyperdimensional Transform for Distributional Modeling,
+             Regression and Classification},
   journal = {Neural Computing and Applications},
   year    = {2025},
   doi     = {10.1007/s00521-025-11405-0},
-  note    = {Distributions over hypervectors formalised as a transform;
-             concurrent framing on the "Bayesian HDC" axis.}
+  note      = {Uses the hyperdimensional transform to represent probability distributions
+               and perform regression and classification.},
+  volume    = {37},
+  number    = {23},
+  pages     = {19393--19422}
 }
 
-@inproceedings{bryant2024hdvqvae,
-  author    = {Chase D. Bryant and Sai Maharaj and Geng Yuan},
-  title     = {{HDVQ-VAE}: Static Hyperdimensional Codebook in a Vector-
-               Quantized Variational Autoencoder},
-  booktitle = {Proceedings of the International Conference on Compilers,
-               Architecture, and Synthesis for Embedded Systems (CASES 2024)},
-  series    = {ESWEEK 2024},
+@article{bryant2024hdvqvae,
+  author    = {Austin J. Bryant and Sercan Aygun},
+  title     = {{HDVQ-VAE}: Binary Codebook for Hyperdimensional Latent Representations},
   year      = {2024},
-  url       = {https://web.eng.fiu.edu/gaquan/Papers/ESWEEK24Papers/CASES/},
-  note      = {Uses HDC as a static binary codebook inside a VQ-VAE.
-               Concurrent work on the "variational HDC" axis; distinct
-               from bayes-hdc's learned variational codebook.}
+  url       = {https://par.nsf.gov/servlets/purl/10648788},
+  note      = {Binary HDC codebooks in a vector-quantized variational autoencoder; distinct
+               from learning a posterior distribution over codebook parameters.},
+  journal   = {IEEE Embedded Systems Letters},
+  volume    = {16},
+  number    = {4},
+  pages     = {325--328},
+  doi       = {10.1109/LES.2024.3443881}
 }
 
 % =============================================================
-% TorchHD line — the de-facto SOTA for deterministic HDC
+% TorchHD and comparative HDC classification research
 % =============================================================
 
 @article{heddes2023torchhd,
-  author  = {Mike Heddes and Igor Nunes and Pere Verg{\'e}s and Denis Kleyko and
+  author    = {Mike Heddes and Igor Nunes and Pere Verg{\'e}s and Denis Kleyko and
              Danny Abraham and Tony Givargis and Alexandru Nicolau and
-             Alexander V. Veidenbaum},
+             Alexander Veidenbaum},
   title   = {{Torchhd}: An Open Source {P}ython Library to Support
              Research on Hyperdimensional Computing and Vector Symbolic
              Architectures},
@@ -674,21 +664,23 @@
   pages   = {1--10},
   year    = {2023},
   url     = {https://jmlr.org/papers/v24/23-0300.html},
-  note    = {The de-facto SOTA HDC library and direct comparator for any
-             new HDC library publication.}
+  note      = {Research software for HDC/VSA built on PyTorch; a relevant implementation
+               comparator.}
 }
 
 @article{heddes2024framework,
-  author  = {Mike Heddes and Igor Nunes and Tony Givargis and Alexandru Nicolau and
-             Alexander V. Veidenbaum},
+  author    = {Mike Heddes and Igor Nunes and Tony Givargis and Alexandru Nicolau and
+             Alex Veidenbaum},
   title   = {Hyperdimensional Computing: A Framework for Stochastic
              Computation and Symbolic {AI}},
   journal = {Journal of Big Data},
   volume  = {11},
   year    = {2024},
   doi     = {10.1186/s40537-024-01010-8},
-  note    = {The HDC-as-stochastic-computation framing; broad context
-             for any new library's positioning.}
+  note      = {Survey of HDC as stochastic computation, with graph classification and
+               hashing applications.},
+  number    = {1},
+  articleno = {145}
 }
 
 @article{verges2025review,
@@ -700,8 +692,10 @@
   volume  = {58},
   year    = {2025},
   doi     = {10.1007/s10462-025-11181-2},
-  note    = {2025 benchmark and review of HDC classification; reference
-             for the BENCHMARKS.md accuracy claims.}
+  note      = {Comparative HDC classification study with open-source benchmark
+               implementations. Its results do not validate the separate experiments in this
+               repository.},
+  articleno = {173}
 }
 
 % =============================================================
@@ -709,7 +703,7 @@
 % =============================================================
 
 @article{karunaratne2020inmemory,
-  author  = {Geethan Karunaratne and Manuel Le Gallo and Giovanni Cherubini and
+  author  = {Geethan Karunaratne and Le Gallo, Manuel and Giovanni Cherubini and
              Luca Benini and Abbas Rahimi and Abu Sebastian},
   title   = {In-Memory Hyperdimensional Computing},
   journal = {Nature Electronics},
@@ -718,36 +712,36 @@
   pages   = {327--337},
   year    = {2020},
   doi     = {10.1038/s41928-020-0410-3},
-  note    = {The IBM Zurich PCM-based HDC substrate; canonical for edge-
-             deployment relevance.}
+  note      = {HDC implemented with phase-change memory hardware. Hardware results do not
+               establish deployment performance of this JAX library.}
 }
 
 @article{burrello2020seizure,
   author  = {Alessio Burrello and Kaspar Schindler and Luca Benini and
              Abbas Rahimi},
-  title   = {Hyperdimensional Computing With Local Binary Patterns: One-Shot
-             Learning of Seizure Onset and Identification of {IctoGenic}
-             Brain Regions},
+  title     = {Hyperdimensional Computing With Local Binary Patterns: One-Shot
+             Learning of Seizure Onset and Identification of Ictogenic
+             Brain Regions Using Short-Time {iEEG} Recordings},
   journal = {IEEE Transactions on Biomedical Engineering},
   volume  = {67},
   number  = {2},
   pages   = {601--613},
   year    = {2020},
   doi     = {10.1109/TBME.2019.2919137},
-  note    = {The canonical iEEG-HDC seizure-detection paper;
-             cite in examples/eeg_seizure_detection.py.}
+  note      = {HDC seizure detection and localization using intracranial EEG recordings. The
+               repository example uses synthetic features.}
 }
 
 @article{kleyko2025reservoir,
-  author  = {Denis Kleyko and Christopher J. Kymn and Anthony Thomas and
-             E. Paxon Frady and Bruno A. Olshausen and Friedrich T. Sommer},
+  author    = {Denis Kleyko and Christopher J. Kymn and Anthony Thomas and
+             Bruno A. Olshausen and Friedrich T. Sommer and E. Paxon Frady},
   title   = {Principled Neuromorphic Reservoir Computing},
   journal = {Nature Communications},
   volume  = {16},
   year    = {2025},
   doi     = {10.1038/s41467-025-55832-y},
-  note    = {2025 SOTA on the HDC-reservoir-computing axis;
-             context for positioning bayes-hdc against neuromorphic HDC.}
+  note      = {Neuromorphic reservoir computing using vector symbolic representations.},
+  articleno = {640}
 }
 
 @article{kleyko2021framework,
@@ -763,9 +757,8 @@
   eprint  = {2106.05268},
   archivePrefix = {arXiv},
   primaryClass  = {cs.AR},
-  note    = {Companion to the Kleyko et al. 2023 two-part ACM Computing
-             Surveys; survey of VSA as a computing framework. Cite where
-             surveys are referenced.}
+  note      = {Review of VSA as a computing framework for emerging hardware.},
+  url       = {https://arxiv.org/abs/2106.05268}
 }
 
 % =============================================================
@@ -782,8 +775,8 @@
   pages   = {1094--1111},
   year    = {2018},
   doi     = {10.1080/01621459.2017.1307116},
-  note    = {Split-conformal regression with the absolute-residual
-             nonconformity score; foundation for uncertainty.ConformalRegressor.}
+  note      = {Split-conformal regression with the absolute-residual nonconformity score;
+               foundation for uncertainty.ConformalRegressor.}
 }
 
 % --- Conformal anomaly / outlier detection (bayes_hdc.anomaly) ---
@@ -794,8 +787,10 @@
             in Surveillance Applications},
   school = {University of Sk{\"o}vde},
   year   = {2014},
-  note   = {Introduces conformal anomaly detection: nonconformity scores
-            turned into calibrated p-values with finite-sample validity.}
+  note      = {Doctoral dissertation, Dissertation Series 3. Studies conformal anomaly
+               detection for trajectories.},
+  url       = {https://www.diva-portal.org/smash/record.jsf?pid=diva2:690997},
+  isbn      = {978-91-981474-2-1}
 }
 
 @article{bates2023outliers,
@@ -808,7 +803,7 @@
   pages   = {149--178},
   year    = {2023},
   doi     = {10.1214/22-AOS2244},
-  note    = {Conformal p-values for outlier testing with finite-sample
-            false-discovery and false-positive control; the guarantee
-            bayes_hdc.ConformalAnomalyDetector inherits.}
+  note      = {Conformal outlier testing under stated exchangeability and multiple-testing
+               assumptions. Marginal p-value validity alone does not provide false-discovery
+               control for an arbitrary testing procedure.}
 }

@@ -95,11 +95,11 @@ def required_dimension(
 
     References:
     Plate, T. A. (2003). Holographic Reduced Representation: Distributed
-    Representation for Cognitive Structures. CSLI Publications. (Eq. 1
-    of the capacity analysis chapter.)
+    Representation for Cognitive Structures. CSLI Publications.
     Stewart, T. C., Tang, Y., Eliasmith, C. (2011). A Biologically
     Realistic Cleanup Memory: Autoassociation in Spiking Neurons.
-    Cognitive Systems Research 12: 84-92.
+    Cognitive Systems Research 12(2): 84-92.
+    https://doi.org/10.1016/j.cogsys.2010.06.006
     """
     if chunk_size < 1:
         raise ValueError(f"chunk_size must be >= 1; got {chunk_size}")

@@ -1,14 +1,14 @@
-# Paper [8]: T. Stewart and C. Eliasmith (2011) — Compositionality and Biologically Plausible Models
+# Paper [8]: T. Stewart and C. Eliasmith (2012) — Compositionality and Biologically Plausible Models
 
 ## Bibliographic
 
-- **Citation as numbered in repo:** [8] T. Stewart and C. Eliasmith, "Compositionality and Biologically Plausible Models," in *The Oxford Handbook of Compositionality*, pp. 596-615, 2011.
-- **Verified metadata (Semantic Scholar paperId `b4ca7de1e785dff18c5ff886a0349fcbf059b622`):** Stewart & Eliasmith, "Compositionality and Biologically Plausible Models," *Oxford Handbook of Compositionality* (Oxford University Press), 2012 print date with the chapter widely circulated as a 2011 preprint. DOI `10.1093/oxfordhb/9780199541072.013.0029`. 21 forward citations as of Apr 2026.
-- **Access status:** Full text paywalled (closed access on Oxford Handbooks Online). No arXiv preprint located. Audit relied on Semantic Scholar metadata, the chapter's known role in the Eliasmith-lab corpus (heavily cross-cited with Eliasmith 2013 *How to Build a Brain*), and the citation graph (downstream papers identifying it as the Semantic Pointer Architecture's compositionality-handbook treatment).
+- **Citation as numbered in repo:** [8] T. Stewart and C. Eliasmith, "Compositionality and Biologically Plausible Models," in *The Oxford Handbook of Compositionality*, pp. 596–615, 2012.
+- **Published version:** Oxford University Press records print publication on 9 February 2012 and online publication on 18 September 2012 for [DOI 10.1093/oxfordhb/9780199541072.013.0029](https://doi.org/10.1093/oxfordhb/9780199541072.013.0029). Cite the published chapter as 2012. The legacy filename and BibTeX key retain `2011` for link compatibility; they do not specify the publication year.
+- **Access status:** The original audit relied on metadata rather than the chapter text. An [author-hosted penultimate draft](https://compneuro.uwaterloo.ca/files/publications/stewart.2012.pdf) is available; it identifies itself as an in-press draft and should be distinguished from the published 2012 chapter.
 
 ## Summary (200 words)
 
-Stewart and Eliasmith argue that compositional behaviour observed in human cognition can be reproduced by *biologically plausible* spiking-neuron systems implementing Vector Symbolic Architectures (VSA) — specifically the Holographic Reduced Representation (HRR) family — within the Neural Engineering Framework (NEF). The chapter positions VSA as a substrate that satisfies Fodor & Pylyshyn's classical compositionality requirements (productivity, systematicity, inferential coherence) without classical symbol-token dynamics: hypervectors carry meaning distributively, circular convolution implements role-filler binding, and superposition implements bundling. The authors situate the Semantic Pointer Architecture (SPA) — vectors that index lower-level perceptual or motor representations — as the cognitive-architecture wrapper around HRR. Algorithmic content focuses on (i) the HRR `bind` (circular convolution) and `unbind` (correlation with the involution) operators, (ii) bundling via vector sum followed by normalisation, and (iii) the NEF's neural-tuning-curve decoding scheme that lets populations of leaky-integrate-and-fire neurons compute these operators on their decoded representations. Demonstrated tasks: simple analogical retrieval, slot-filler propositional encoding, and pointer-based deep cognitive structure (a precursor to the full Spaun model). Successor citations include Eliasmith et al. 2012 (Spaun, *Science*), Stewart & Eliasmith 2013 (quantum-probability VSA), Crawford et al. 2016 (human-scale knowledge), and a 2024-25 wave of HDC-spiking bridge papers (Orchard & Jarvis 2023; Sumanasena et al. 2025).
+Stewart and Eliasmith argue that compositional behaviour observed in human cognition can be reproduced by *biologically plausible* spiking-neuron systems implementing Vector Symbolic Architectures (VSA) — specifically the Holographic Reduced Representation (HRR) family — within the Neural Engineering Framework (NEF). The chapter positions VSA as a substrate that satisfies Fodor & Pylyshyn's classical compositionality requirements (productivity, systematicity, inferential coherence) without classical symbol-token dynamics: hypervectors carry meaning distributively, circular convolution implements role-filler binding, and superposition implements bundling. The authors situate the Semantic Pointer Architecture (SPA) — vectors that index lower-level perceptual or motor representations — as the cognitive-architecture wrapper around HRR. Algorithmic content focuses on (i) the HRR `bind` (circular convolution) and `unbind` (correlation with the involution) operators, (ii) bundling via vector sum followed by normalisation, and (iii) the NEF's neural-tuning-curve decoding scheme that lets populations of leaky-integrate-and-fire neurons compute these operators on their decoded representations. Demonstrated tasks: simple analogical retrieval, slot-filler propositional encoding, and pointer-based deep cognitive structure (a precursor to the full Spaun model). Successor citations include Eliasmith et al. 2012 (Spaun, *Science*), Crawford et al. 2016 (human-scale knowledge), and later HDC-spiking bridge papers (Orchard & Jarvis 2023; Sumanasena et al. 2025).
 
 ## Paper -> code map
 
@@ -43,10 +43,10 @@ Ran across the full repo (excluding `.venv`, `.egg-info`, `_build`, `__pycache__
 
 2. **DESIGN.md gap (per user pre-approval).** Add a one-paragraph "Related approaches not implemented" subsection to `DESIGN.md` (suggested location: after the algebra section, before PVSA, or as a new terminal section). The paragraph should:
    - Explicitly state that spiking-neuron VSA implementations are out of scope.
-   - Cite Stewart & Eliasmith 2011 (this paper) and Stewart, Bekolay & Eliasmith 2011 (Paper [9]) as the canonical pointers into the SPA/NEF tradition.
-   - Cite Stewart, Tang & Eliasmith 2010 ("Neural Cleanup for SPA," Cognitive Science) for the cleanup-memory primitive.
+   - Cite Stewart & Eliasmith 2012 (this paper) and Stewart, Bekolay & Eliasmith 2011 (Paper [9]) as the canonical pointers into the SPA/NEF tradition.
+   - Cite Stewart, Tang & Eliasmith 2011 ("A Biologically Realistic Cleanup Memory: Autoassociation in Spiking Neurons," *Cognitive Systems Research* 12(2):84–92) for the cleanup-memory primitive.
    - Cite Rasmussen & Eliasmith 2011 ("A Neural Model of Rule Generation in Inductive Reasoning") for the inductive-reasoning extension.
-   - Optionally note the modern HDC-spiking bridge work (Orchard & Jarvis 2023 *Hyperdimensional Computing with Spiking-Phasor Neurons*, Sumanasena et al. 2025 *Implementing HRRs for Spiking Neural Networks*) so readers see the field is active and distinct from this library's abstract-vector + JAX scope.
+   - Optionally note the modern HDC-spiking bridge work (Orchard & Jarvis 2023 *Hyperdimensional Computing with Spiking-Phasor Neurons*, Sumanasena et al. 2025 *[Implementing Holographic Reduced Representations for Spiking Neural Networks](https://doi.org/10.1109/ACCESS.2025.3580582)*) so readers see the field is active and distinct from this library's abstract-vector + JAX scope.
 
 3. **Stronger framing for `bind_hrr` docstring (optional, low priority).** The HRR docstring in `functional.py` could include a one-line citation pointer of the form "circular convolution as in Plate 1995; biologically plausible spiking implementations in the SPA/NEF line are out of scope (see DESIGN.md)." This is *not* required to fix any inaccuracy — only suggested if the user wants to redirect curious readers from the algebraic layer to the right literature. Skip if minimalist docstrings are preferred.
 
@@ -61,7 +61,7 @@ Ran across the full repo (excluding `.venv`, `.egg-info`, `_build`, `__pycache__
   booktitle = {The Oxford Handbook of Compositionality},
   editor    = {Werning, Markus and Hinzen, Wolfram and Machery, Edouard},
   publisher = {Oxford University Press},
-  year      = {2011},
+  year      = {2012},
   pages     = {596--615},
   doi       = {10.1093/oxfordhb/9780199541072.013.0029}
 }
