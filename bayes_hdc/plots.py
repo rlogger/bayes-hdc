@@ -168,6 +168,8 @@ def plot_coverage_curve(
     if alphas is None:
         alphas = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
     alphas_arr = np.asarray(alphas, dtype=np.float64)
+    if alphas_arr.ndim != 1 or alphas_arr.size == 0:
+        raise ValueError("alphas must be a nonempty one-dimensional sequence")
 
     coverages = []
     set_sizes = []

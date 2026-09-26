@@ -1,61 +1,22 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Calibrated multi-modal action prediction from vision + proprioception.
+"""Synthetic multimodal continuous-action regression with marginal intervals.
 
-The skeleton of a vision-language-action (VLA) policy expressed in the
-HDC primitive set:
+Independent Gaussian feature vectors stand in for vision embeddings, and a
+second vector represents proprioception. Two normalised projections are
+bundled and a ridge head predicts an additive noisy target. No images,
+language instructions, trajectories, environment interaction or real robot
+are used. Thus this is not a vision-language-action policy evaluation.
 
-  vision_features  →  ProjectionEncoder  →  vision_hv
-  proprioception   →  ProjectionEncoder  →  proprio_hv
-  state_hv = bundle(vision_hv, proprio_hv)
-  action   = HDRegressor.predict(state_hv)
-  interval = ConformalRegressor.predict_interval(action)
-  abstain  = interval too wide → fall back to teleop
+Independent calibration supplies marginal per-coordinate conformal intervals
+under exchangeability. The magnitude-based abstention rule is a separate
+heuristic; neither it nor the intervals establish control safety, simultaneous
+multi-coordinate coverage, or error control conditional on executing actions.
+Projection and normalisation can discard magnitude/information, so performance
+with a real backbone must be evaluated rather than assumed.
 
-This example uses **simulated** vision features (Gaussian-distributed
-embeddings of dimension 384, matching DINOv2-S output). To run with a
-real frozen backbone, replace the ``synthesise_*`` helpers below with::
-
-    # PyTorch + timm
-    import timm
-    backbone = timm.create_model("vit_small_patch14_dinov2.lvd142m",
-                                 pretrained=True, num_classes=0).eval()
-    with torch.no_grad():
-        vision_features = backbone(images).numpy()  # (n, 384)
-
-    # JAX + transformers
-    from transformers import FlaxCLIPModel
-    model = FlaxCLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-    vision_features = model.get_image_features(pixel_values=images)  # (n, 512)
-
-The HDC pipeline downstream of feature extraction is unchanged. The
-choice of frozen backbone is an empirical question (DINOv2 vs CLIP vs
-SigLIP); none of them require modification to the bayes-hdc API.
-
-Why this design rather than a full end-to-end VLA stack:
-- A frozen pretrained vision backbone gives dense, semantically
-  meaningful features that the random projection in
-  ``ProjectionEncoder`` can compose into hypervectors without losing
-  the semantic structure.
-- Proprioception is low-dimensional (≤ ~30 channels for a typical
-  manipulation arm) and naturally encoded directly via projection.
-- ``bundle_map`` between the two modality hypervectors gives a
-  superposed state representation that preserves linear information
-  from both modalities. (``bind_map`` is the right choice for
-  role-filler binding — "this scene tagged with this proprio" — but
-  destroys linear separability that a downstream regression head
-  needs; for additive multi-modal fusion, bundle is the standard
-  VSA primitive.)
-- ``HDRegressor`` is a closed-form ridge solver — no gradient steps
-  needed; the entire policy is fit in one ``jnp.linalg.solve`` call.
-- ``ConformalRegressor`` produces calibrated per-DOF action intervals
-  with finite-sample marginal coverage — the right uncertainty signal
-  for hand-off-to-teleop policies.
-
-Run::
-
-    python examples/vision_action_policy.py
+Run: python examples/vision_action_policy.py
 """
 
 from __future__ import annotations
@@ -105,8 +66,8 @@ def synthesise_scene_templates(key: jax.Array) -> jax.Array:
 
     In real data each centroid corresponds to a recurring scene
     configuration (e.g. "red cube on left of green cube"); a frozen
-    vision backbone would map all images of that scene to nearby
-    points in the 384-d feature space.
+    vision backbone may map similar scenes to nearby feature vectors,
+    but this synthetic construction does not evaluate that assumption.
     """
     return jax.random.normal(key, (N_SCENES, VISION_FEATURE_DIM))
 
@@ -124,7 +85,7 @@ def synthesise_dataset(
     plus small noise); proprio is iid Gaussian; action is a fixed
     linear function of both modalities plus noise. The HDC pipeline
     has to recover this linear map through two random projections and
-    a bind.
+    a normalised bundle.
     """
     k_scene, k_v, k_p, k_eps = jax.random.split(key, 4)
     scene_ids = jax.random.randint(k_scene, (n,), 0, N_SCENES)
@@ -149,16 +110,10 @@ def encode_state(
     vision_features: jax.Array,
     proprio: jax.Array,
 ) -> jax.Array:
-    """Encode a (vision, proprio) pair into a single state hypervector.
+    """Normalise two projections, then sum and normalise the modality vectors.
 
-    Two independent random projections give two unit-norm hypervectors,
-    which are then *bundled* (sum + L2-normalise via ``bundle_map``) into
-    a single state vector. Bundling preserves linear similarity to both
-    modality vectors — important for a downstream linear regression head
-    that needs to recover an additive function of the modalities. (The
-    alternative, ``bind_map``, produces a vector dissimilar to both
-    inputs and is the right choice for multi-modal *role-filler*
-    binding rather than additive fusion.)
+    Normalisation discards magnitude, so additive target recovery is an
+    empirical property of the fitted head rather than a linearity guarantee.
     """
     v_hv = vision_encoder.encode_batch(vision_features)
     p_hv = proprio_encoder.encode_batch(proprio)
@@ -261,21 +216,13 @@ def main() -> None:
     print(f"      target coverage:      1 - α = {1 - ALPHA:.2f}")
     print(f"      empirical (per DOF):  {np.array2string(coverage, precision=3)}")
     print(f"      empirical (mean):     {float(coverage.mean()):.3f}")
-    if all(c >= 0.85 for c in coverage):
-        print("      ✓ marginal coverage holds within finite-sample slack on every DOF")
-    else:
-        worst = int(np.argmin(coverage))
-        print(
-            f"      ⚠ DOF {worst} below 0.85 ({coverage[worst]:.3f}) — typical finite-sample slack"
-        )
+    print("      These are per-coordinate marginals, not simultaneous action coverage.")
+    print("      One empirical coverage rate does not validate the theorem's assumptions.")
 
     # ----------------------------------------------------------------- 8.
-    print("\n[8] Hand-off-to-teleop selective abstention.")
-    # Standard pattern for safe robotics deployment: if the policy's
-    # action interval is too wide relative to the predicted action
-    # magnitude, hand off to a fallback controller (teleoperator,
-    # scripted policy, or recovery behaviour) rather than execute the
-    # uncertain action.
+    print("\n[8] Magnitude-based abstention heuristic (no safety guarantee).")
+    # The threshold is fixed before test evaluation. Marginal conformal
+    # coverage does not imply error control on the retained subset.
     pred_norm = jnp.linalg.norm(test_preds, axis=-1)
     interval_norm = jnp.linalg.norm(cr.quantile)  # constant scalar
     threshold_ratio = 0.6  # abstain when interval_norm > 0.6 * pred_norm
@@ -301,19 +248,11 @@ def main() -> None:
         print(f"      RMSE on abstained:    {rmse_abstain:.4f}")
         print(f"      relative err (acted):     {rel_acted:.3f}")
         print(f"      relative err (abstained): {rel_abstain:.3f}")
-        if rel_abstain > rel_acted:
-            print("      ✓ abstention correctly identified high-relative-error cases")
+        print("      Subset errors are descriptive; conditional risk is not controlled.")
 
     # ----------------------------------------------------------------- 9.
-    print("\nThis is the simplest VLA-style policy expressible in the bayes-hdc")
-    print("primitive set: vision and proprioception encoded into hypervectors via")
-    print("two independent random projections, additive bundle fusion for the")
-    print("joint state representation, closed-form ridge regression for the policy")
-    print("head, and split-conformal intervals for calibrated per-DOF action")
-    print("uncertainty. Replace the synthetic vision_features with a frozen")
-    print("DINOv2 / CLIP / SigLIP backbone's output (the projection-encoder")
-    print("input dimension is the only thing that changes) and the rest of the")
-    print("pipeline runs unmodified.")
+    print("\nThis synthetic regression demo measures no real perception or control outcome.")
+    print("Real trajectories require suitable temporal/group splits and independent validation.")
 
 
 if __name__ == "__main__":

@@ -1,50 +1,17 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""EEG seizure detection with HDC.
+"""Synthetic EEG-style binary classification and held-out calibration.
 
-Multi-channel intracranial / scalp EEG seizure detection is the third-
-most-cited application cluster in Kleyko et al. (2023) Part II Table 10
-after EMG gesture recognition (Table 9) and behavioural / activity
-recognition (Table 8). The reference HDC pipeline is a sliding window
-of multi-channel EEG, a symbolic per-channel encoding of band-power or
-local-binary-pattern features, channel-position binding, bundle, and
-classify (Burrello, Schindler, Benini & Rahimi 2018-2021; Asgarinejad
-et al. 2020).
+Independent generated windows use amplitude patterns, not clinical EEG.
+Log-RMS summarises broadband amplitude; it is not frequency-specific band
+power. Quantiser fitting, classifier fitting, temperature fitting, conformal
+calibration and test evaluation keep the required data splits separate.
+Coverage is marginal under exchangeability, not a per-class, per-patient or
+clinical sensitivity guarantee. Real EEG evaluation requires patient/event
+partitions and handling of temporal dependence.
 
-This example demonstrates the literature-canonical pipeline:
-
-1. window the EEG stream (here: 256-sample windows across 8 channels);
-2. compute a per-channel summary statistic (band-power proxy: log-RMS);
-3. discretise each channel's statistic into ``L`` ordinal levels;
-4. encode the window: bundle over channels of
-   ``bind(channel_hv[c], level_hv[level_c])``;
-5. train a :class:`~bayes_hdc.BayesianCentroidClassifier` and report
-   detection accuracy, calibrated probabilities, and conformal
-   prediction sets at α = 0.1 (target 90 % marginal coverage).
-
-The data here is synthetic so the example runs deterministically and
-without a network. Two classes are simulated to mimic the seizure-
-detection structure of real iEEG: an "interictal" baseline with
-broadband low-amplitude activity, and an "ictal" class with
-high-amplitude rhythmic spikes concentrated in a subset of channels —
-the structure all of the cited iEEG-HDC papers exploit. The encoding
-pipeline and classifier are literature-faithful.
-
-References:
-
-* Burrello, A., Cavigelli, L., Schindler, K., Benini, L., Rahimi, A.
-  (2018-2021). Multiple papers on the hyperdimensional EEG seizure
-  detection pipeline; see Kleyko et al. 2023 Part II Table 10 refs
-  [200]-[204] for the line.
-* Asgarinejad, F. et al. (2020). Detection of epileptic seizures from
-  iEEG signals with hyperdimensional computing.
-* Kleyko, D. et al. (2023). A Survey on HDC aka VSA, Part II.
-  ACM Computing Surveys 55(9): Article 175.
-
-Run::
-
-    python examples/eeg_seizure_detection.py
+Run: python examples/eeg_seizure_detection.py
 """
 
 from __future__ import annotations
@@ -118,7 +85,7 @@ def _synthetic_eeg(key: jax.Array) -> tuple[np.ndarray, np.ndarray]:
             phase = rng.uniform(0, 2 * np.pi)
             # Amplitude jitter — high-mean amplitude for the rhythmic spike,
             # with enough variation that the weak end of the distribution
-            # is genuinely difficult.
+            # can be harder to separate.
             amp = 0.85 + 0.25 * rng.standard_normal()
             amp = max(amp, 0.30)
             window[ch] += (amp * np.sin(2 * np.pi * 6 * t + phase)).astype(np.float32)
@@ -129,20 +96,16 @@ def _synthetic_eeg(key: jax.Array) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _log_rms_per_channel(windows: np.ndarray) -> np.ndarray:
-    """Log-RMS power per channel for each window. Shape: (N, C).
-
-    log-RMS is a band-power proxy widely used in EEG-HDC pipelines as a
-    cheap, noise-robust per-channel summary.
-    """
+    """Log1p of broadband RMS amplitude per channel; shape (N, C)."""
     rms = np.sqrt(np.mean(windows**2, axis=-1))
     return np.log1p(rms)
 
 
-def _discretise(features: np.ndarray, num_levels: int) -> np.ndarray:
+def _discretise(features: np.ndarray, num_levels: int, reference: np.ndarray) -> np.ndarray:
     """Quantile-bin per-channel features into ordinal levels [0, num_levels)."""
     out = np.empty(features.shape, dtype=np.int32)
     for c in range(features.shape[1]):
-        edges = np.quantile(features[:, c], np.linspace(0, 1, num_levels + 1))
+        edges = np.quantile(reference[:, c], np.linspace(0, 1, num_levels + 1))
         edges = np.unique(edges)
         if len(edges) < 2:
             out[:, c] = 0
@@ -153,7 +116,7 @@ def _discretise(features: np.ndarray, num_levels: int) -> np.ndarray:
 
 
 def main() -> None:
-    print("EEG seizure detection — Burrello-line iEEG HDC pipeline")
+    print("Synthetic EEG-style classification with HDC")
     print(
         f"  channels = {NUM_CHANNELS}   classes = {len(CLASS_NAMES)}   "
         f"windows/class = {WINDOWS_PER_CLASS}   D = {DIMS}\n"
@@ -170,18 +133,16 @@ def main() -> None:
 
     # ----------------------------------------------------------------- 2.
     print("\n[2] Discretise each channel's log-RMS into ordinal levels.")
-    indices = _discretise(rms, NUM_LEVELS)
+    rng = np.random.default_rng(SEED)
+    perm = rng.permutation(len(rms))
+    n_tr, n_temp, n_cal = (int(frac * len(rms)) for frac in (0.5, 0.65, 0.8))
+    tr_idx, temp_idx = perm[:n_tr], perm[n_tr:n_temp]
+    ca_idx, te_idx = perm[n_temp:n_cal], perm[n_cal:]
+    indices = _discretise(rms, NUM_LEVELS, reference=rms[tr_idx])
     print(f"      level indices shape: {indices.shape}   range: [{indices.min()}, {indices.max()}]")
 
-    # 60 / 20 / 20 train / cal / test split.
-    rng = np.random.default_rng(SEED)
-    perm = rng.permutation(len(indices))
-    n = len(perm)
-    n_tr, n_ca = int(0.6 * n), int(0.8 * n)
-    tr_idx, ca_idx, te_idx = perm[:n_tr], perm[n_tr:n_ca], perm[n_ca:]
-
     # ----------------------------------------------------------------- 3.
-    print("\n[3] Encode each window via channel-position binding + bundle.")
+    print("\n[3] Encode independent channel-value codebooks and bundle.")
     vsa = MAP.create(dimensions=DIMS)
     encoder = RandomEncoder.create(
         num_features=NUM_CHANNELS,
@@ -192,15 +153,16 @@ def main() -> None:
     )
     hv_all = encoder.encode_batch(jnp.asarray(indices))
     hv_tr, y_tr = hv_all[tr_idx], jnp.asarray(y[tr_idx])
+    hv_temp, y_temp = hv_all[temp_idx], jnp.asarray(y[temp_idx])
     hv_ca, y_ca = hv_all[ca_idx], jnp.asarray(y[ca_idx])
     hv_te, y_te = hv_all[te_idx], jnp.asarray(y[te_idx])
     print(
         f"      encoded HV shape: {tuple(hv_all.shape)}    "
-        f"(train/cal/test = {len(y_tr)}/{len(y_ca)}/{len(y_te)})"
+        f"(train/temp/cal/test = {len(y_tr)}/{len(y_temp)}/{len(y_ca)}/{len(y_te)})"
     )
 
     # ----------------------------------------------------------------- 4.
-    print("\n[4] Train BayesianCentroidClassifier — per-class Gaussian posteriors.")
+    print("\n[4] Train BayesianCentroidClassifier — per-class Gaussian moments.")
     clf = BayesianCentroidClassifier.create(
         num_classes=len(CLASS_NAMES),
         dimensions=DIMS,
@@ -214,7 +176,7 @@ def main() -> None:
     print("\n[5] Calibrate logits + wrap in a ConformalClassifier (α = 0.10).")
     logits_ca = clf.logits(hv_ca)
     logits_te = clf.logits(hv_te)
-    calibrator = TemperatureCalibrator.create().fit(logits_ca, y_ca, max_iters=200)
+    calibrator = TemperatureCalibrator.create().fit(clf.logits(hv_temp), y_temp, max_iters=200)
     probs_ca = calibrator.calibrate(logits_ca)
     probs_te = calibrator.calibrate(logits_te)
 
@@ -257,12 +219,8 @@ def main() -> None:
     )
 
     print(
-        "\nThe pipeline above is per-channel log-RMS + ordinal levels +"
-        "\nchannel-value binding + bundle, the structure shared by the"
-        "\nBurrello-Schindler-Benini-Rahimi 2018-2021 iEEG seizure-detection"
-        "\nline. For a real benchmark, swap the synthetic data for a CHB-MIT"
-        "\nor Bonn-University EEG corpus loader; the encoder and classifier"
-        "\ncode paths above are unchanged."
+        "\nThese are synthetic amplitude windows. Clinical data require patient/event splits.\n"
+        "Domain-specific validation is separate."
     )
 
 

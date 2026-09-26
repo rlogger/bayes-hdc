@@ -15,7 +15,8 @@ regressor into an uncertainty-aware one:
   prediction *sets* with a guaranteed marginal coverage of
   :math:`1 - \\alpha`. Uses the Adaptive Prediction Sets (APS)
   nonconformity score from Romano et al. (2020), which produces
-  class-balanced sets and handles multi-class natively.
+  adaptive sets and handles multi-class natively. Coverage is marginal,
+  not class-conditional.
 
 - :class:`ConformalRegressor` — a split-conformal wrapper for
   *continuous*-output predictors. Returns symmetric prediction
@@ -26,10 +27,11 @@ regressor into an uncertainty-aware one:
   on exchangeable data. Pairs naturally with
   :class:`~bayes_hdc.models.HDRegressor`.
 
-All three are JAX pytrees: ``jit``, ``vmap``, and ``grad`` compose
-through them without special handling. They wrap any model that
+All three are JAX pytrees. Prediction methods compose with ``jit`` and
+``vmap``. Temperature fitting is an eager optimisation routine; conformal
+sets are discrete and do not provide useful gradients. They wrap any model that
 exposes raw scores or predictions — :class:`~bayes_hdc.models.CentroidClassifier.similarity`,
-:class:`~bayes_hdc.models.RegularizedLSClassifier.predict`,
+the ridge classifier's linear scores,
 :class:`~bayes_hdc.models.HDRegressor.predict`, or a user-supplied
 model — so existing pipelines get calibration without retraining.
 """
@@ -44,6 +46,7 @@ import jax
 import jax.numpy as jnp
 
 from bayes_hdc._compat import register_dataclass
+from bayes_hdc._validation import finite_array, finite_scalar, labels_array, probabilities_array
 from bayes_hdc.constants import EPS
 
 
@@ -55,6 +58,23 @@ def _conformal_quantile(scores: jax.Array, alpha: float) -> jax.Array:
         # No finite calibration score can attain the requested coverage.
         return jnp.full(scores.shape[1:], jnp.inf)
     return jnp.sort(scores, axis=0)[rank - 1]
+
+
+def _aps_scores(probs: jax.Array) -> jax.Array:
+    """Tie-invariant cumulative probability scores in O(k log k), not O(k²)."""
+    order = jnp.argsort(-probs, axis=-1)
+    sorted_probs = jnp.take_along_axis(probs, order, axis=-1)
+    cumulative = jnp.cumsum(sorted_probs, axis=-1)
+    ends = jnp.concatenate(
+        (
+            sorted_probs[..., :-1] != sorted_probs[..., 1:],
+            jnp.ones(sorted_probs.shape[:-1] + (1,), dtype=bool),
+        ),
+        axis=-1,
+    )
+    endpoints = jnp.where(ends, cumulative, jnp.inf)
+    scores = jax.lax.associative_scan(jnp.minimum, endpoints, axis=endpoints.ndim - 1, reverse=True)
+    return jnp.take_along_axis(scores, jnp.argsort(order, axis=-1), axis=-1)
 
 
 # ----------------------------------------------------------------------
@@ -88,6 +108,7 @@ class TemperatureCalibrator:
     @staticmethod
     def create(initial_temperature: float = 1.0) -> TemperatureCalibrator:
         """Build an identity calibrator (T = 1). Call :meth:`fit` to learn."""
+        finite_scalar(initial_temperature, "initial_temperature", strict=True)
         return TemperatureCalibrator(temperature=jnp.asarray(float(initial_temperature)))
 
     def fit(
@@ -101,10 +122,9 @@ class TemperatureCalibrator:
     ) -> TemperatureCalibrator:
         """Fit the temperature by minimising NLL.
 
-        Uses L-BFGS in log-space (:math:`T = e^{\\theta}`) with a safety
-        clip to ``[t_min, t_max]``. This matches the Guo et al. (2017)
-        reference implementation and is robust to the flat NLL landscape
-        that arises when raw cosine-similarity logits have small range.
+        Uses BFGS in log-space (:math:`T = e^{\\theta}`) with a safety
+        clip to ``[t_min, t_max]``. The fitted candidate is retained only when it improves the
+        bounded initial temperature on the calibration NLL.
 
         Args:
             logits: Validation logits of shape ``(n, k)``.
@@ -117,16 +137,27 @@ class TemperatureCalibrator:
         Returns:
             A new :class:`TemperatureCalibrator` with the fitted temperature.
         """
-        labels_idx = jnp.asarray(labels, dtype=jnp.int32)
+        logits = jnp.asarray(logits)
+        if logits.ndim != 2 or logits.shape[0] == 0 or logits.shape[1] == 0:
+            raise ValueError("logits must have nonempty shape (n, k)")
+        finite_array(logits, "logits")
+        labels_idx = labels_array(labels, logits.shape[0], logits.shape[1])
+        finite_scalar(t_min, "t_min", strict=True)
+        finite_scalar(t_max, "t_max", strict=True)
+        if t_max < t_min:
+            raise ValueError("t_max must be >= t_min")
+        if max_iters < 1:
+            raise ValueError("max_iters must be >= 1")
+        finite_scalar(lr, "lr", strict=True)
         n = labels_idx.shape[0]
 
         def nll_log_t(log_t: jax.Array) -> jax.Array:
-            t = jnp.exp(log_t[0])
+            t = jnp.exp(jnp.clip(log_t[0], jnp.log(t_min), jnp.log(t_max)))
             scaled = logits / t
             log_probs = jax.nn.log_softmax(scaled, axis=-1)
             return -jnp.mean(log_probs[jnp.arange(n), labels_idx])
 
-        init_log_t = jnp.log(jnp.maximum(self.temperature, EPS))
+        init_log_t = jnp.log(jnp.clip(self.temperature, t_min, t_max))
         init = jnp.asarray([init_log_t])
 
         log_t = init_log_t
@@ -170,6 +201,12 @@ class TemperatureCalibrator:
                 log_t = log_t - lr * g
 
         log_t = jnp.clip(log_t, jnp.log(t_min), jnp.log(t_max))
+        # Line-search failure can return a finite but inferior iterate.
+        candidate_loss = nll_log_t(jnp.asarray([log_t]))
+        initial_loss = nll_log_t(jnp.asarray([init_log_t]))
+        log_t = jnp.where(
+            jnp.isfinite(candidate_loss) & (candidate_loss <= initial_loss), log_t, init_log_t
+        )
         t = jnp.exp(log_t)
         return TemperatureCalibrator(temperature=t)
 
@@ -207,8 +244,9 @@ class ConformalClassifier:
         s(x, y) = \sum_{k: p_k(x) \geq p_y(x)} p_k(x)
 
     — the cumulative probability of classes at least as confident as the
-    true one. APS produces class-balanced sets and handles multi-class
-    natively, unlike the simpler LAC score.
+    true one. Tied probabilities receive identical scores. This
+    deterministic APS variant gives marginal coverage, not coverage
+    conditional on the class or features.
 
     Attributes:
         threshold: Scalar quantile :math:`\hat{q}` learned from calibration.
@@ -228,6 +266,7 @@ class ConformalClassifier:
 
     threshold: jax.Array
     alpha: float = field(metadata=dict(static=True), default=0.1)
+    fitted: bool = field(metadata=dict(static=True), default=False)
 
     @staticmethod
     def create(alpha: float = 0.1) -> ConformalClassifier:
@@ -255,45 +294,30 @@ class ConformalClassifier:
             A new :class:`ConformalClassifier` with the fitted threshold.
         """
         calibration_probs = jnp.asarray(calibration_probs)
-        calibration_labels = jnp.asarray(calibration_labels)
         if calibration_probs.ndim != 2 or calibration_probs.shape[1] == 0:
             raise ValueError("calibration_probs must have shape (n, k) with k >= 1")
         n = calibration_probs.shape[0]
         if n == 0:
             raise ValueError("calibration_probs must contain at least one calibration point")
-        if calibration_labels.shape != (n,):
-            raise ValueError(f"calibration_labels must have shape ({n},)")
 
-        # APS score per calibration sample.
-        sort_idx = jnp.argsort(-calibration_probs, axis=-1)
-        sorted_probs = jnp.take_along_axis(calibration_probs, sort_idx, axis=-1)
-        cumsums = jnp.cumsum(sorted_probs, axis=-1)
-
-        # Rank of the true label within the sorted (descending) order.
-        label_mask = sort_idx == calibration_labels[:, None]
-        ranks = jnp.argmax(label_mask.astype(jnp.int32), axis=-1)
-
-        scores = cumsums[jnp.arange(n), ranks]
-
+        calibration_probs = probabilities_array(calibration_probs, "calibration_probs")
+        calibration_labels = labels_array(
+            calibration_labels, n, calibration_probs.shape[1], "calibration_labels"
+        )
+        scores = _aps_scores(calibration_probs)[jnp.arange(n), calibration_labels]
         threshold = _conformal_quantile(scores, self.alpha)
-
-        return ConformalClassifier(threshold=threshold, alpha=self.alpha)
+        return ConformalClassifier(threshold=threshold, alpha=self.alpha, fitted=True)
 
     @jax.jit
     def predict_set(self, probs: jax.Array) -> jax.Array:
-        """Return a boolean mask of shape ``(n, k)`` — True if class in set."""
-        sort_idx = jnp.argsort(-probs, axis=-1)
-        inv_sort = jnp.argsort(sort_idx, axis=-1)
-        sorted_probs = jnp.take_along_axis(probs, sort_idx, axis=-1)
-        cumsums = jnp.cumsum(sorted_probs, axis=-1)
-
-        # APS: include classes while cumulative prob is below threshold.
-        include_sorted = cumsums <= self.threshold
-        # Always include the top-1 to avoid empty sets.
-        include_sorted = include_sorted.at[:, 0].set(True)
-
-        # Scatter back to original class ordering.
-        return jnp.take_along_axis(include_sorted, inv_sort, axis=-1)
+        """Return class-membership masks for ``(k,)`` or ``(n, k)`` probabilities."""
+        if not self.fitted:
+            raise ValueError("ConformalClassifier must be fitted before prediction")
+        probs = probabilities_array(probs)
+        scores = _aps_scores(probs)
+        included = scores <= self.threshold
+        # Conservative nonempty-set convention, preserving all top-score ties.
+        return included | (probs == jnp.max(probs, axis=-1, keepdims=True))
 
     @jax.jit
     def coverage(self, probs: jax.Array, labels: jax.Array) -> jax.Array:
@@ -357,8 +381,8 @@ class ConformalRegressor:
     *ConformalHDC* (arXiv:2602.21446) develops adaptive nonconformity
     scores tailored to prototype geometry. ``ConformalRegressor`` is
     the simpler absolute-residual variant — sufficient for the
-    calibrated-regression use case but composable with any user-
-    supplied score.
+    calibrated-regression use case. This wrapper uses absolute residuals
+    rather than a user-supplied score.
 
     Attributes:
         quantile: Empirical quantile of calibration residuals, of
@@ -444,6 +468,8 @@ class ConformalRegressor:
                 f"Need at least 2 calibration points to fit a conformal quantile; got {n}"
             )
 
+        finite_array(preds, "predictions_cal")
+        finite_array(targets, "targets_cal")
         residuals = jnp.abs(targets - preds)  # (n, k)
         q = _conformal_quantile(residuals, self.alpha)  # (k,)
 
@@ -471,6 +497,15 @@ class ConformalRegressor:
             ``lower = predictions - quantile``,
             ``upper = predictions + quantile``.
         """
+        if self.n_calibration == 0:
+            raise ValueError("ConformalRegressor must be fitted before prediction")
+        predictions = jnp.asarray(predictions)
+        if predictions.ndim not in (1, 2):
+            raise ValueError("predictions must have shape (n,), (k,), or (n, k)")
+        if (predictions.ndim == 2 or self.output_dim > 1) and predictions.shape[
+            -1
+        ] != self.output_dim:
+            raise ValueError("predictions have the wrong output dimension")
         return predictions - self.quantile, predictions + self.quantile
 
     @jax.jit
@@ -491,6 +526,10 @@ class ConformalRegressor:
         Returns:
             Per-output coverage of shape ``(output_dim,)``.
         """
+        if self.n_calibration == 0:
+            raise ValueError("ConformalRegressor must be fitted before prediction")
+        predictions = jnp.asarray(predictions)
+        targets = jnp.asarray(targets)
         # A 1-D input is a batch of scalar outputs when output_dim == 1,
         # and a single multi-output prediction otherwise.
         if self.output_dim == 1:
@@ -499,6 +538,8 @@ class ConformalRegressor:
         else:
             preds = predictions[None, :] if predictions.ndim == 1 else predictions
             tgts = targets[None, :] if targets.ndim == 1 else targets
+        if preds.shape != tgts.shape or preds.ndim != 2 or preds.shape[1] != self.output_dim:
+            raise ValueError("predictions and targets must have matching output dimensions")
         lower = preds - self.quantile
         upper = preds + self.quantile
         in_interval = (tgts >= lower) & (tgts <= upper)

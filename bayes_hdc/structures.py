@@ -194,8 +194,8 @@ class HierarchicalSequence:
     ``d``-vector, so per-item retrieval SNR degrades as
     :math:`O(1/\\sqrt{n})`. Even with a fixed item codebook for
     cleanup, capacity saturates well before the dimension limit:
-    for example at ``d = 4096`` and ``n ≳ 200``, flat retrieval
-    accuracy collapses below random.
+    retrieval accuracy depends on codebook size, vector statistics,
+    dimension, and item count.
 
     This class implements a two-level chunked construction
     inspired by Frady, Kleyko & Sommer (2018, *A Theory of Sequence
@@ -280,10 +280,9 @@ class HierarchicalSequence:
                 hypervectors derived from this input are cached on
                 the returned object as ``chunk_codebook`` and used by
                 :meth:`get` for intermediate cleanup.
-            chunk_size: Number of items per chunk. ``√n`` is the SNR-
-                optimal choice; ``16`` is a reasonable default for
-                ``n`` in the 64–256 range typical of trajectory
-                encoding.
+            chunk_size: Number of items per chunk. Smaller chunks use
+                more cached memory and reduce within-chunk interference.
+                Choose this tradeoff using held-out retrieval experiments.
 
         Returns:
             A :class:`HierarchicalSequence` ready for ``get(i)``
@@ -346,8 +345,9 @@ class HierarchicalSequence:
         # Chunk-level cleanup: project onto the clean chunk codebook.
         # This step is what gives the hierarchical construction its
         # capacity advantage over the flat Sequence.
-        sims = self.chunk_codebook @ chunk_noisy
-        chunk_clean = self.chunk_codebook[jnp.argmax(sims)]
+        # Normalize scores so a padded short chunk is not penalized for
+        # lower energy, and support complex-valued token codebooks.
+        chunk_clean = F.cleanup(chunk_noisy, self.chunk_codebook)
 
         # Inner un-permute → item with noise from C-1 items only.
         return F.permute(chunk_clean, shifts=-(self.chunk_size - 1 - pos))

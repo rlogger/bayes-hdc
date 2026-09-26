@@ -164,7 +164,9 @@ def inverse_map(x: jax.Array, eps: float = EPS) -> jax.Array:
     Returns:
         Inverse hypervector
     """
-    safe_inv = jnp.where(jnp.abs(x) > eps, 1.0 / x, 0.0)
+    mask = jnp.abs(x) > eps
+    denominator = jnp.where(mask, x, 1.0)
+    safe_inv = jnp.where(mask, 1.0 / denominator, 0.0)
     return safe_inv
 
 
@@ -177,13 +179,14 @@ def vector_intersect(
 
     Given two bundle hypervectors ``x`` and ``y`` and a known atom set
     ``atoms`` of shape ``(N, d)``, return a bundle hypervector that
-    contains *only* the atoms present in both ``x`` and ``y``,
-    weighted by their joint projection.
+    emphasizes atoms with positive similarity to both ``x`` and ``y``,
+    weighted by their joint projection. This is a soft approximation:
+    cross-talk can give absent atoms a nonzero weight.
 
     For each atom ``a_i`` we compute ``s_i = max(cos(x, a_i), 0) *
     max(cos(y, a_i), 0)`` — a non-negative joint-membership weight that
-    is large when ``a_i`` is similar to both inputs and zero when it is
-    absent from either. The output is :math:`\sum_i s_i \cdot a_i`.
+    is large when ``a_i`` is similar to both inputs and zero when either
+    cosine is non-positive. The output is :math:`\sum_i s_i \cdot a_i`.
 
     This is the explicit-atom-set realisation of the cleanup-memory
     construction in Gayler & Levy (2009, §"Distributed Implementation"
@@ -208,8 +211,7 @@ def vector_intersect(
     # Per-atom cosine to each input.
     sim_x = jax.vmap(lambda a: cosine_similarity(x, a))(atoms)  # (N,)
     sim_y = jax.vmap(lambda a: cosine_similarity(y, a))(atoms)  # (N,)
-    # Joint membership: capped at 0, multiplied. Atoms absent from either
-    # input contribute nothing to the result.
+    # Joint positive similarity, with residual cross-talk from absent atoms.
     joint = jnp.maximum(sim_x, 0.0) * jnp.maximum(sim_y, 0.0)  # (N,)
     # Bundle of atoms weighted by joint membership.
     return jnp.sum(atoms * joint[:, None], axis=0)
@@ -265,7 +267,7 @@ def cosine_similarity(x: jax.Array, y: jax.Array) -> jax.Array:
     """
     x_norm = x / (jnp.linalg.norm(x, axis=-1, keepdims=True) + EPS)
     y_norm = y / (jnp.linalg.norm(y, axis=-1, keepdims=True) + EPS)
-    return jnp.clip(jnp.sum(x_norm * y_norm, axis=-1), -1.0, 1.0)
+    return jnp.clip(jnp.real(jnp.sum(x_norm * jnp.conj(y_norm), axis=-1)), -1.0, 1.0)
 
 
 @jax.jit
@@ -285,7 +287,7 @@ def permute(x: jax.Array, shifts: int = 1) -> jax.Array:
     return jnp.roll(x, shifts, axis=-1)
 
 
-@functools.partial(jax.jit, static_argnames=("return_similarity",))
+@functools.partial(jax.jit, static_argnames=("similarity_fn", "return_similarity"))
 def cleanup(
     query: jax.Array,
     memory: jax.Array,
@@ -316,12 +318,17 @@ def cleanup(
     Kanerva, P. (2009). Hyperdimensional Computing: An Introduction.
     Cognitive Computation 1(2): 139-159.
     """
-    similarities = jax.vmap(lambda m: similarity_fn(query, m))(memory)
-    best_idx = jnp.argmax(similarities)
+    if memory.ndim != 2 or memory.shape[0] == 0:
+        raise ValueError("memory must be a non-empty array of shape (n, d)")
+    if query.ndim < 1 or query.shape[-1] != memory.shape[-1]:
+        raise ValueError("query and memory must have the same hypervector dimension")
+    similarities = jax.vmap(lambda m: similarity_fn(query, m), out_axes=-1)(memory)
+    best_idx = jnp.argmax(similarities, axis=-1)
     best_vector = memory[best_idx]
 
     if return_similarity:
-        return best_vector, similarities[best_idx]
+        best_score = jnp.take_along_axis(similarities, best_idx[..., None], axis=-1)[..., 0]
+        return best_vector, best_score
     return best_vector
 
 
@@ -374,8 +381,10 @@ def inverse_hrr(x: jax.Array) -> jax.Array:
     ``[c_0, c_3, c_2, c_1]``, matching Plate (1995, §II.F) verbatim.
 
     The involution is an *approximate* inverse: ``bind_hrr(x, inverse_hrr(x))``
-    is approximately the unit impulse, with the approximation tightening as
-    the dimension grows. It differs from the *exact* inverse
+    resembles the unit impulse for random normalized vectors. Individual
+    off-peak components shrink with dimension, but their aggregate energy
+    need not vanish, so increasing dimension does not imply exact inversion.
+    It differs from the *exact* inverse
     ``F^{-1}(1 / F(x))``, which exists only when no Fourier coefficient of
     ``x`` vanishes; the library uses the involution because it is
     cheap, always defined, and the standard choice in HRR libraries.
@@ -517,10 +526,11 @@ def phasor_similarity(x: jax.Array, y: jax.Array, q: int) -> jax.Array:
 
 @jax.jit
 def bind_vtb(x: jax.Array, y: jax.Array) -> jax.Array:
-    """Bind using matrix multiplication for VTB.
+    """Canonical vector-derived transformation binding (Gosmann & Eliasmith, 2019).
 
-    Reshapes d-dimensional vectors into sqrt(d) x sqrt(d) matrices
-    and multiplies them. Requires d to be a perfect square.
+    With row-major matrices X and Y of size n = sqrt(d), binding is
+    sqrt(n) * X @ Y.T. This implements the block-diagonal transform V_y x;
+    it is neither commutative nor associative. Requires square d.
 
     Args:
         x: Real-valued hypervector of shape (..., d)
@@ -531,19 +541,28 @@ def bind_vtb(x: jax.Array, y: jax.Array) -> jax.Array:
     """
     d = x.shape[-1]
     n = round(d**0.5)
+    if n * n != d or d < 1 or y.shape[-1] != d:
+        raise ValueError("VTB requires matching, positive square dimensions")
     X = x.reshape(*x.shape[:-1], n, n)
     Y = y.reshape(*y.shape[:-1], n, n)
-    product = X @ Y
+    product = n**0.5 * (X @ jnp.swapaxes(Y, -1, -2))
     return product.reshape(*product.shape[:-2], d)
 
 
 @jax.jit
 def inverse_vtb(x: jax.Array) -> jax.Array:
-    """Inverse via matrix pseudoinverse for VTB."""
+    """VTB approximate right inverse via matrix transposition.
+
+    Unbind as bind_vtb(bind_vtb(a, x), inverse_vtb(x)). Recovery is exact
+    for unitary x (sqrt(n) * X is orthogonal), approximate otherwise.
+    VTB does not have a general left inverse under this operation.
+    """
     d = x.shape[-1]
     n = round(d**0.5)
+    if n * n != d or d < 1:
+        raise ValueError("VTB requires positive square dimensions")
     X = x.reshape(*x.shape[:-1], n, n)
-    return jnp.linalg.pinv(X).reshape(*x.shape[:-1], d)
+    return jnp.swapaxes(X, -1, -2).reshape(*x.shape[:-1], d)
 
 
 # VTB bundle reuses MAP bundle
@@ -592,7 +611,7 @@ def negative_map(x: jax.Array) -> jax.Array:
 
 
 def multibind_map(vectors: jax.Array, axis: int = 0) -> jax.Array:
-    """Bind all vectors along an axis via element-wise product (MAP/HRR).
+    """Bind all vectors along an axis via element-wise product (MAP).
 
     Generalises :func:`bind_map` to *n* vectors.
 
@@ -681,6 +700,8 @@ def ngrams(
         N-gram hypervector of shape (d,)
     """
     m = vectors.shape[0]
+    if n < 1:
+        raise ValueError("n must be positive")
     if m < n:
         raise ValueError(f"Need at least {n} vectors for {n}-grams, got {m}")
 
@@ -732,6 +753,8 @@ def bind_sequence(
         Sequence hypervector of shape (d,)
     """
     m = vectors.shape[0]
+    if m == 0:
+        raise ValueError("bind_sequence requires at least one vector")
     result = permute(vectors[0], shifts=m - 1)
     for i in range(1, m):
         result = bind_fn(result, permute(vectors[i], shifts=m - 1 - i))
@@ -837,7 +860,7 @@ def jaccard_similarity(x: jax.Array, y: jax.Array) -> jax.Array:
     """
     intersection = jnp.sum(jnp.logical_and(x, y).astype(jnp.float32), axis=-1)
     union = jnp.sum(jnp.logical_or(x, y).astype(jnp.float32), axis=-1)
-    return intersection / (union + EPS)
+    return jnp.where(union == 0, 1.0, intersection / jnp.maximum(union, 1.0))
 
 
 @jax.jit
@@ -865,7 +888,9 @@ def tversky_similarity(
     intersection = jnp.sum(x_f * y_f, axis=-1)
     x_only = jnp.sum(x_f * (1 - y_f), axis=-1)
     y_only = jnp.sum((1 - x_f) * y_f, axis=-1)
-    return intersection / (intersection + alpha * x_only + beta * y_only + EPS)
+    denominator = intersection + alpha * x_only + beta * y_only
+    empty = (intersection + x_only + y_only) == 0
+    return jnp.where(empty, 1.0, intersection / (denominator + EPS))
 
 
 # ---------------------------------------------------------------------------
@@ -982,10 +1007,10 @@ def fractional_power(x: jax.Array, p: float) -> jax.Array:
     """Raise a MAP hypervector to a fractional power.
 
     Computes sign(x) * |x|^p element-wise.  This smoothly interpolates
-    between the zero vector (p -> 0) and x itself (p = 1), and can
-    extrapolate beyond (p > 1).  Widely used for encoding continuous
-    attributes: bind(role, fractional_power(filler, value)) produces
-    representations that vary smoothly with *value*.
+    between sign(x) (p -> 0 for nonzero x) and x itself (p = 1),
+    and can extrapolate beyond (p > 1). This signed real power does not
+    obey the fractional binding group law for negative components; it
+    is not the unit-phasor fractional power encoding used in FHRR.
 
     Args:
         x: Real-valued hypervector of shape (..., d)

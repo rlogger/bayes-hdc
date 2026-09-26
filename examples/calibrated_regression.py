@@ -1,30 +1,15 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Calibrated continuous-output regression on hypervector features.
+"""Continuous-output regression on synthetic hypervector features.
 
-Demonstrates the new regression stack:
+Fits ridge regression on a training split and calibrates absolute residuals
+on an independent split. For exchangeable calibration/test data this gives
+marginal coverage for each output coordinate, not simultaneous coverage.
+A separate heuristic abstains when the interval box contains the zero vector;
+it has no selective-risk or control-safety guarantee.
 
-1. **`RandomEncoder`** — encode tabular feature vectors as hypervectors.
-2. **`HDRegressor`** — closed-form ridge regression on the hypervector
-   features, predicting a continuous target (here a 2-D synthetic
-   "action" vector).
-3. **`ConformalRegressor`** — wrap the point predictions in symmetric
-   intervals with a finite-sample marginal-coverage guarantee
-   ``P(y in [ŷ - q, ŷ + q]) ≥ 1 - α`` on exchangeable data.
-4. **Selective abstention** — when the prediction interval exceeds a
-   user-chosen width threshold, abstain (emit "no decision" rather
-   than risk a wide-uncertainty action). Demonstrates the
-   uncertainty-aware-decision pattern that motivates the conformal
-   layer in the first place.
-
-This is the simplest demonstration of the differentiable, uncertainty-
-aware HDC stack on a continuous-control-style task. It runs end-to-end
-on a CPU in a few seconds at d=4096.
-
-Run::
-
-    python examples/calibrated_regression.py
+Run: python examples/calibrated_regression.py
 """
 
 from __future__ import annotations
@@ -131,37 +116,26 @@ def main() -> None:
     print(f"      target coverage:    1 - α = {1 - ALPHA:.2f}")
     print(f"      empirical (per dim): {coverage}")
     print(f"      empirical (mean):    {float(coverage.mean()):.3f}")
-    if all(c >= 0.85 for c in coverage):
-        print("      ✓ marginal coverage holds within finite-sample slack")
-    else:
-        print("      ⚠ low coverage on at least one output (expected ~5% of the time)")
+    print("      Coverage is marginal per output, not simultaneous or conditional on acting.")
 
     # ----------------------------------------------------------------- 6.
     print("\n[6] Selective abstention demo.")
-    # Absolute-residual conformal gives a *uniform* interval width per
-    # output — so a threshold on the interval width itself is degenerate
-    # (it keeps all points or rejects all). The right uncertainty signal
-    # for selective abstention is the **interval-relative-to-prediction**
-    # ratio: abstain when the prediction magnitude is small compared to
-    # the interval half-width, i.e. when zero (or any other safe-default
-    # action) lies within the interval.
+    # Absolute-residual intervals have constant width per output. This
+    # separate decision heuristic uses whether the box contains zero;
+    # it is not a ranking of calibrated per-example error risk.
     lo, hi = cr.predict_interval(test_preds)
     pred_norm = jnp.linalg.norm(test_preds, axis=-1)
-    half_width = jnp.linalg.norm(width) / 2.0
-    # Abstain whenever ‖ŷ‖ ≤ half-width — i.e. zero is inside the
-    # confidence ball around the predicted action.
-    abstain_mask = pred_norm <= half_width
+    # A conformal interval is an axis-aligned box, not a Euclidean ball.
+    abstain_mask = jnp.all((lo <= 0.0) & (hi >= 0.0), axis=-1)
     n_abstain = int(jnp.sum(abstain_mask))
     n_act = N_TEST - n_abstain
-    print(f"      rule: abstain when ‖ŷ‖ ≤ {float(half_width):.3f} (zero in interval)")
+    print("      rule: abstain when every coordinate interval contains zero")
     print(f"      acted on:  {n_act} / {N_TEST} ({n_act / N_TEST:.1%})")
     print(f"      abstained: {n_abstain} / {N_TEST} ({n_abstain / N_TEST:.1%})")
 
     if 0 < n_act < N_TEST:
-        # The acted-on set should have lower RMSE than the abstained
-        # set: the conformal interval is calibrated, so the abstention
-        # rule above correctly identifies regions where the predicted
-        # action is dominated by uncertainty.
+        # This heuristic has no selective-risk guarantee; compare realised
+        # errors without assuming that the acted-on subset is more accurate.
         kept = ~abstain_mask
         rmse_acted = float(jnp.sqrt(jnp.mean((test_preds[kept] - test_targets[kept]) ** 2)))
         rmse_abstain = float(
@@ -169,25 +143,18 @@ def main() -> None:
         )
         print(f"      RMSE on acted points: {rmse_acted:.4f}")
         print(f"      RMSE on abstained:    {rmse_abstain:.4f}")
-        # Relative-error ratio — fraction of the prediction magnitude
-        # that residual error eats. Abstained points have |residual| ~
-        # |prediction|, so the ratio there is ~1 by construction.
+        # These descriptive ratios divide RMSE by mean prediction magnitude;
+        # they are not calibrated risks or per-example relative errors.
         rel_acted = rmse_acted / float(jnp.mean(pred_norm[kept]))
         rel_abstain = rmse_abstain / max(float(jnp.mean(pred_norm[abstain_mask])), 1e-8)
         print(f"      relative err (acted):     {rel_acted:.3f}")
         print(f"      relative err (abstained): {rel_abstain:.3f}")
-        if rel_abstain > rel_acted:
-            print("      ✓ abstention correctly identified high-relative-error cases")
+        print("      Subset errors are descriptive; marginal coverage does not bound them.")
 
     # ----------------------------------------------------------------- 7.
-    print("\nThis pipeline illustrates the differentiable, uncertainty-aware HDC")
-    print("stack end-to-end: a deterministic encoder, a closed-form ridge")
-    print("regressor on hypervector features, a split-conformal layer with a")
-    print("finite-sample coverage guarantee, and a calibrated abstention rule")
-    print("driven by the conformal interval width. Every step is JIT-compiled,")
-    print("vmappable, and pytree-native; the HDRegressor weights are also")
-    print("`jax.grad`-differentiable, so this regression head can be trained")
-    print("end-to-end inside a larger variational pipeline.")
+    print("\nThe regression head and predictive intervals are distinct from the")
+    print("decision heuristic. Neither marginal intervals nor this synthetic")
+    print("example establish safety or an error bound on accepted actions.")
 
 
 if __name__ == "__main__":

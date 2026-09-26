@@ -10,18 +10,10 @@ for both ``Sequence`` and ``HierarchicalSequence``. Each datapoint
 averages over multiple random seeds so the curves are not dominated by
 seed jitter at the crossover.
 
-The capacity-bound theory (Plate 2003 §6.2; Frady, Kleyko & Sommer
-2018, Neural Computation 30(6)) predicts:
-
-- Flat permute-bundle saturates around T ~ √(d / log d) when retrieving
-  *content* (no cleanup); with codebook cleanup the practical T limit
-  is set by the per-item SNR vs. the maximum competing-codebook
-  similarity.
-- Hierarchical permute-bundle with chunk-level cleanup carries each
-  layer's load at √n items only, so the per-layer SNR scales as
-  d^(-1/2) · n^(-1/4) rather than d^(-1/2) · n^(-1/2). The crossover
-  is at the T where the flat case's noise floor reaches the cleanup
-  threshold.
+The hierarchical representation stores chunk vectors in addition to its top
+vector, whereas the flat representation stores one vector. Report this storage
+cost alongside accuracy; gains do not establish greater fixed-memory capacity.
+No asymptotic capacity law is inferred from this finite empirical sweep.
 
 Run::
 
@@ -136,14 +128,14 @@ def main() -> int:
                 "flat_accuracy_per_seed": [round(x, 4) for x in flat_accs],
                 "hier_accuracy_per_seed": [round(x, 4) for x in hs_accs],
                 "gain": round(gain, 4),
+                "flat_stored_scalars": DIMS,
+                "hierarchical_stored_scalars": (1 + (T + CHUNK_SIZE - 1) // CHUNK_SIZE) * DIMS,
             }
         )
 
     print("-" * 50)
     print("\nGains marked ✓ are where HierarchicalSequence wins by ≥ 5 pp.")
-    print(f"Hierarchical chunk_size = {CHUNK_SIZE} = √(d/16); for very long")
-    print("sequences (T ≥ 400) the chunk-level cleanup keeps retrieval")
-    print("substantially above the flat sequence's noise-floor degradation.")
+    print("Compare accuracy together with stored scalar counts; memory budgets differ.")
 
     out_path = os.path.join(os.path.dirname(__file__), "sequence_capacity_results.json")
     with open(out_path, "w") as fh:

@@ -2,32 +2,11 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Generate paper-ready figures from benchmark results.
+"""Generate figures only from the predictions saved by the matched benchmark.
 
-Reads ``benchmark_calibration_results.json`` and produces:
-
-- ``figures/reliability_<dataset>.pdf`` — Guo-et-al. 2017 reliability
-  diagram for each benchmark dataset, using the Bayes-HDC
-  temperature-scaled probabilities.
-- ``figures/coverage_<dataset>.pdf`` — empirical conformal coverage
-  and mean set size vs target coverage, for each dataset.
-- ``figures/accuracy_comparison.pdf`` — bar chart comparing Bayes-HDC
-  accuracy to the baseline (TorchHD) across datasets.
-- ``figures/ece_reduction.pdf`` — ECE before and after temperature
-  scaling, for each library and dataset.
-
-Because the library does not store the full (probs, labels) arrays
-in the JSON results (it stores summaries), this script also reruns
-the benchmark pipeline at lower dimensionality to collect
-reliability-diagram-ready data for the four offline sklearn datasets.
-MNIST reliability is generated from a fresh minimal pipeline too; the
-goal is reproducible figures, not paper-final numbers.
-
-Run with::
-
-    python benchmarks/generate_figures.py
-
-Requires the ``examples`` extras (matplotlib, scikit-learn).
+Run benchmark_calibration.py first. Legacy summary-only artifacts are rejected:
+re-running another model to manufacture missing predictions would produce
+figures for a different experiment. --output-dir controls all generated files.
 """
 
 from __future__ import annotations
@@ -36,142 +15,57 @@ import argparse
 import json
 from pathlib import Path
 
-import jax
-import jax.numpy as jnp
-
-# Use headless backend before importing pyplot.
 import matplotlib
 import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
-from sklearn.model_selection import train_test_split  # noqa: E402
-from sklearn.preprocessing import KBinsDiscretizer  # noqa: E402
 
-from bayes_hdc import (  # noqa: E402
-    MAP,
-    ConformalClassifier,
-    RandomEncoder,
-    RegularizedLSClassifier,
-    TemperatureCalibrator,
-)
-from bayes_hdc.datasets import (  # noqa: E402
-    load_breast_cancer,
-    load_digits,
-    load_iris,
-    load_wine,
-)
+from bayes_hdc import ConformalClassifier  # noqa: E402
 from bayes_hdc.plots import plot_coverage_curve, plot_reliability_diagram  # noqa: E402
 
 OUT_DIR = Path(__file__).parent / "figures"
-DIMS = 4096  # smaller than the headline benchmark; figures converge at this D
-LEVELS = 32
-SEED = 42
-ALPHA = 0.1
 
 
-def _reencode_and_classify(
-    loader,
-) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, int, str]:
-    """Rerun the PVSA pipeline on one dataset.
-
-    Returns ``(probs_cal, y_cal, probs_te, y_te, num_classes, name)``.
-    """
-    ds = loader()
-    Xtr, Xte, ytr, yte = train_test_split(
-        ds.X,
-        ds.y,
-        test_size=0.3,
-        random_state=SEED,
-        stratify=ds.y,
-    )
-    Xtr, Xca, ytr, yca = train_test_split(
-        Xtr,
-        ytr,
-        test_size=0.3,
-        random_state=SEED,
-        stratify=ytr,
-    )
-
-    disc = KBinsDiscretizer(n_bins=LEVELS, encode="ordinal", strategy="quantile")
-    X_tr_idx = disc.fit_transform(Xtr).astype(np.int32)
-    X_ca_idx = np.clip(disc.transform(Xca), 0, LEVELS - 1).astype(np.int32)
-    X_te_idx = np.clip(disc.transform(Xte), 0, LEVELS - 1).astype(np.int32)
-
-    vsa = MAP.create(dimensions=DIMS)
-    enc = RandomEncoder.create(
-        num_features=Xtr.shape[1],
-        num_values=LEVELS,
-        dimensions=DIMS,
-        vsa_model=vsa,
-        key=jax.random.PRNGKey(SEED),
-    )
-    hv_tr = enc.encode_batch(jnp.asarray(X_tr_idx))
-    hv_ca = enc.encode_batch(jnp.asarray(X_ca_idx))
-    hv_te = enc.encode_batch(jnp.asarray(X_te_idx))
-
-    clf = RegularizedLSClassifier.create(
-        dimensions=DIMS,
-        num_classes=ds.n_classes,
-        reg=1.0,
-    ).fit(hv_tr, jnp.asarray(ytr))
-
-    logits_ca = hv_ca @ clf.weights
-    logits_te = hv_te @ clf.weights
-
-    calibrator = TemperatureCalibrator.create().fit(
-        logits_ca,
-        jnp.asarray(yca),
-        max_iters=300,
-    )
-    probs_ca = calibrator.calibrate(logits_ca)
-    probs_te = calibrator.calibrate(logits_te)
-
-    return (
-        probs_ca,
-        jnp.asarray(yca),
-        probs_te,
-        jnp.asarray(yte),
-        ds.n_classes,
-        ds.name,
-    )
-
-
-def _generate_reliability_figures() -> None:
-    """One reliability diagram per offline dataset."""
-    loaders = [load_iris, load_wine, load_breast_cancer, load_digits]
-    for loader in loaders:
-        _, _, probs_te, yte, _, name = _reencode_and_classify(loader)
-        fig, _ = plot_reliability_diagram(
-            probs_te,
-            yte,
-            n_bins=12,
-            title=f"Reliability — {name}",
+def _read_results(results_json):
+    results = json.loads(results_json.read_text())
+    if not results or any(
+        row.get("config", {}).get("protocol") != "matched-centroid-v2"
+        or "predictions" not in row.get("bayes_hdc", {})
+        for row in results
+    ):
+        raise ValueError(
+            "Rerun benchmark_calibration.py: figures require matched-centroid-v2 predictions"
         )
-        fig.savefig(OUT_DIR / f"reliability_{name}.pdf", bbox_inches="tight", dpi=150)
-        fig.savefig(OUT_DIR / f"reliability_{name}.png", bbox_inches="tight", dpi=150)
-        plt.close(fig)
-        print(f"  wrote figures/reliability_{name}.{{pdf,png}}")
+    return results
 
 
-def _generate_coverage_figures() -> None:
-    """One conformal-coverage curve per offline dataset."""
-    loaders = [load_iris, load_wine, load_breast_cancer, load_digits]
-    for loader in loaders:
-        probs_ca, yca, probs_te, yte, _, name = _reencode_and_classify(loader)
-        fig, _ = plot_coverage_curve(
-            lambda a: ConformalClassifier.create(alpha=a),
-            probs_ca,
-            yca,
-            probs_te,
-            yte,
-            alphas=[0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5],
-            title=f"Conformal coverage — {name}",
-        )
-        fig.savefig(OUT_DIR / f"coverage_{name}.pdf", bbox_inches="tight", dpi=150)
-        fig.savefig(OUT_DIR / f"coverage_{name}.png", bbox_inches="tight", dpi=150)
-        plt.close(fig)
-        print(f"  wrote figures/coverage_{name}.{{pdf,png}}")
+def _generate_prediction_figures(results_json):
+    import jax.numpy as jnp
+
+    for row in _read_results(results_json):
+        data = row["bayes_hdc"]["predictions"]
+        name = row["dataset"]["name"]
+        probs_te, yte = jnp.asarray(data["probs_test"]), jnp.asarray(data["y_test"])
+        probs_ca, yca = jnp.asarray(data["probs_cal"]), jnp.asarray(data["y_cal"])
+        for kind in ("reliability", "coverage"):
+            if kind == "reliability":
+                fig, _ = plot_reliability_diagram(
+                    probs_te, yte, n_bins=12, title=f"Reliability — {name}"
+                )
+            else:
+                fig, _ = plot_coverage_curve(
+                    lambda a: ConformalClassifier.create(alpha=a),
+                    probs_ca,
+                    yca,
+                    probs_te,
+                    yte,
+                    alphas=[0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5],
+                    title=f"Conformal coverage — {name}",
+                )
+            for extension in ("pdf", "png"):
+                fig.savefig(OUT_DIR / f"{kind}_{name}.{extension}", bbox_inches="tight", dpi=150)
+            plt.close(fig)
 
 
 def _generate_accuracy_comparison(results_json: Path) -> None:
@@ -179,7 +73,7 @@ def _generate_accuracy_comparison(results_json: Path) -> None:
     if not results_json.exists():
         print(f"  [skipped] no results file at {results_json}")
         return
-    results = json.loads(results_json.read_text())
+    results = _read_results(results_json)
 
     names = []
     acc_bh = []
@@ -201,7 +95,7 @@ def _generate_accuracy_comparison(results_json: Path) -> None:
     ax.set_xticklabels(names)
     ax.set_ylabel("test accuracy")
     ax.set_ylim(0, 1.05)
-    ax.set_title("Accuracy: Bayes-HDC vs TorchHD (identical pipeline)")
+    ax.set_title("Accuracy: Bayes-HDC vs TorchHD (matched cosine centroids)")
     ax.legend()
     ax.grid(True, axis="y", alpha=0.3)
     fig.savefig(OUT_DIR / "accuracy_comparison.pdf", bbox_inches="tight", dpi=150)
@@ -215,7 +109,7 @@ def _generate_ece_reduction(results_json: Path) -> None:
     if not results_json.exists():
         print(f"  [skipped] no results file at {results_json}")
         return
-    results = json.loads(results_json.read_text())
+    results = _read_results(results_json)
 
     names = []
     ece_raw = []
@@ -233,13 +127,18 @@ def _generate_ece_reduction(results_json: Path) -> None:
     ax.set_xticks(x)
     ax.set_xticklabels(names)
     ax.set_ylabel("Expected Calibration Error")
-    ax.set_title("ECE reduction via temperature scaling (Bayes-HDC)")
+    ax.set_title("ECE before and after temperature scaling (Bayes-HDC)")
     ax.legend()
     ax.grid(True, axis="y", alpha=0.3)
     fig.savefig(OUT_DIR / "ece_reduction.pdf", bbox_inches="tight", dpi=150)
     fig.savefig(OUT_DIR / "ece_reduction.png", bbox_inches="tight", dpi=150)
     plt.close(fig)
     print("  wrote figures/ece_reduction.{pdf,png}")
+
+
+def _set_output_dir(path):
+    global OUT_DIR
+    OUT_DIR = path
 
 
 def main() -> int:
@@ -249,16 +148,16 @@ def main() -> int:
         type=Path,
         default=Path(__file__).parent / "benchmark_calibration_results.json",
     )
+    ap.add_argument("--output-dir", type=Path, default=OUT_DIR)
     args = ap.parse_args()
+    _read_results(args.results)
+    _set_output_dir(args.output_dir)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Writing figures to {OUT_DIR}/")
     print("---")
 
-    print("Reliability diagrams:")
-    _generate_reliability_figures()
-    print("Coverage curves:")
-    _generate_coverage_figures()
+    _generate_prediction_figures(args.results)
     print("Accuracy comparison:")
     _generate_accuracy_comparison(args.results)
     print("ECE reduction:")

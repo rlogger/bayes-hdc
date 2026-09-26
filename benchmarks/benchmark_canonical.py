@@ -1,27 +1,35 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
-"""Canonical HDC benchmark: ISOLET, UCI-HAR, and EMG hand gestures — the
-datasets the HDC literature reports on (Rahimi et al. 2016; Imani et al.
-2017; Anguita et al. 2013). Compares bayes-hdc against a faithful TorchHD
-centroid (Sinusoid embedding, the matching random-Fourier encoder) on
-identical splits, and reports the calibration and conformal-coverage metrics
-that the deterministic baseline does not provide.
+"""Canonical-data comparison of tuned random-feature centroid classifiers.
 
-ISOLET is fetched with TorchHD's dataset loader (canonical 6238/1559 split);
-UCI-HAR uses the official subject-disjoint 7352/2947 split via
-bayes_hdc.datasets; EMG uses the original Rahimi dataset.mat with a
-stratified 70/30 window split (no canonical split ships with it).
+Compares bayes-hdc with TorchHD's Centroid model using explicitly constructed,
+unit-normalized cosine random Fourier features. Both use the same RBF bandwidth
+grid and model-selection budget; their framework-specific PRNG draws differ.
+This is a matched random-feature centroid comparison, not a SOTA HDC comparison.
+Temperature scaling and conformal prediction are generic post-hoc procedures
+that can also wrap deterministic baselines. This script reports them for the
+bayes-hdc model and reports point accuracy for the TorchHD reference.
 
-Protocol: the training pool is split three ways (70% fit / 15%
-model-selection / 15% conformal+temperature calibration), all stratified.
-BOTH encoders get the same RBF-bandwidth search on the model-selection
-split — bayes-hdc via KernelEncoder's gamma, TorchHD via the equivalent
-input-scaling of its Sinusoid embedding — and the conformal/temperature
-calibration uses data disjoint from everything else, so the finite-sample
-coverage guarantee is intact. Test data is never touched before the final
-evaluation. Runs over several seeds (the seed controls the random codebook)
-and reports mean +/- std.
+ISOLET uses TorchHD's canonical 6238/1559 split. UCI-HAR uses the official
+subject-disjoint 7352/2947 split. EMG uses label-pure 256-sample windows from the
+original dataset.mat with a stratified 70/30 window split; it is not a subject-
+or session-held-out evaluation.
+
+Each training pool is split 70% proper training, 15% model selection and 15%
+calibration, without label stratification. Preprocessing is fitted only on
+proper training. Each framework selects gamma on model selection. Temperature
+is fitted on calibration data solely for the separately reported temperature-
+scaled probabilities/ECE. Conformal calibration and test sets use RAW model
+probabilities, so their score function is independent of temperature fitting
+even though the two post-hoc procedures share calibration rows. Do not interpret
+this as conformal coverage for the temperature-scaled probabilities.
+
+Coverage additionally requires exchangeable calibration/test scores, which
+subject-disjoint or temporally grouped data alone do not establish. Test data
+is reserved for final evaluation. Per-seed splits, predictions, probabilities,
+calibration parameters and processed-data hashes are retained with mean/std
+summaries for independent recomputation.
 
     uv run --with scikit-learn --with torch --with torch-hd --with gdown \
         python benchmarks/benchmark_canonical.py
@@ -31,7 +39,7 @@ Writes benchmarks/canonical_results.json (gitignored).
 
 from __future__ import annotations
 
-import json
+import hashlib
 import os
 import time
 from pathlib import Path
@@ -42,6 +50,11 @@ import numpy as np
 from bayes_hdc import expected_calibration_error
 from bayes_hdc.sklearn import HDClassifier
 from bayes_hdc.uncertainty import ConformalClassifier, TemperatureCalibrator
+
+if __package__:
+    from ._common import provenance, standardize_train, write_json
+else:
+    from _common import provenance, standardize_train, write_json
 
 DIMS = 10000
 ALPHA = 0.1
@@ -87,41 +100,56 @@ def load_ucihar():
 
 
 # --------------------------------------------------------------------------
-# TorchHD reference (centroid over Sinusoid, same tuning budget)
+# TorchHD centroid on explicit RBF random Fourier features, same tuning budget
 # --------------------------------------------------------------------------
 def _torchhd_fit_eval(Xtr, ytr, Xev, n_classes, seed, scale, dims=DIMS):
-    """Train a TorchHD Sinusoid+Centroid at the given input scale; return preds.
+    """Train a TorchHD centroid over RBF random Fourier features; return preds.
 
-    Scaling the standardized inputs by sqrt(2*gamma) makes the Sinusoid
-    random-Fourier embedding approximate the RBF kernel at bandwidth gamma,
+    Scaling the standardized inputs by sqrt(2*gamma) makes these cosine
+    random Fourier features approximate the RBF kernel at bandwidth gamma,
     the same family bayes-hdc's KernelEncoder searches over.
     """
     import torch
-    from torchhd import embeddings
     from torchhd.models import Centroid
 
     torch.manual_seed(seed)
-    enc = embeddings.Sinusoid(Xtr.shape[1], dims)
+    frequencies = torch.randn(Xtr.shape[1], dims)
+    phases = torch.rand(dims) * (2 * torch.pi)
+
+    def encode(X):
+        hv = np.sqrt(2.0 / dims) * torch.cos(torch.as_tensor(X * scale) @ frequencies + phases)
+        return hv / (torch.linalg.vector_norm(hv, dim=-1, keepdim=True) + 1e-8)
+
     with torch.no_grad():
-        tr_hv = enc(torch.as_tensor(Xtr * scale))
-        ev_hv = enc(torch.as_tensor(Xev * scale))
+        tr_hv = encode(Xtr)
+        ev_hv = encode(Xev)
         model = Centroid(dims, n_classes)
         model.add(tr_hv, torch.as_tensor(ytr))
         model.normalize()  # required, else the majority class dominates
         return model(ev_hv).argmax(1).numpy()
 
 
-def torchhd_centroid_accuracy(Xtr, ytr, Xsel, ysel, Xte, yte, n_classes, seed, dims=DIMS):
+def torchhd_centroid_accuracy(
+    Xtr, ytr, Xsel, ysel, Xte, yte, n_classes, seed, dims=DIMS, *, return_details=False
+):
     """Tuned TorchHD reference: bandwidth picked on the model-selection split."""
-    best_scale, best_acc = None, -1.0
+    best_scale, best_gamma, best_acc = None, None, -1.0
     for g in GAMMA_GRID:
         scale = float(np.sqrt(2.0 * g))
         preds = _torchhd_fit_eval(Xtr, ytr, Xsel, n_classes, seed, scale, dims)
         acc = float((preds == ysel).mean())
         if acc > best_acc:
-            best_scale, best_acc = scale, acc
+            best_scale, best_gamma, best_acc = scale, g, acc
     preds = _torchhd_fit_eval(Xtr, ytr, Xte, n_classes, seed, best_scale, dims)
-    return float((preds == yte).mean())
+    accuracy = float((preds == yte).mean())
+    if return_details:
+        return {
+            "accuracy": accuracy,
+            "gamma": best_gamma,
+            "selection_accuracy": best_acc,
+            "test_predictions": preds.tolist(),
+        }
+    return accuracy
 
 
 # --------------------------------------------------------------------------
@@ -129,9 +157,8 @@ def torchhd_centroid_accuracy(Xtr, ytr, Xsel, ysel, Xte, yte, n_classes, seed, d
 # --------------------------------------------------------------------------
 # RBF bandwidths searched on the model-selection split (never on test,
 # never on the conformal-calibration slice). Both libraries get the same
-# grid; gamma = 0.5 corresponds to input scale 1.0, i.e. TorchHD's
-# untuned Sinusoid default, so neither library's natural operating point
-# is excluded from the search.
+# grid and the same RBF feature distribution. PRNG realizations differ across
+# frameworks; this compares tuned random-feature centroids, not SOTA HDC training.
 GAMMA_GRID = [0.0003, 0.001, 0.003, 0.01, 0.03, 0.1, 0.5]
 
 
@@ -150,49 +177,87 @@ def select_gamma(Xtr, ytr, Xval, yval, seed):
 
 def run_once(Xtr_full, ytr_full, Xte, yte, n_classes, seed):
     from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import StandardScaler
 
-    scaler = StandardScaler().fit(Xtr_full)
-    Xtr_full_s = scaler.transform(Xtr_full).astype(np.float32)
-    Xte_s = scaler.transform(Xte).astype(np.float32)
-    # Three-way split of the training pool: fit / model-selection /
-    # conformal+temperature calibration. Keeping the selection and
-    # calibration slices disjoint preserves the conformal coverage
-    # guarantee; test data is never touched before final evaluation.
-    Xtr, Xhold, ytr, yhold = train_test_split(
-        Xtr_full_s, ytr_full, test_size=0.3, random_state=seed, stratify=ytr_full
+    # Save indices in their actual fitting order, relative to the supplied pool.
+    fit_idx, hold_idx = train_test_split(np.arange(len(ytr_full)), test_size=0.3, random_state=seed)
+    selection_idx, calibration_idx = train_test_split(
+        hold_idx, test_size=0.5, random_state=seed + 1
     )
-    Xsel, Xcal, ysel, ycal = train_test_split(
-        Xhold, yhold, test_size=0.5, random_state=seed, stratify=yhold
-    )
+    Xtr, ytr = Xtr_full[fit_idx], ytr_full[fit_idx]
+    Xsel, ysel = Xtr_full[selection_idx], ytr_full[selection_idx]
+    Xcal, ycal = Xtr_full[calibration_idx], ytr_full[calibration_idx]
+    # Fit preprocessing only after separating model selection and calibration.
+    Xtr, Xsel, Xcal, Xte_s = standardize_train(Xtr, Xsel, Xcal, Xte)
 
     gamma = select_gamma(Xtr, ytr, Xsel, ysel, seed)
     clf = HDClassifier(dimensions=DIMS, encoder="kernel", gamma=gamma, random_state=seed).fit(
         Xtr, ytr
     )
     proba_te = np.asarray(clf.predict_proba(Xte_s))
-    acc = float((clf.predict(Xte_s) == yte).mean())
+    predictions_te = np.asarray(clf.predict(Xte_s))
+    acc = float((predictions_te == yte).mean())
     ece_raw = float(expected_calibration_error(jnp.asarray(proba_te), jnp.asarray(yte)))
 
-    logits_cal = jnp.log(np.asarray(clf.predict_proba(Xcal)) + 1e-9)
+    proba_cal = np.asarray(clf.predict_proba(Xcal))
+    logits_cal = jnp.log(proba_cal + 1e-9)
     logits_te = jnp.log(proba_te + 1e-9)
     temp = TemperatureCalibrator.create().fit(logits_cal, jnp.asarray(ycal))
+    proba_cal_temp = np.asarray(temp.calibrate(logits_cal))
     proba_te_cal = np.asarray(temp.calibrate(logits_te))
     ece_cal = float(expected_calibration_error(jnp.asarray(proba_te_cal), jnp.asarray(yte)))
 
-    proba_cal = np.asarray(clf.predict_proba(Xcal))
+    # Raw APS scores are untouched by the temperature fitted above.
     conf = ConformalClassifier.create(alpha=ALPHA).fit(jnp.asarray(proba_cal), jnp.asarray(ycal))
     sets = np.asarray(conf.predict_set(jnp.asarray(proba_te)))
     coverage = float(sets[np.arange(len(yte)), yte].mean())
     set_size = float(sets.sum(1).mean())
 
-    th_acc = None
+    th_details = None
     try:
-        th_acc = torchhd_centroid_accuracy(Xtr, ytr, Xsel, ysel, Xte_s, yte, n_classes, seed)
+        th_details = torchhd_centroid_accuracy(
+            Xtr, ytr, Xsel, ysel, Xte_s, yte, n_classes, seed, dims=DIMS, return_details=True
+        )
+        th_acc = th_details["accuracy"]
     except Exception as e:  # noqa: BLE001
         th_acc = {"error": f"{type(e).__name__}: {e}"}
 
     return {
+        "seed": int(seed),
+        "split_indices": {
+            "index_reference": (
+                "fit/selection/calibration index the supplied training pool; "
+                "test indexes the supplied test array"
+            ),
+            "fit": fit_idx.tolist(),
+            "model_selection": selection_idx.tolist(),
+            "calibration": calibration_idx.tolist(),
+            "test": np.arange(len(yte)).tolist(),
+        },
+        "labels": {
+            "fit": ytr.tolist(),
+            "model_selection": ysel.tolist(),
+            "calibration": ycal.tolist(),
+            "test": yte.tolist(),
+        },
+        "class_order": clf.classes_.tolist(),
+        "predictions": {
+            "calibration_raw": clf.classes_[proba_cal.argmax(axis=1)].tolist(),
+            "test_raw": predictions_te.tolist(),
+            "calibration_temperature_only": clf.classes_[proba_cal_temp.argmax(axis=1)].tolist(),
+            "test_temperature_only": clf.classes_[proba_te_cal.argmax(axis=1)].tolist(),
+        },
+        "probabilities": {
+            "calibration_raw": proba_cal.tolist(),
+            "test_raw": proba_te.tolist(),
+            "calibration_temperature_only": proba_cal_temp.tolist(),
+            "test_temperature_only": proba_te_cal.tolist(),
+        },
+        "temperature": float(temp.temperature),
+        "q_hat": float(conf.threshold),
+        "q_hat_is_infinite": bool(jnp.isinf(conf.threshold)),
+        "conformal_score_input": "raw probabilities; independent of fitted temperature",
+        "test_prediction_sets": sets.tolist(),
+        "torchhd_details": th_details,
         "hd_acc": acc,
         "ece_raw": ece_raw,
         "ece_cal": ece_cal,
@@ -201,6 +266,16 @@ def run_once(Xtr_full, ytr_full, Xte, yte, n_classes, seed):
         "torchhd_acc": th_acc,
         "gamma": gamma,
     }
+
+
+def _array_fingerprint(values):
+    """Hash processed array dtype, shape and C-order bytes, preserving row order."""
+    array = np.ascontiguousarray(values)
+    digest = hashlib.sha256()
+    digest.update(array.dtype.str.encode("ascii"))
+    digest.update(repr(array.shape).encode("ascii"))
+    digest.update(array.tobytes(order="C"))
+    return {"sha256": digest.hexdigest(), "dtype": array.dtype.str, "shape": list(array.shape)}
 
 
 def aggregate(name, Xtr, ytr, Xte, yte):
@@ -212,8 +287,8 @@ def aggregate(name, Xtr, ytr, Xte, yte):
         return float(np.mean(vals)), float(np.std(vals))
 
     th = [r["torchhd_acc"] for r in runs if isinstance(r["torchhd_acc"], float)]
-    th_mean = float(np.mean(th)) if th else None
-    th_std = float(np.std(th)) if th else None
+    th_mean = float(np.mean(th)) if len(th) == len(runs) else None
+    th_std = float(np.std(th)) if len(th) == len(runs) else None
 
     acc_m, acc_s = ms("hd_acc")
     er_m, _ = ms("ece_raw")
@@ -222,6 +297,12 @@ def aggregate(name, Xtr, ytr, Xte, yte):
     sz_m, _ = ms("set_size")
     row = {
         "dataset": name,
+        "data_fingerprints": {
+            "X_train_pool": _array_fingerprint(Xtr),
+            "y_train_pool": _array_fingerprint(ytr),
+            "X_test": _array_fingerprint(Xte),
+            "y_test": _array_fingerprint(yte),
+        },
         "n_train": int(len(ytr)),
         "n_test": int(len(yte)),
         "features": int(Xtr.shape[1]),
@@ -235,6 +316,8 @@ def aggregate(name, Xtr, ytr, Xte, yte):
         "torchhd_acc_mean": None if th_mean is None else round(th_mean, 4),
         "torchhd_acc_std": None if th_std is None else round(th_std, 4),
         "gammas": [r["gamma"] for r in runs],
+        "runs": runs,
+        "torchhd_successful_runs": len(th),
     }
     print(
         f"[{name:7s}] HD acc={acc_m:.3f}+/-{acc_s:.3f}  "
@@ -244,40 +327,17 @@ def aggregate(name, Xtr, ytr, Xte, yte):
     return row
 
 
-def provenance():
-    """Environment provenance, recorded into the results JSON."""
-    import platform
-    import subprocess
-    import sys
-
-    import jax
-
-    try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True,
-            text=True,
-            cwd=Path(__file__).parent,
-            check=False,
-        ).stdout.strip()
-    except OSError:
-        commit = "unknown"
-    try:
-        import torchhd
-
-        torchhd_v = torchhd.__version__
-    except Exception:  # noqa: BLE001
-        torchhd_v = None
-    return {
-        "commit": commit or "unknown",
-        "python": sys.version.split()[0],
-        "jax": jax.__version__,
-        "torchhd": torchhd_v,
-        "platform": platform.platform(),
-    }
-
-
 def main():
+    import argparse
+
+    global DIMS
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dimensions", type=int, default=DIMS)
+    parser.add_argument(
+        "--output", type=Path, default=Path(__file__).parent / "canonical_results.json"
+    )
+    args = parser.parse_args()
+    DIMS = args.dimensions
     print(f"canonical HDC benchmark (d={DIMS}, alpha={ALPHA}, seeds={SEEDS})")
     t0 = time.perf_counter()
     rows = []
@@ -287,17 +347,21 @@ def main():
     out = {
         "config": {
             "dimensions": DIMS,
+            "protocol": "training-only-preprocessing-raw-conformal-v3",
+            "conformal_input": "raw model probabilities, never temperature-scaled",
+            "temperature_input": "same calibration rows, separate post-hoc ECE evaluation",
             "alpha": ALPHA,
             "seeds": SEEDS,
             "gamma_grid": GAMMA_GRID,
             "split": "train pool -> 70% fit / 15% model-selection / 15% calibration",
         },
         "provenance": provenance(),
+        "benchmark_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "results": rows,
         "runtime_s": round(time.perf_counter() - t0, 1),
     }
-    p = Path(__file__).parent / "canonical_results.json"
-    p.write_text(json.dumps(out, indent=2))
+    p = args.output
+    write_json(p, out)
     print(f"\nwrote {p} ({out['runtime_s']}s)")
 
 

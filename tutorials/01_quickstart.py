@@ -1,17 +1,13 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Bayes-HDC quickstart — installation to first prediction in 90 seconds.
+"""Bayes-HDC quickstart: Gaussian moments, classification and calibration.
 
-Six self-contained sections. Each block is independent enough to paste
-into a fresh REPL after the imports above it have been run. Total
-runtime end-to-end is a few seconds on CPU.
+Run sections in order. Proper training, temperature calibration, conformal
+calibration and test observations are kept separate. Marginal guarantees
+require exchangeability; the printed metrics are one finite sample.
 
-References:
-    Furlong & Eliasmith (2024) — distribution-valued VSAs.
-    Liang et al. (2026) — ConformalHDC: prediction sets for HDC.
-    Frady, Kleyko & Sommer (2020) — VSA capacity and resonator nets.
-    Lei et al. (2018) — split-conformal classification.
+Run: python tutorials/01_quickstart.py
 """
 
 from __future__ import annotations
@@ -21,18 +17,18 @@ from __future__ import annotations
 # ---------------------------------------------------------------------
 # Bayes-HDC is on PyPI:
 #
-#     pip install bayes-hdc
+#     pip install "bayes-hdc[datasets]"
 #
 # CPU JAX is pulled in as a default. For GPU/TPU follow the JAX install
 # matrix at https://jax.readthedocs.io/en/latest/installation.html and
-# `pip install bayes-hdc --no-deps` to layer it on top.
+# install this package with a compatible accelerator JAX version.
 # =====================================================================
 # =====================================================================
 # 2. A Gaussian hypervector + bind in 4 lines
 # ---------------------------------------------------------------------
-# PVSA (Furlong & Eliasmith 2024) treats every hypervector as a
-# posterior. `bind_gaussian` propagates the first two moments in closed
-# form, so binding is differentiable end-to-end.
+# GaussianHV describes a Gaussian distribution over coordinates. Independent
+# product moments are exact; a product distribution is generally not Gaussian.
+# A chosen representation distribution is not automatically a posterior.
 # =====================================================================
 import jax
 import jax.numpy as jnp
@@ -43,7 +39,10 @@ key_a, key_b = jax.random.split(jax.random.PRNGKey(0))
 x = GaussianHV.random(key_a, dimensions=2048, var=1e-3)
 y = GaussianHV.random(key_b, dimensions=2048, var=1e-3)
 z = bind_gaussian(x, y)
-print(f"[2] bound HV: mu[:3]={z.mu[:3]}  E[cos(x, z)]={expected_cosine_similarity(x, z):+.3f}")
+print(
+    f"[2] bound HV: mu[:3]={z.mu[:3]}  "
+    f"approx independent E[cos(x, y)]={expected_cosine_similarity(x, y):+.3f}"
+)
 
 
 # =====================================================================
@@ -87,20 +86,21 @@ print(f"[3] iris test accuracy = {float(clf.score(test_hvs, y_test)):.3f}")
 # (Guo et al. 2017) learns one scalar T to fix that, and
 # ConformalClassifier (Lei et al. 2018; Liang et al. 2026 for HDC) gives
 # a marginal coverage guarantee Pr(y* in C(x*)) >= 1 - alpha on a held
-# -out split. Split the test set into cal/test halves so the conformal
-# guarantee actually applies.
+# -out split with exchangeable calibration/test observations. Reserve separate
+# temperature/conformal/test portions before fitting either calibration stage.
 # =====================================================================
 
 from bayes_hdc import ConformalClassifier, TemperatureCalibrator  # noqa: E402
 
-n_cal = test_hvs.shape[0] // 2
-cal_hvs, cal_y = test_hvs[:n_cal], y_test[:n_cal]
-eval_hvs, eval_y = test_hvs[n_cal:], y_test[n_cal:]
+n_part = test_hvs.shape[0] // 3
+temp_hvs, temp_y = test_hvs[:n_part], y_test[:n_part]
+cal_hvs, cal_y = test_hvs[n_part : 2 * n_part], y_test[n_part : 2 * n_part]
+eval_hvs, eval_y = test_hvs[2 * n_part :], y_test[2 * n_part :]
 
 logits_cal = jax.vmap(clf.similarity)(cal_hvs)
 logits_eval = jax.vmap(clf.similarity)(eval_hvs)
 
-calibrator = TemperatureCalibrator.create().fit(logits_cal, cal_y)
+calibrator = TemperatureCalibrator.create().fit(jax.vmap(clf.similarity)(temp_hvs), temp_y)
 probs_cal = calibrator.calibrate(logits_cal)
 probs_eval = calibrator.calibrate(logits_eval)
 
@@ -118,22 +118,20 @@ print(
 # ---------------------------------------------------------------------
 # Library-first split-conformal anomaly score: fit a centroid on a
 # synthetic "in-distribution" cluster, take the (1 - alpha)-quantile of
-# in-distribution cosine distances as the threshold, and any test
-# point above that threshold is flagged as anomalous with marginal
+# in-distribution cosine distances using the finite-sample rank correction.
+# Test points exceeding the calibrated threshold have marginal
 # false-alarm rate <= alpha (Lei et al. 2018, applied to one class).
 # =====================================================================
 
 key_in, key_out = jax.random.split(jax.random.PRNGKey(7))
 X_in = jax.random.normal(key_in, (400, dims)) * 0.05 + jnp.ones(dims) / jnp.sqrt(dims)
 X_out = jax.random.normal(key_out, (200, dims)) * 0.5
-centroid = X_in[:200].mean(axis=0)
-centroid = centroid / (jnp.linalg.norm(centroid) + 1e-9)
-scores_cal = 1.0 - jax.vmap(lambda v: jnp.dot(centroid, v) / (jnp.linalg.norm(v) + 1e-9))(
-    X_in[200:]
-)
-threshold = jnp.quantile(scores_cal, 0.9)
-scores_out = 1.0 - jax.vmap(lambda v: jnp.dot(centroid, v) / (jnp.linalg.norm(v) + 1e-9))(X_out)
-print(f"[5] anomaly recall on synthetic OOD = {float((scores_out > threshold).mean()):.2f}")
+from bayes_hdc import ConformalAnomalyDetector, HDCAnomalyScorer  # noqa: E402
+
+scorer = HDCAnomalyScorer.create(dimensions=dims).fit(X_in[:200])
+detector = ConformalAnomalyDetector.create(scorer).fit(X_in[200:])
+flags_out = detector.predict_batch(X_out, alpha=0.1)
+print(f"[5] anomaly recall on synthetic OOD = {float(flags_out.mean()):.2f}")
 
 
 # =====================================================================
@@ -141,10 +139,10 @@ print(f"[5] anomaly recall on synthetic OOD = {float((scores_out > threshold).me
 # ---------------------------------------------------------------------
 # Longer worked examples live in `tutorials/`:
 #
-#   02_bayesian_hypervectors.py   — Dirichlet HVs, KL, posterior PPCs.
-#   03_calibration_and_coverage.py — ECE/MCE, reliability curves, CP.
-#   04_resonator_factorisation.py — probabilistic resonator networks.
-#   05_real_data_eeg.py           — seizure detection end-to-end.
+#   02_anomaly_detection.py — split-conformal anomaly examples.
+#   03_sequences.py         — sequence retrieval and storage tradeoffs.
+#   ../examples/resonator_factorisation.py — stochastic factor search.
+#   ../examples/eeg_seizure_detection.py   — synthetic EEG-style features.
 #
 # The applied notebooks in `examples/` solve specific problems (EEG,
 # EMG, image classification, language ID); the `tutorials/` series is

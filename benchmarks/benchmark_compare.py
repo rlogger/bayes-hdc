@@ -9,7 +9,7 @@ Methodology (reproducible):
 - Dimensions: 10,000
 - Warmup: 20 iterations (JAX JIT + PyTorch cache)
 - Trials: 200 per operation
-- Device: CPU (both libraries) for fair comparison
+- Device: explicitly CPU on both libraries; JAX dispatch vs eager PyTorch
 - Results: mean ± std (ms)
 
 Usage:
@@ -24,6 +24,11 @@ import os
 import sys
 import time
 from typing import Callable
+
+if __package__:
+    from ._common import provenance
+else:
+    from _common import provenance
 
 
 def benchmark_jax(
@@ -53,19 +58,14 @@ def benchmark_torch(
     fn: Callable, *args: object, warmup: int = 20, trials: int = 200, **kwargs: object
 ) -> tuple[float, float]:
     """Benchmark a PyTorch/TorchHD function. Returns (mean_ms, std_ms)."""
-    import torch
 
     for _ in range(warmup):
         fn(*args, **kwargs)
-    if torch.cuda.is_available():
-        torch.cuda.synchronize()
 
     times: list[float] = []
     for _ in range(trials):
         t0 = time.perf_counter()
         fn(*args, **kwargs)
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
         times.append((time.perf_counter() - t0) * 1000)
 
     mean = sum(times) / len(times)
@@ -76,7 +76,7 @@ def benchmark_torch(
 
 def run_bayes_hdc_benchmarks(
     dim: int = 10000, warmup: int = 20, trials: int = 200
-) -> dict[str, float]:
+) -> dict[str, tuple[float, float]]:
     """Run Bayes-HDC benchmarks."""
     import jax
 
@@ -115,7 +115,7 @@ def run_bayes_hdc_benchmarks(
 
 def run_torchhd_benchmarks(
     dim: int = 10000, warmup: int = 20, trials: int = 200
-) -> dict[str, float]:
+) -> dict[str, tuple[float, float]]:
     """Run TorchHD benchmarks. Equivalent operations."""
     import torch
     import torchhd
@@ -145,7 +145,8 @@ def run_torchhd_benchmarks(
 
     def bundle_many():
         with torch.no_grad():
-            return torchhd.multiset(vectors)
+            summed = torchhd.multiset(vectors)
+            return summed / (torch.linalg.vector_norm(summed, dim=-1, keepdim=True) + 1e-8)
 
     mean, std = benchmark_torch(bundle_many, warmup=warmup, trials=trials)
     results["MAP bundle (10 HVs)"] = (mean, std)
@@ -169,7 +170,8 @@ def run_torchhd_benchmarks(
             indices = torch.arange(20, device=device).unsqueeze(0) * 10 + data
             # enc(indices) -> (100, 20, dim), multiset along features -> (100, dim)
             sampled = enc(indices)
-            return torchhd.multiset(sampled)
+            summed = torchhd.multiset(sampled)
+            return summed / (torch.linalg.vector_norm(summed, dim=-1, keepdim=True) + 1e-8)
 
     mean, std = benchmark_torch(encode_batch, warmup=warmup, trials=trials)
     results["RandomEncoder (100×20)"] = (mean, std)
@@ -192,7 +194,10 @@ def main() -> int:
     # Bayes-HDC
     print("\nRunning Bayes-HDC benchmarks...")
     try:
-        jax_results = run_bayes_hdc_benchmarks(dim=dim, warmup=warmup, trials=trials)
+        import jax
+
+        with jax.default_device(jax.devices("cpu")[0]):
+            jax_results = run_bayes_hdc_benchmarks(dim=dim, warmup=warmup, trials=trials)
     except Exception as e:
         print(f"Bayes-HDC benchmark failed: {e}")
         return 1
@@ -242,10 +247,12 @@ def main() -> int:
     with open(out_path, "w") as f:
         json.dump(
             {
+                "provenance": provenance(),
                 "dimensions": dim,
                 "warmup": warmup,
                 "trials": trials,
                 "device": "CPU",
+                "execution": "JAX operations vs eager PyTorch; not torch.compile",
                 "operations": report,
             },
             f,

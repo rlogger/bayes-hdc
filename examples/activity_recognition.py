@@ -1,51 +1,19 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Human activity recognition — UCIHAR-style multi-class accelerometer classification.
+"""Activity classification with HDC and held-out calibration.
 
-Activity recognition from wearable accelerometer + gyroscope streams is
-the second-most-cited application of HDC after EMG gesture recognition.
-The reference benchmark is the UCI Human Activity Recognition dataset
-(Anguita et al. 2013): 6 daily-living activities (walking, stairs up,
-stairs down, sitting, standing, laying) sampled from 30 subjects with a
-smartphone IMU. The HDC literature treats it as a high-dim feature
-classification problem — discretise each of 561 hand-crafted features
-into ordinal levels, encode with feature-value binding, train a
-centroid classifier — and consistently reports 90+ % accuracy.
+Default data are independent synthetic feature rows. The training quantiser,
+classifier, temperature fitter, conformal calibration and test use separate
+roles. Split-conformal coverage requires exchangeable calibration/test rows;
+selecting singleton sets does not give a conditional error guarantee.
 
-This example demonstrates the literature-canonical pipeline with three
-deliverables that classical centroid HDC does not produce:
+--real-data loads official UCIHAR with its subject-disjoint test partition.
+Calibration windows come from training subjects and may overlap: real-data
+coverage is empirical, with no claim that row exchangeability holds across
+subjects. This is a research example, not a wearable or medical safety system.
 
-1. **Calibrated probabilities** — temperature scaling on the cosine-
-   similarity logits, fit via L-BFGS in log-space (Guo et al. 2017).
-2. **Conformal prediction sets** — at α = 0.1, every sample is given a
-   set of activities that contains the true one with marginal coverage
-   ≥ 0.9 (Romano et al. 2020). The set size measures task difficulty.
-3. **Selective abstention** — when the conformal set is not a singleton,
-   the classifier abstains and routes the case to follow-up. This is
-   the same pattern that makes HDC interesting for medical telemetry
-   and prosthetic-control safety layers.
-
-By default the example runs on a synthetic 36-feature accelerometer
-window so the pipeline is fast and offline. Pass ``--real-data`` to load
-the actual UCIHAR 561-feature benchmark via
-:func:`bayes_hdc.datasets.load_ucihar` (one-time OpenML download); the
-encoder and classifier code paths are identical, only the data source
-changes.
-
-References:
-
-* Anguita, D. et al. (2013). "A Public Domain Dataset for Human Activity
-  Recognition Using Smartphones." ESANN.
-* Hassan, E. et al. (2018). "Hyperdimensional Computing for Human
-  Activity Recognition with Inertial Sensors."
-* Schmuck, M. et al. (2019). "Hardware Optimizations of Dense Binary
-  Hyperdimensional Computing." JETC.
-
-Run::
-
-    python examples/activity_recognition.py                # synthetic
-    python examples/activity_recognition.py --real-data    # real UCIHAR
+Run: python examples/activity_recognition.py [--real-data]
 """
 
 from __future__ import annotations
@@ -110,11 +78,11 @@ def _synthetic_imu_features(key: jax.Array) -> tuple[np.ndarray, np.ndarray]:
     return np.stack(X_list), np.asarray(y_list, dtype=np.int32)
 
 
-def _discretise(X: np.ndarray, num_levels: int) -> np.ndarray:
+def _discretise(X: np.ndarray, num_levels: int, reference: np.ndarray) -> np.ndarray:
     """Per-feature quantile binning into ordinal levels."""
     X_idx = np.empty(X.shape, dtype=np.int32)
     for f in range(X.shape[1]):
-        edges = np.quantile(X[:, f], np.linspace(0, 1, num_levels + 1))
+        edges = np.quantile(reference[:, f], np.linspace(0, 1, num_levels + 1))
         edges = np.unique(edges)
         if len(edges) < 2:
             X_idx[:, f] = 0
@@ -124,23 +92,11 @@ def _discretise(X: np.ndarray, num_levels: int) -> np.ndarray:
     return X_idx
 
 
-def _load_real_ucihar() -> tuple[np.ndarray, np.ndarray, tuple[str, ...], int]:
-    """Load real UCIHAR via bayes_hdc.datasets (one-time OpenML download)."""
+def _load_real_ucihar():
+    """Load the official UCI archive and retain its subject-disjoint test set."""
     from bayes_hdc.datasets import load_ucihar
 
-    data = load_ucihar()
-    # Standardise per-feature so the discretisation quantiles are stable.
-    X = np.asarray(data.X, dtype=np.float32)
-    y = np.asarray(data.y, dtype=np.int32)
-    activity_names = (
-        "walking",
-        "stairs-up",
-        "stairs-down",
-        "sitting",
-        "standing",
-        "laying",
-    )
-    return X, y, activity_names, X.shape[1]
+    return load_ucihar()
 
 
 def _parse_args() -> argparse.Namespace:
@@ -148,7 +104,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--real-data",
         action="store_true",
-        help="Load the real UCIHAR dataset via OpenML (one-time download). "
+        help="Load the real UCIHAR dataset via the official UCI archive (one-time download). "
         "Default: synthetic 36-feature accelerometer windows that always run offline.",
     )
     return p.parse_args()
@@ -161,26 +117,28 @@ def main() -> None:
     key = jax.random.PRNGKey(SEED)
     k_data, k_codebook = jax.random.split(key)
 
+    rng = np.random.default_rng(SEED)
     if args.real_data:
-        try:
-            X, y, activity_names, num_features = _load_real_ucihar()
-            num_activities = int(y.max() + 1)
-            data_label = "real UCIHAR"
-        except Exception as e:  # noqa: BLE001 — surface the failure, fall back.
-            print(f"  ! could not load real UCIHAR ({e}); falling back to synthetic.")
-            X, y_jax = _synthetic_imu_features(k_data)
-            y = np.asarray(y_jax)
-            activity_names = ACTIVITY_NAMES
-            num_features = NUM_FEATURES
-            num_activities = NUM_ACTIVITIES
-            data_label = "synthetic (fallback)"
+        data = _load_real_ucihar()  # Fail clearly if requested real data cannot load.
+        X = np.vstack([data.X_train, data.X_test])
+        y = np.concatenate([data.y_train, data.y_test])
+        activity_names = data.classes or ACTIVITY_NAMES
+        num_features, num_activities = data.n_features, data.n_classes
+        data_label = "real UCIHAR, official subject-disjoint test set"
+        pool = rng.permutation(len(data.y_train))
+        n_tr, n_temp = int(0.70 * len(pool)), int(0.85 * len(pool))
+        tr_idx, temp_idx, ca_idx = pool[:n_tr], pool[n_tr:n_temp], pool[n_temp:]
+        te_idx = np.arange(len(data.y_train), len(y))
+        print("  Calibration uses training subjects; new-subject coverage is empirical.")
     else:
-        X, y_jax = _synthetic_imu_features(k_data)
-        y = np.asarray(y_jax)
+        X, y = _synthetic_imu_features(k_data)
         activity_names = ACTIVITY_NAMES
-        num_features = NUM_FEATURES
-        num_activities = NUM_ACTIVITIES
-        data_label = "synthetic (use --real-data for OpenML UCIHAR)"
+        num_features, num_activities = NUM_FEATURES, NUM_ACTIVITIES
+        data_label = "synthetic (use --real-data for official UCIHAR)"
+        perm = rng.permutation(len(y))
+        n_tr, n_temp, n_cal = (int(frac * len(y)) for frac in (0.5, 0.65, 0.8))
+        tr_idx, temp_idx = perm[:n_tr], perm[n_tr:n_temp]
+        ca_idx, te_idx = perm[n_temp:n_cal], perm[n_cal:]
 
     print(
         f"  data = {data_label}   activities = {num_activities}   "
@@ -189,14 +147,8 @@ def main() -> None:
 
     # ----------------------------------------------------------------- 1.
     print("[1] Discretise features into ordinal levels.")
-    X_idx = _discretise(X, NUM_LEVELS)
+    X_idx = _discretise(X, NUM_LEVELS, reference=X[tr_idx])
     print(f"      X shape: {X.shape}    discretised range: [{X_idx.min()}, {X_idx.max()}]")
-
-    # 60 / 20 / 20 train / cal / test split.
-    rng = np.random.default_rng(SEED)
-    perm = rng.permutation(len(X))
-    n_tr, n_ca = int(0.6 * len(X)), int(0.8 * len(X))
-    tr_idx, ca_idx, te_idx = perm[:n_tr], perm[n_tr:n_ca], perm[n_ca:]
 
     # ----------------------------------------------------------------- 2.
     print("\n[2] Encode each window via feature-value binding (RandomEncoder).")
@@ -210,11 +162,12 @@ def main() -> None:
     )
     hv_all = encoder.encode_batch(jnp.asarray(X_idx))
     hv_tr, y_tr = hv_all[tr_idx], jnp.asarray(y[tr_idx])
+    hv_temp, y_temp = hv_all[temp_idx], jnp.asarray(y[temp_idx])
     hv_ca, y_ca = hv_all[ca_idx], jnp.asarray(y[ca_idx])
     hv_te, y_te = hv_all[te_idx], jnp.asarray(y[te_idx])
     print(
         f"      encoded HV shape: {tuple(hv_all.shape)}    "
-        f"(train/cal/test = {len(y_tr)}/{len(y_ca)}/{len(y_te)})"
+        f"(train/temp/cal/test = {len(y_tr)}/{len(y_temp)}/{len(y_ca)}/{len(y_te)})"
     )
 
     # ----------------------------------------------------------------- 3.
@@ -232,7 +185,7 @@ def main() -> None:
     print("\n[4] Calibrate logits + wrap in a ConformalClassifier.")
     logits_ca = clf.logits(hv_ca)
     logits_te = clf.logits(hv_te)
-    calibrator = TemperatureCalibrator.create().fit(logits_ca, y_ca, max_iters=200)
+    calibrator = TemperatureCalibrator.create().fit(clf.logits(hv_temp), y_temp, max_iters=200)
     probs_ca = calibrator.calibrate(logits_ca)
     probs_te = calibrator.calibrate(logits_te)
 
@@ -283,18 +236,11 @@ def main() -> None:
         name = activity_names[a] if a < len(activity_names) else f"class-{a}"
         print(f"      {name:<14s} {in_set:>12.3f} {m_size:>15.2f}")
 
-    if args.real_data:
-        print(
-            "\nNumbers above are on the real UCIHAR 561-feature benchmark "
-            "(Anguita et al. 2013), encoded by feature-value binding."
-        )
-    else:
-        print(
-            "\nThe pipeline above is feature-value binding (Hassan et al. 2018, "
-            "Schmuck et al. 2019)\nrunning on synthetic 36-feature accelerometer windows. "
-            "Run with --real-data to point\nit at `bayes_hdc.datasets.load_ucihar()` "
-            "and the real 561-feature benchmark."
-        )
+    print(f"\nData source: {data_label}.")
+    print(
+        "RandomEncoder uses independent feature-value codebooks; ordinal closeness is not encoded."
+    )
+    print("Marginal coverage does not imply per-activity or singleton-subset error control.")
 
 
 if __name__ == "__main__":

@@ -1,35 +1,17 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""End-to-end variational training of a PVSA codebook.
+"""Variational inference for one Gaussian latent vector with JAX gradients.
 
-This example demonstrates a capability that, to our knowledge, no
-other open-source HDC/VSA library exposes: **end-to-end gradient
-training of a probabilistic codebook**. The PVSA primitives in
-``bayes_hdc.distributions`` propagate Gaussian moments analytically
-under bind, bundle, permute, and cleanup, and ``GaussianHV`` exposes a
-reparameterised sampler. This means ``jax.grad`` composes through
-every operation — including the KL divergence to a prior — and an ELBO
-objective can be optimised with a vanilla Adam loop.
+A standard-normal prior and observation likelihood x|z ~ N(z,sigma**2 I)
+produce an analytic Gaussian posterior. The demo uses a Monte Carlo ELBO to
+fit its mean and diagonal variance and reports distance to that reference.
+Only target.mu is the observation; target.var is not used by the likelihood.
+The loss exercises the reparameterised sampler, Gaussian likelihood and KL;
+it does not train through bind, bundle, permute or cleanup, nor establish a
+unique or state-of-the-art codebook-learning method.
 
-What we do
-----------
-
-We pose a simple inference problem: an unobserved target ``GaussianHV``
-sits behind a likelihood, and we want to fit a variational posterior
-``q(z)`` that minimises ``-ELBO(q, prior, target)``. The prior is the
-standard normal; the reconstruction term is a Monte-Carlo estimate of
-expected cosine similarity between samples from ``q`` and the target.
-
-This is a toy task — the analytical optimum is reachable in closed form
-— but it serves as a *unit test for the entire variational stack*:
-reparameterisation gradients, KL closed form, the Adam loop, and the
-PVSA-side compose-with-jax.grad story all have to work for the
-training trajectory to descend.
-
-Run::
-
-    python examples/variational_codebook_learning.py
+Run: python examples/variational_codebook_learning.py
 """
 
 from __future__ import annotations
@@ -95,7 +77,7 @@ def main() -> None:
         )
         # True Gaussian-observation log-likelihood (in nats), so the
         # ``recon - KL`` combination below is a dimensionally consistent
-        # ELBO. observation_noise=1.0 sets the reconstruction weight
+        # ELBO. OBSERVATION_NOISE sets the reconstruction weight
         # relative to KL; tune for your task.
         recon = gaussian_reconstruction_log_likelihood_mc(
             posterior, target, key, n_samples=32, observation_noise=OBSERVATION_NOISE
@@ -104,7 +86,7 @@ def main() -> None:
         return -elbo_gaussian(posterior, prior, recon)
 
     # ----------------------------------------------------------------- 4.
-    print("\n[4] Train. Adam composes through bind/bundle/KL/sampler in pure JAX.")
+    print("\n[4] Train the mean and variance with the sampler, likelihood and KL.")
     train_key = jax.random.fold_in(key, 1)
     result = train_variational_codebook(
         init_params=init_params,
@@ -132,12 +114,13 @@ def main() -> None:
     print(f"      cos(μ_fitted, μ_target) = {cos_sim:.4f}    (1.0 is exact)")
     print(f"      mean fitted variance     = {float(jnp.mean(fitted.var)):.4f}")
 
-    if cos_sim > 0.95:
-        print("\n[6] ✓ Variational training recovered the target codebook.")
-    elif cos_sim > 0.7:
-        print("\n[6] ~ Partial recovery — try more n_steps or a higher lr.")
-    else:
-        print("\n[6] ✗ Did not converge. Inspect the loss trajectory below.")
+    sigma2 = OBSERVATION_NOISE**2
+    exact_mu = target.mu / (1.0 + sigma2)
+    exact_var = jnp.full((DIMS,), sigma2 / (1.0 + sigma2))
+    mu_rmse = float(jnp.sqrt(jnp.mean((fitted.mu - exact_mu) ** 2)))
+    var_rmse = float(jnp.sqrt(jnp.mean((fitted.var - exact_var) ** 2)))
+    print(f"      mean RMSE to analytic posterior: {mu_rmse:.6f}")
+    print(f"      variance RMSE to analytic posterior: {var_rmse:.6f}")
 
     # ----------------------------------------------------------------- 7.
     print("\n[7] Loss trajectory (key steps):")
@@ -152,15 +135,9 @@ def main() -> None:
         bar_len = max(0, int(width * (ceil - v) / span))
         print(f"  step {i:>4d}: loss = {v:+.4f}  {'█' * bar_len}")
 
-    print("\nThe per-step loss is noisy because the reconstruction term is a")
-    print("32-sample Monte-Carlo estimator under an isotropic Gaussian")
-    print("observation model; Adam descends the *expected* loss, not the per-step")
-    print("realisation. The cosine similarity at step [5] is the cleaner")
-    print("convergence signal. The substantive point is that every PVSA")
-    print("primitive — bind, bundle, permute, KL, the reparameterised sampler,")
-    print("the Gaussian log-density — is a pure JAX function on registered")
-    print("pytrees, so jax.grad composes through all of them and the entire")
-    print("training run compiles to one XLA program via jax.lax.scan.")
+    print("\nMonte Carlo loss values are noisy; a decrease alone does not prove convergence.")
+    print("The analytic posterior errors above assess both mean and variance.")
+    print("This example does not exercise the other differentiable VSA operations.")
 
 
 if __name__ == "__main__":

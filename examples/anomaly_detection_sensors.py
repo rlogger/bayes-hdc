@@ -1,45 +1,19 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Industrial-sensor anomaly detection with HDC + split-conformal p-values.
+"""Synthetic sensor anomaly detection with split-conformal p-values.
 
-In a real deployment, swap the generator for your SCADA / OPC-UA /
-vibration-sensor loader. The pipeline assumes short windowed
-multi-channel sensor traces with stationary "normal" statistics during
-the calibration phase -- the standard condition-monitoring assumption,
-and the prerequisite for the distribution-free conformal anomaly
-guarantee.
+Independent simulated windows are transformed using features and scaling
+fitted on normal training data, then calibrated on independent normal data.
+For exchangeable calibration and normal test windows, the frozen score
+controls marginal false-positive probability. Stationarity alone does not
+imply exchangeability for overlapping or serially dependent real windows.
+This example is not a validated machinery-monitoring deployment.
 
-End-to-end pipeline (all library, no hand-rolled detector):
+Reference: Bates, Candes, Lei, Romano and Sesia (2023), Testing for Outliers
+with Conformal p-values, https://arxiv.org/abs/2104.08279.
 
-    raw 8-channel windows
-        -> FFT + per-channel summary-stat features (~40 / window)
-        -> sklearn StandardScaler  (fit on normal training data)
-        -> bayes_hdc.ProjectionEncoder  (MAP VSA, random projection)
-        -> bayes_hdc.fit_anomaly_pipeline(...)
-             == HDCAnomalyScorer.fit(normal)  +  ConformalAnomalyDetector.fit(calib)
-
-The detector is imported from :mod:`bayes_hdc`; this example does not
-define one locally. The score is the cosine-distance-to-centroid
-nonconformity measure (Furlong & Eliasmith 2024), conformalised with
-the split-conformal protocol (Lei et al. 2018; Laxhammar 2014;
-Bates et al. 2023) into a p-value with a finite-sample false-positive
-guarantee. Anomalous windows pin near the conformal p-value floor
-1 / (n_calib + 1); normal windows spread across (0, 1].
-
-References:
-  * Lei, G'Sell, Rinaldo, Tibshirani, Wasserman (2018) JASA 113(523)
-    -- split-conformal predictive inference.
-  * Laxhammar (2014) Conformal Anomaly Detection; Bates, Candes, Lei,
-    Romano (2023) Testing for Outliers with Conformal p-Values
-    -- conformal anomaly / outlier p-values.
-  * Furlong & Eliasmith (2024) Probabilistic Hyperdimensional Computing
-    -- the HDC nonconformity score.
-  * Liang et al. (2026) ConformalHDC -- the conformalisation choice.
-
-Run::
-
-    python examples/anomaly_detection_sensors.py
+Run: python examples/anomaly_detection_sensors.py
 """
 
 from __future__ import annotations
@@ -148,7 +122,7 @@ def _per_channel_stats(window: np.ndarray) -> np.ndarray:
 
 
 def _spectral_summary(window: np.ndarray) -> np.ndarray:
-    """Per-channel log-FFT energy in ``NUM_FFT_BINS_PER_CHANNEL`` bins."""
+    """Per-channel log-mean FFT magnitude in ``NUM_FFT_BINS_PER_CHANNEL`` bins."""
     n_freq = WINDOW_LENGTH // 2 + 1
     edges = np.linspace(0, n_freq, NUM_FFT_BINS_PER_CHANNEL + 1, dtype=int)
     out = np.empty((NUM_CHANNELS, NUM_FFT_BINS_PER_CHANNEL), dtype=np.float32)
@@ -287,11 +261,10 @@ def main() -> None:
     )
 
     # ----------------------------------------------------------------- 7.
-    # Running p-value series in time order. The conformal guarantee says:
-    # on normal windows, p-values are sub-uniform on (0, 1]; on anomalies,
-    # p-values "cliff" toward the floor. Walking the sequence makes that
-    # visible to the operator.
-    print("\n[7] Running conformal p-value series (chronological order).")
+    # Test windows were shuffled, so this is not a chronological series.
+    # Fresh exchangeable normal p-values are super-uniform; anomaly recall
+    # depends on the score and is not guaranteed.
+    print("\n[7] Conformal p-values in shuffled test order.")
     print("    window   |  p-value   |  truth")
     print("    -------- + ---------- + ------")
     for i, (p, y) in enumerate(zip(p_vals, truth)):
@@ -301,8 +274,8 @@ def main() -> None:
         print(f"    win {i:>3d}  | {p:>10.5f} | {label}  {bar}")
 
     print(
-        "\n    Read the column: p-values for normal windows spread across "
-        f"(0, 1]; anomalies pin at the floor 1 / (n_calib + 1) = "
+        "\n    Values depend on the realised data and scoring power. "
+        f"The minimum attainable p-value is 1 / (n_calib + 1) = "
         f"{1.0 / (n_calib + 1):.5f}."
     )
 

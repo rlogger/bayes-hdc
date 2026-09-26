@@ -38,6 +38,7 @@ import math
 import jax
 import jax.numpy as jnp
 
+from bayes_hdc._validation import finite_scalar, positive_int
 from bayes_hdc.distributions import (
     GaussianHV,
     kl_gaussian,
@@ -104,7 +105,8 @@ def gaussian_reconstruction_log_likelihood_mc(
     The MC estimate averages this over ``n_samples`` reparameterised
     draws from ``posterior``. The return value is in **nats**, on the
     same scale as :func:`kl_gaussian`, so plugging it into
-    :func:`elbo_gaussian` gives a dimensionally consistent ELBO.
+    :func:`elbo_gaussian` gives a dimensionally consistent Monte-Carlo ELBO estimator.
+    A finite Monte-Carlo draw is not itself a deterministic lower bound.
 
     Args:
         posterior: Variational posterior to sample from.
@@ -119,12 +121,16 @@ def gaussian_reconstruction_log_likelihood_mc(
     Returns:
         Scalar log-likelihood estimate (nats).
     """
+    positive_int(n_samples, "n_samples")
+    finite_scalar(observation_noise, "observation_noise", strict=True)
+    if posterior.dimensions != target.dimensions:
+        raise ValueError("posterior and target dimensions must match")
     d = posterior.dimensions
     sigma2 = observation_noise**2
     samples = posterior.sample_batch(key, n_samples)  # (n, d)
     diffs = samples - target.mu[None, :]
     sq_dist = jnp.sum(diffs * diffs, axis=-1)  # (n,)
-    log_lik_per_sample = -0.5 * sq_dist / sigma2 - 0.5 * d * math.log(2.0 * math.pi * sigma2)
+    log_lik_per_sample = -0.5 * sq_dist / sigma2 - 0.5 * d * jnp.log(2.0 * math.pi * sigma2)
     return jnp.mean(log_lik_per_sample)
 
 
@@ -156,6 +162,9 @@ def reconstruction_score_mc(
     Returns:
         Scalar mean cosine similarity, bounded in ``[-1, 1]``.
     """
+    positive_int(n_samples, "n_samples")
+    if posterior.dimensions != target.dimensions:
+        raise ValueError("posterior and target dimensions must match")
     samples = posterior.sample_batch(key, n_samples)
     target_norm = target.mu / (jnp.linalg.norm(target.mu) + 1e-8)
     sample_norms = samples / (jnp.linalg.norm(samples, axis=-1, keepdims=True) + 1e-8)

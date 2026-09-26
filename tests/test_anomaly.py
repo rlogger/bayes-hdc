@@ -4,10 +4,8 @@
 """Tests for ``bayes_hdc.anomaly`` — HDC nonconformity scoring and the
 split-conformal anomaly detector.
 
-The split-conformal protocol used here is Laxhammar (2014) /
-Lei et al. (2018) / Bates et al. (2023); the HDC plug-in nonconformity
-score is Kleyko et al. (2017) / Imani et al. (2019) / Furlong &
-Eliasmith (2024) / Liang et al. (2026) ConformalHDC.
+Tests use separate proper-training and calibration splits unless explicitly
+checking validation behavior.
 """
 
 from __future__ import annotations
@@ -59,11 +57,9 @@ def test_calibration_preserves_fitted_zero_centroid(metric: str, k_neighbors: in
     assert jnp.array_equal(detector.calibration_scores, jnp.sort(scorer.score_batch(calibration)))
 
 
-@pytest.mark.parametrize("prefit", [False, True])
-def test_detector_fit_composes_under_jit(prefit: bool) -> None:
+def test_detector_fit_composes_under_jit() -> None:
     scorer = HDCAnomalyScorer.create(dimensions=2, vsa_model="bsc", k_neighbors=2)
-    if prefit:
-        scorer = scorer.fit(jnp.zeros((2, 2), dtype=jnp.bool_))
+    scorer = scorer.fit(jnp.zeros((2, 2), dtype=jnp.bool_))
     calibration = jnp.array([[True, False], [True, True], [False, True]])
     detector = ConformalAnomalyDetector.create(scorer)
     expected = detector.fit(calibration)

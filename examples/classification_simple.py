@@ -11,7 +11,7 @@ This example demonstrates an end-to-end classification pipeline using Bayes-HDC:
 5. Visualize confusion matrix
 
 This demonstrates HDC's core strengths:
-- One-shot learning from centroids
+- Single-pass centroid fitting
 - Interpretable similarity-based classification
 - Efficient training without backpropagation
 """
@@ -42,13 +42,9 @@ def generate_synthetic_data(key, n_samples=1000, n_features=20, n_classes=5):
     # Generate random features (discrete values 0-9)
     data = jax.random.randint(key, (n_samples, n_features), 0, 10)
 
-    # Generate labels based on first few features (simple pattern)
-    # This creates a learnable pattern
-    key_labels = jax.random.split(key)[1]
-    labels = jax.random.randint(key_labels, (n_samples,), 0, n_classes)
-
-    # Add some structure: samples with similar features get same label
-    # Modify labels based on sum of first 3 features
+    # A modular interaction among three features can be difficult for an
+    # additive feature-value encoder; this is a pipeline example, not an
+    # accuracy benchmark. No unused random labels are generated.
     feature_sum = jnp.sum(data[:, :3], axis=1)
     labels = feature_sum % n_classes
 
@@ -142,14 +138,15 @@ def main():
     )
 
     print("\nTraining classifier (computing class centroids)...")
+    train_hvs.block_until_ready()
     start_time = time.perf_counter()
     classifier = classifier.fit(train_hvs, train_labels)
-    train_hvs.block_until_ready()
+    classifier.prototypes.block_until_ready()
     train_time = (time.perf_counter() - start_time) * 1000
 
     print(f"Trained classifier with {n_classes} prototypes")
     print(f"Prototype shape: {classifier.prototypes.shape}")
-    print(f"Training time: {train_time:.2f}ms")
+    print(f"Training time (including first-call compilation): {train_time:.2f}ms")
     print("Training is O(n) - single pass through data to compute centroids")
 
     # Evaluate
@@ -176,7 +173,7 @@ def main():
 
     print(f"\nFirst {n_show} test samples:")
     print("-" * 70)
-    print(f"{'Sample':<8} {'True':<8} {'Pred':<8} {'Match':<10} {'Confidence':<12}")
+    print(f"{'Sample':<8} {'True':<8} {'Pred':<8} {'Match':<10} {'Raw score':<12}")
     print("-" * 70)
 
     for i in range(n_show):
@@ -218,19 +215,20 @@ def main():
     print("=" * 70)
 
     print("\nKey Observations:")
-    print(f"  - Training time: {train_time:.2f}ms for {n_train} samples")
+    print(
+        f"  - Training time (first-call compilation included): {train_time:.2f}ms "
+        f"for {n_train} samples"
+    )
     print(f"  - Training accuracy: {train_acc:.2%}")
     print(f"  - Test accuracy: {test_acc:.2%}")
-    print(
-        f"  - Model size: {classifier.prototypes.size * 4 / 1024:.1f} KB ({n_classes} prototypes)"
-    )
+    print(f"  - Model size: {classifier.prototypes.nbytes / 1024:.1f} KB ({n_classes} prototypes)")
 
     print("\nHDC Classification Characteristics:")
-    print("  - One-shot learning: Single pass through data (no iterations)")
+    print("  - Single-pass fitting: aggregates all training examples per class")
     print("  - Interpretable: Predictions based on similarity to class centroids")
-    print("  - Efficient: O(n) training time, O(k·d) inference where k=classes, d=dims")
+    print("  - Prototype arithmetic scales with n·d; inference scales with k·d")
     print("  - No backpropagation: Does not require gradients")
-    print("  - Accuracy improves with higher dimensionality (tested: 10k dims)")
+    print("  - Dimension effects require a controlled sweep; no monotonic improvement is promised")
 
     return {
         "train_accuracy": float(train_acc),

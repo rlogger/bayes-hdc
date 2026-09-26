@@ -1,46 +1,15 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Gayler & Levy (2009) — VSA-based analogical mapping as graph isomorphism.
+"""Illustrative VSA graph matching inspired by Gayler and Levy (2009).
 
-Given two graphs with the same structure but different vertex labels,
-*analogical mapping* finds the vertex correspondence that maximally
-preserves edges. Gayler & Levy (2009, *A Distributed Basis for Analogical
-Mapping*, Proc. ANALOGY-2009, pp. 165-174) generalise Kanerva's
-"Dollar of Mexico" pattern to the full graph-isomorphism problem,
-solved by replicator-equation dynamics on candidate-mapping bundles
-with binding-and-superposition algebra.
+Two 4-cycles have eight isomorphisms, not a unique correspondence. A heuristic
+binding/intersection iteration with an added Sinkhorn projection ranks the 16
+candidate vertex mappings. This is not an exact reproduction of the paper's
+replicator equations. A final assignment is accepted only if it is bijective
+and preserves every adjacency; convergence or recovery is not guaranteed.
 
-This example demonstrates the construction on Pelillo's (1999) canonical
-4-vertex example. Two graphs:
-
-    Source:   A — B       Target:   P — Q
-              |   |                 |   |
-              C — D                 R — S
-
-share the same 4-cycle structure. The correct vertex correspondences
-are ``{A↔P, B↔Q, C↔R, D↔S}`` (and the symmetric reflection).
-
-The pipeline:
-
-1. Encode source vertex-set ``V_s = A + B + C + D`` and target vertex-set
-   ``V_t = P + Q + R + S`` as bundles.
-2. Encode source edge-set and target edge-set as bundles of bound vertex
-   pairs.
-3. Construct the candidate-mapping space ``M = V_s * V_t`` — every
-   source-target pair appears as an atomic bind in this bundle.
-4. Construct the edge-mapping vector ``W = E_s * E_t`` — every consistent
-   edge correspondence appears as a bind here.
-5. Iterate ``M ← intersect(M * W, M, candidate_atoms)``: each step
-   re-weights candidate vertex mappings by their consistency with the
-   edge-mapping evidence, then projects back onto the candidate space
-   via :func:`bayes_hdc.vector_intersect`.
-6. Read off the surviving mappings by cosine similarity against the 16
-   candidate atoms.
-
-Run::
-
-    python examples/gayler_levy_analogy.py
+Run: python examples/gayler_levy_analogy.py
 """
 
 from __future__ import annotations
@@ -49,7 +18,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from bayes_hdc import MAP, vector_intersect
+from bayes_hdc import vector_intersect
 from bayes_hdc.functional import bind_map, cosine_similarity
 
 DIMS = 4096
@@ -62,13 +31,14 @@ def main() -> None:
     print(f"  D = {DIMS}    iterations = {N_ITER}\n")
 
     key = jax.random.PRNGKey(SEED)
-    vsa = MAP.create(dimensions=DIMS)
 
     # ----------------------------------------------------------------- 1.
     print("[1] Build atomic vertex hypervectors for both graphs.")
     keys = jax.random.split(key, 8)
-    a, b, c, d = (vsa.random(k, (DIMS,)) for k in keys[:4])
-    p, q, r, s = (vsa.random(k, (DIMS,)) for k in keys[4:])
+    # Bipolar atoms are self-inverse under multiplication, unlike Gaussian MAP draws.
+    atoms = [jax.random.rademacher(k, (DIMS,), dtype=jnp.float32) for k in keys]
+    a, b, c, d = atoms[:4]
+    p, q, r, s = atoms[4:]
     src_names = ["A", "B", "C", "D"]
     tgt_names = ["P", "Q", "R", "S"]
     src_vertices = jnp.stack([a, b, c, d])
@@ -124,12 +94,12 @@ def main() -> None:
     W = W / (jnp.linalg.norm(W) + 1e-8)
 
     # ----------------------------------------------------------------- 5.
-    print("\n[4] Replicator iteration: re-weight mappings by edge consistency.")
+    print("\n[4] Heuristic iteration: re-weight candidate mappings.")
     print("      At each step we (i) project M onto the candidate atom set,")
     print("      (ii) Sinkhorn-normalise the resulting 4x4 weight matrix so")
     print("          each source vertex and each target vertex receives unit")
     print("          mass — the doubly-stochastic constraint of the assignment")
-    print("          problem (Pelillo 1999, Gayler-Levy 2009 §3),")
+    print("          problem; this is an illustrative added projection,")
     print("      (iii) rebuild M as the weighted bundle.")
     print()
     print("      iteration  top-3 candidates    (cosine similarity)")
@@ -137,8 +107,8 @@ def main() -> None:
 
     def _sinkhorn_4x4(weights: jnp.ndarray, n_iter: int = 8) -> jnp.ndarray:
         # Doubly-stochastic projection of a 4x4 non-negative weight matrix
-        # via alternating row/column normalisation (Pelillo 1999; standard
-        # in matching-replicator dynamics).
+        # via alternating row/column normalisation. This is an extra
+        # heuristic, not a reproduction of the cited replicator equations.
         w = jnp.maximum(weights, 0.0) + 1e-8
         for _ in range(n_iter):
             w = w / w.sum(axis=1, keepdims=True)
@@ -190,28 +160,32 @@ def main() -> None:
         tgt_used.add(j)
 
     if valid:
+        assignment = {int(k // 4): int(k % 4) for k in top4}
+        edges = {(0, 1), (0, 2), (1, 3), (2, 3)}
+        mapped_edges = {tuple(sorted((assignment[i], assignment[j]))) for i, j in edges}
+        valid = mapped_edges == edges
+
+    if valid:
         mapping = {}
         for k in top4:
             i, j = k // 4, k % 4
             mapping[src_names[i]] = tgt_names[j]
         print(
-            "\n[6] ✓ Valid 1-to-1 mapping recovered: "
+            "\n[6] ✓ Verified edge-preserving bijection recovered: "
             + ", ".join(f"{a}→{b}" for a, b in sorted(mapping.items()))
         )
     else:
         print(
-            "\n[6] ~ Top-4 candidates do not form a valid permutation — try"
+            "\n[6] ~ Top-4 candidates do not form a verified isomorphism — try"
             "\n    increasing N_ITER or DIMS, or check the symmetric solution"
-            "\n    (the 4-cycle has two valid isomorphisms)."
+            "\n    (the 4-cycle has eight valid isomorphisms)."
         )
 
     print(
-        "\nThe algebra above is bind-and-bundle plus the holistic vector"
-        "\nintersection of Gayler & Levy 2009 §4. The replicator iteration"
-        "\nconverges on the vertex correspondence that maximally preserves"
-        "\nedges — exactly the analogical mapping Pelillo (1999) reformulated"
-        "\nas association-graph max-clique. The reference MATLAB implementation"
-        "\nis at github.com/simondlevy/GraphIsomorphism."
+        "\nCandidate similarities are heuristic scores, not proof of an isomorphism.\n"
+        "The adjacency check above is the success criterion. The reference\n"
+        "implementation is at github.com/simondlevy/GraphIsomorphism; this\n"
+        "example does not claim identical dynamics or convergence guarantees."
     )
 
 

@@ -54,17 +54,10 @@ def _stratified_split(
 
 def _normalise_labels(y: np.ndarray) -> np.ndarray:
     """Map string / arbitrary-int labels to contiguous ``int32`` indices."""
-    if y.dtype.kind in {"U", "O", "S"}:
-        uniq = sorted(np.unique(y).tolist())
-        mapping: dict[Any, int] = {v: i for i, v in enumerate(uniq)}
-        return np.asarray([mapping[v] for v in y], dtype=np.int32)
-    y_int: np.ndarray = np.asarray(y, dtype=np.int32)
-    # Remap to 0..K-1 in case the raw labels are not contiguous.
-    uniq_arr = np.unique(y_int)
-    if not np.array_equal(uniq_arr, np.arange(len(uniq_arr))):
-        int_mapping: dict[int, int] = {int(v): i for i, v in enumerate(uniq_arr)}
-        y_int = np.asarray([int_mapping[int(v)] for v in y_int], dtype=np.int32)
-    return y_int
+    # Normalize before converting dtype: int32 casts can merge distinct
+    # float labels and overflow large integer identifiers.
+    _, inverse = np.unique(np.asarray(y), return_inverse=True)
+    return np.asarray(inverse, dtype=np.int32)
 
 
 def _build(
@@ -185,13 +178,59 @@ def _fetch_openml_cached(
     sk_datasets, _ = _import_sklearn()
     # parser="liac-arff" works without the optional pandas/pyarrow stack;
     # parser="auto" fails on hosts that lack them.
+    query = (
+        {"data_id": int(openml_name)}
+        if isinstance(openml_name, int)
+        else {"name": openml_name, "version": version}
+    )
     bunch = sk_datasets.fetch_openml(
-        openml_name,
-        version=version,
+        **query,
         as_frame=False,
         parser="liac-arff",
     )
     return bunch.data, bunch.target
+
+
+def _validate_subsample(subsample: int | None) -> None:
+    if subsample is not None and (
+        isinstance(subsample, bool) or not isinstance(subsample, (int, np.integer)) or subsample < 1
+    ):
+        raise ValueError("subsample must be a positive integer or None")
+
+
+def _download_atomic(url: str, destination: Any) -> None:
+    """Never leave a truncated download at the reusable cache path."""
+    import os
+    import tempfile
+    import urllib.request
+    from pathlib import Path
+
+    destination = Path(destination)
+    fd, temporary = tempfile.mkstemp(dir=destination.parent, suffix=".download")
+    os.close(fd)
+    try:
+        urllib.request.urlretrieve(url, temporary)  # noqa: S310 - fixed dataset URLs
+        os.replace(temporary, destination)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def _savez_atomic(destination: Any, **arrays: np.ndarray) -> None:
+    """Publish a complete derived archive even with concurrent dataset loaders."""
+    import os
+    import tempfile
+    from pathlib import Path
+
+    destination = Path(destination)
+    fd, temporary = tempfile.mkstemp(dir=destination.parent, suffix=".npz")
+    try:
+        with os.fdopen(fd, "wb") as output:
+            # NumPy 2.2 added a bool keyword to this variadic array API; these
+            # internally supplied dataset names never use that reserved keyword.
+            np.savez_compressed(output, **arrays)  # type: ignore[arg-type]
+        os.replace(temporary, destination)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 def load_mnist(
@@ -203,6 +242,7 @@ def load_mnist(
 
     Loaded via OpenML (``mnist_784``); cached on first use.
     """
+    _validate_subsample(subsample)
     X, y = _fetch_openml_cached("mnist_784", version=1)
     X = np.asarray(X, dtype=np.float32) / 255.0
     y = np.asarray(y, dtype=np.int32)
@@ -230,6 +270,7 @@ def load_fashion_mnist(
     Loaded via OpenML; cached on first use. Xiao, Rasul, Vollgraf
     (2017).
     """
+    _validate_subsample(subsample)
     X, y = _fetch_openml_cached("Fashion-MNIST", version=1)
     X = np.asarray(X, dtype=np.float32) / 255.0
     y = np.asarray(y, dtype=np.int32)
@@ -303,7 +344,6 @@ def load_ucihar(
     official partition is always used.
     """
     import io
-    import urllib.request
     import zipfile
 
     del test_size, random_state  # official subject-disjoint split is fixed
@@ -311,7 +351,7 @@ def load_ucihar(
     if not cached.exists():
         outer_path = _cache_dir() / "ucihar.zip"
         if not outer_path.exists():
-            urllib.request.urlretrieve(_UCIHAR_URL, outer_path)  # noqa: S310 — fixed https URL
+            _download_atomic(_UCIHAR_URL, outer_path)
         with zipfile.ZipFile(outer_path) as outer:
             inner_bytes = outer.read("UCI HAR Dataset.zip")
         with zipfile.ZipFile(io.BytesIO(inner_bytes)) as z:
@@ -320,17 +360,17 @@ def load_ucihar(
                 with z.open(f"UCI HAR Dataset/{name}") as fh:
                     return np.loadtxt(fh)
 
-            np.savez_compressed(
+            _savez_atomic(
                 cached,
                 X_train=read_txt("train/X_train.txt").astype(np.float32),
                 y_train=read_txt("train/y_train.txt").astype(np.int32),
                 X_test=read_txt("test/X_test.txt").astype(np.float32),
                 y_test=read_txt("test/y_test.txt").astype(np.int32),
             )
-    arr = np.load(cached)
-    X_tr, X_te = arr["X_train"], arr["X_test"]
+    with np.load(cached, allow_pickle=False) as arr:
+        X_tr, X_te = arr["X_train"], arr["X_test"]
+        y_all = _normalise_labels(np.concatenate([arr["y_train"], arr["y_test"]]))
     n_tr = X_tr.shape[0]
-    y_all = _normalise_labels(np.concatenate([arr["y_train"], arr["y_test"]]))
     y_tr, y_te = y_all[:n_tr], y_all[n_tr:]
     X = np.vstack([X_tr, X_te])
     y = y_all
@@ -376,16 +416,29 @@ def load_emg(
     ``~/.cache/bayes_hdc``. Each subject's 4-channel stream is cut into
     non-overlapping label-pure windows of ``window`` samples, flattened
     to a ``4 * window`` feature vector; windows spanning a gesture
-    transition are dropped. Classes: closed hand at rest plus four
+    transition are dropped. The random window split can put the same subject
+    and neighboring windows in both partitions: it does not measure unseen-subject
+    generalization or establish exchangeability of temporal windows.
+    Classes: closed hand at rest plus four
     gestures.
     """
-    import urllib.request
+    if isinstance(window, bool) or not isinstance(window, (int, np.integer)) or window < 1:
+        raise ValueError("window must be a positive integer")
+    if (
+        not subjects
+        or len(set(subjects)) != len(subjects)
+        or any(
+            isinstance(s, bool) or not isinstance(s, (int, np.integer)) or s not in range(1, 6)
+            for s in subjects
+        )
+    ):
+        raise ValueError("subjects must be unique integers from 1 through 5")
 
     from scipy.io import loadmat
 
     path = _cache_dir() / "rahimi_emg_dataset.mat"
     if not path.exists():
-        urllib.request.urlretrieve(_EMG_URL, path)  # noqa: S310 — fixed https URL
+        _download_atomic(_EMG_URL, path)
     mat = loadmat(str(path))
 
     feats, labels = [], []
@@ -399,6 +452,8 @@ def load_emg(
                 continue  # window spans a gesture transition
             feats.append(sig[w * window : (w + 1) * window].reshape(-1))
             labels.append(seg_lab[0])
+    if not feats:
+        raise ValueError("No label-pure windows; reduce window or select other subjects")
     X = np.stack(feats)
     y = np.asarray(labels)
     return _build(

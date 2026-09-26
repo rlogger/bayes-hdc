@@ -1,32 +1,13 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Bayesian hypervectors — distributions over hypervectors.
+"""Probability distributions and moment approximations for hypervectors.
 
-A Bayesian hypervector represents uncertainty explicitly. Rather than a
-single point in :math:`\\mathbb{R}^d`, it carries a probability distribution.
-Binding and bundling propagate the distribution forward through the VSA
-algebra so that similarity, retrieval, and classification inherit
-calibrated uncertainty end-to-end.
-
-This module ships the foundational distribution types. The API mirrors the
-deterministic :mod:`bayes_hdc.vsa` models: every distributional type exposes
-``bind``, ``bundle``, ``similarity``, and ``sample``. Deterministic
-hypervectors are recovered as the zero-variance limit, so any existing
-pipeline composes cleanly.
-
-Distributions currently provided:
-
-- :class:`GaussianHV` — mean + diagonal variance; closed-form moment
-  propagation under element-wise multiplication (MAP binding) and
-  addition (bundling).
-
-Planned (see ``README.md`` roadmap):
-
-- ``DirichletHV`` — distributions over the probability simplex, for
-  probabilistic categorical codebooks.
-- ``MixtureHV`` — mixture-of-Gaussian hypervectors for multi-modal
-  representations.
+GaussianHV uses diagonal covariance and independence assumptions for MAP
+moment propagation. MixtureHV stores Gaussian mixtures; DirichletHV stores
+categorical distributions. These representations do not by themselves
+establish calibrated uncertainty: calibration requires evaluation of the
+complete inference procedure against held-out data.
 """
 
 from __future__ import annotations
@@ -119,9 +100,9 @@ class GaussianHV:
 
     def sample_batch(self, key: jax.Array, n: int) -> jax.Array:
         """Draw ``n`` samples from this distribution, shape ``(n, d)``."""
-        eps = jax.random.normal(key, (n, self.dimensions))
+        eps = jax.random.normal(key, (n,) + self.mu.shape)
         std = jnp.sqrt(jnp.maximum(self.var, 0.0))
-        return self.mu[None, :] + std[None, :] * eps
+        return self.mu[None, ...] + std[None, ...] * eps
 
 
 # ----------------------------------------------------------------------
@@ -151,13 +132,11 @@ def bind_gaussian(x: GaussianHV, y: GaussianHV) -> GaussianHV:
        holds only when ``x`` and ``y`` are statistically independent.
        If both operands derive from a common upstream random source —
        e.g. ``bind_gaussian(bundle_gaussian([x_i, x_j]), x_i)``, where
-       ``x_i`` appears on both sides — the formula systematically
-       underestimates ``Var[Z]`` because it ignores the covariance
-       contribution. For sequential PVSA pipelines that may share
-       upstream randomness, treat the returned variance as a lower
-       bound on the true posterior variance, or work in a regime where
-       the shared component is small relative to the independent
-       components.
+       ``x_i`` appears on both sides — the formula
+       can misestimate both the mean and variance because covariance
+       terms are omitted. The error has no universal sign: the returned
+       variance is neither a guaranteed lower nor upper bound. Shared
+       randomness requires covariance-aware propagation or joint sampling.
 
     Args:
         x: First Gaussian hypervector.
@@ -182,20 +161,22 @@ def bundle_gaussian(hvs: GaussianHV) -> GaussianHV:
         \\mathrm{Var}\\!\\left[\\sum_i X_i\\right] &= \\sum_i \\sigma_i^2
 
     The result is then normalised (mean divided by its L2 norm, variance
-    scaled by the squared inverse norm) to stay on the unit sphere, which
-    matches deterministic MAP bundling.
+    scaled by the squared inverse norm). The nonzero mean is placed on
+    the unit sphere, matching deterministic MAP bundling; random samples
+    remain unconstrained.
 
     .. note::
        **Plug-in normalisation is an approximation.** The norm
        :math:`s = \\lVert \\sum_i \\mu_i \\rVert` is treated here as a
        deterministic scalar applied uniformly across components, so the
        returned variance is :math:`\\sum_i \\sigma_i^2 / s^2`. The true
-       distribution of the *normalised* random sum has a marginally
-       different variance because :math:`s` is itself a function of the
-       random vector. For high dimension :math:`d` and well-conditioned
-       inputs the discrepancy is :math:`O(1/d)` and negligible; for
-       small :math:`d` or near-singular sums treat the returned
-       variance as an approximation.
+       distribution of the *normalised* random sum has a
+       different mean, variance, and cross-component covariance because
+       its norm is random. Increasing dimension alone does not make this
+       approximation accurate; the total variance must also be small
+       relative to the squared mean norm. Near-zero mean sums can produce
+       very large plug-in variances. Samples from this Gaussian are not
+       constrained to the unit sphere.
 
     Args:
         hvs: A batched :class:`GaussianHV` with ``mu`` of shape ``(n, d)``
@@ -245,7 +226,7 @@ def expected_cosine_similarity(x: GaussianHV, y: GaussianHV) -> jax.Array:
 
 @jax.jit
 def similarity_variance(x: GaussianHV, y: GaussianHV) -> jax.Array:
-    """First-order variance of the dot product :math:`\\langle X, Y \\rangle`.
+    """Exact variance of the dot product :math:`\\langle X, Y \\rangle`.
 
     Under independence, :math:`\\mathrm{Var}[\\sum_i X_i Y_i]
     = \\sum_i (\\mu_{x,i}^2 \\sigma_{y,i}^2 + \\mu_{y,i}^2 \\sigma_{x,i}^2
@@ -281,7 +262,10 @@ def kl_gaussian(p: GaussianHV, q: GaussianHV) -> jax.Array:
             - 1
         \\right]
 
-    Used as a regulariser when learning variational codebooks.
+    Used as a regulariser when learning variational codebooks. Variances
+    below EPS are floored before evaluation, so the returned value is the
+    KL of the regularized distributions, not the exact KL of degenerate
+    point masses.
 
     Args:
         p: First Gaussian hypervector (posterior).
@@ -323,17 +307,19 @@ def inverse_gaussian(x: GaussianHV, eps: float = EPS) -> GaussianHV:
     Under classical MAP binding ``bind(x, y) = x * y`` the inverse of
     ``y`` is ``1 / y``. For a Gaussian ``Y_i \\sim \\mathcal{N}(\\mu_i,
     \\sigma_i^2)`` the exact distribution of ``1/Y_i`` is not Gaussian
-    (and has a pole at :math:`\\mu_i = 0`), so we return the
-    moment-matched Gaussian from the delta-method expansion:
+    and has a pole at the random value zero. For any non-degenerate
+    Gaussian the reciprocal has no finite ordinary mean or variance.
+    We return a local delta-method surrogate, not moment matching of
+    the exact reciprocal distribution:
 
     .. math::
         \\mathbb{E}[1/Y] &\\approx \\frac{1}{\\mu} + \\frac{\\sigma^2}{\\mu^3} \\\\
         \\mathrm{Var}[1/Y] &\\approx \\frac{\\sigma^2}{\\mu^4}
 
-    This is exact in the zero-variance limit (recovering classical MAP
-    inverse ``1/μ``) and accurate to :math:`O(\\sigma^4)` when the
-    coefficient of variation :math:`\\sigma/|\\mu|` is small — the
-    typical PVSA regime for non-degenerate hypervectors. Components
+    This recovers classical MAP inverse ``1/μ`` in the zero-variance
+    limit for nonzero means. Its local approximation is useful only
+    when the coefficient of variation is small and near-zero draws
+    can be neglected for the application. Components
     with :math:`|\\mu| < \\epsilon` are zeroed out; unbinding against
     near-zero components destroys information, which matches the
     convention used by :func:`~bayes_hdc.functional.inverse_map`.
@@ -343,7 +329,7 @@ def inverse_gaussian(x: GaussianHV, eps: float = EPS) -> GaussianHV:
         eps: Near-zero threshold for mean components (default ``EPS``).
 
     Returns:
-        Moment-matched Gaussian inverse.
+        Local delta-method Gaussian surrogate for reciprocal values.
     """
     safe_mu = jnp.where(jnp.abs(x.mu) > eps, x.mu, 1.0)
     mu_inv = 1.0 / safe_mu + x.var / (safe_mu**3)
@@ -365,8 +351,8 @@ def cleanup_gaussian(
     Convenience wrapper that accepts a Python ``list[GaussianHV]``;
     delegates to :func:`cleanup_gaussian_stacked` after stacking. Use
     :func:`cleanup_gaussian_stacked` directly when you need ``jit`` /
-    ``vmap`` composition — a Python list is not a JAX pytree, so this
-    wrapper cannot be traced.
+    ``vmap`` composition. Python lists are JAX pytrees, but this wrapper
+    converts its outputs to Python scalars and therefore cannot be traced.
 
     Args:
         query: Query Gaussian hypervector.
@@ -464,13 +450,27 @@ class MixtureHV:
             raise ValueError("MixtureHV.from_components: components must be non-empty")
         k = len(components)
         dims = components[0].dimensions
+        if any(
+            c.dimensions != dims or c.mu.shape != (dims,) or c.var.shape != (dims,)
+            for c in components
+        ):
+            raise ValueError("components must be unbatched and have matching dimensions")
         mu = jnp.stack([c.mu for c in components], axis=0)
         var = jnp.stack([c.var for c in components], axis=0)
         if weights is None:
             weights = jnp.full((k,), 1.0 / k)
         else:
-            weights = jnp.asarray(weights)
-            weights = weights / (jnp.sum(weights) + EPS)
+            weights = jnp.asarray(weights, dtype=jnp.result_type(mu.dtype, jnp.float32))
+            if weights.shape != (k,):
+                raise ValueError("weights must have one entry per component")
+            if not isinstance(weights, jax.core.Tracer):
+                if not bool(
+                    jnp.all(jnp.isfinite(weights)) & jnp.all(weights >= 0) & (jnp.max(weights) > 0)
+                ):
+                    raise ValueError("weights must be finite, non-negative, with positive total")
+            # Rescale first to avoid overflow and preserve tiny positive weights.
+            weights = weights / jnp.max(weights)
+            weights = weights / jnp.sum(weights)
         return MixtureHV(weights=weights, mu=mu, var=var, dimensions=dims)
 
     @staticmethod
@@ -479,6 +479,8 @@ class MixtureHV:
         n_components: int = 2,
     ) -> MixtureHV:
         """Uniform mixture of zero-mean, unit-variance components."""
+        if dimensions < 1 or n_components < 1:
+            raise ValueError("dimensions and n_components must be positive")
         return MixtureHV(
             weights=jnp.full((n_components,), 1.0 / n_components),
             mu=jnp.zeros((n_components, dimensions)),
@@ -516,7 +518,7 @@ class MixtureHV:
     def sample(self, key: jax.Array) -> jax.Array:
         """Draw one sample from the mixture."""
         k_comp, k_gauss = jax.random.split(key)
-        component = jax.random.categorical(k_comp, jnp.log(self.weights + EPS))
+        component = jax.random.categorical(k_comp, jnp.log(self.weights))
         eps = jax.random.normal(k_gauss, (self.dimensions,))
         return self.mu[component] + jnp.sqrt(jnp.maximum(self.var[component], 0.0)) * eps
 
@@ -601,7 +603,7 @@ class DirichletHV:
 
     def mean(self) -> jax.Array:
         """Expected categorical distribution :math:`\\boldsymbol{\\alpha} / \\sum_k \\alpha_k`."""
-        return self.alpha / (jnp.sum(self.alpha, axis=-1, keepdims=True) + EPS)
+        return self.alpha / jnp.sum(self.alpha, axis=-1, keepdims=True)
 
     def variance(self) -> jax.Array:
         r"""Per-category variance under the Dirichlet posterior.
@@ -611,7 +613,7 @@ class DirichletHV:
         :math:`\bar{p}_k = \alpha_k / \alpha_0` and
         :math:`\alpha_0 = \sum_k \alpha_k`.
         """
-        alpha_sum = jnp.sum(self.alpha, axis=-1, keepdims=True) + EPS
+        alpha_sum = jnp.sum(self.alpha, axis=-1, keepdims=True)
         mean = self.alpha / alpha_sum
         return mean * (1.0 - mean) / (alpha_sum + 1.0)
 
@@ -625,11 +627,11 @@ class DirichletHV:
 
     def sample(self, key: jax.Array) -> jax.Array:
         """Draw a single categorical distribution from this Dirichlet."""
-        return jax.random.dirichlet(key, jnp.maximum(self.alpha, EPS))
+        return jax.random.dirichlet(key, self.alpha)
 
     def sample_batch(self, key: jax.Array, n: int) -> jax.Array:
         """Draw ``n`` categorical distributions from this Dirichlet."""
-        return jax.random.dirichlet(key, jnp.maximum(self.alpha, EPS), shape=(n,))
+        return jax.random.dirichlet(key, self.alpha, shape=(n,) + self.alpha.shape[:-1])
 
 
 # ----------------------------------------------------------------------
@@ -642,7 +644,7 @@ def bind_dirichlet(x: DirichletHV, y: DirichletHV) -> DirichletHV:
     r"""Bind two Dirichlet HVs by element-wise mean product, re-normalised.
 
     There is no canonical "binding" operation for Dirichlet posteriors in
-    the VSA literature; we adopt the moment-matched approximation
+    the VSA literature; we adopt the following heuristic
 
     .. math::
         \bar{p}_z \propto \bar{p}_x \odot \bar{p}_y, \qquad
@@ -651,23 +653,22 @@ def bind_dirichlet(x: DirichletHV, y: DirichletHV) -> DirichletHV:
     — the element-wise product of expected categoricals combined with
     additive concentrations — so that binding two highly-concentrated
     Dirichlets yields a highly-concentrated result and binding against a
-    flat prior leaves the other distribution approximately unchanged.
-    This is the direct analogue of MAP binding on the means with
-    uncertainty accumulation on the concentration.
+    flat prior preserves the other mean while increasing concentration.
+    This does not match the variance of the normalized random product;
+    concentration addition is a modeling choice, not an uncertainty
+    propagation identity.
 
     Args:
         x: First Dirichlet hypervector.
         y: Second Dirichlet hypervector.
 
     Returns:
-        Moment-matched Dirichlet hypervector for the composed posterior.
+        Dirichlet surrogate with product-of-means direction.
     """
-    mean_x = x.mean()
-    mean_y = y.mean()
-    new_mean = mean_x * mean_y
-    new_mean = new_mean / (jnp.sum(new_mean, axis=-1, keepdims=True) + EPS)
+    log_product = jnp.log(x.alpha) + jnp.log(y.alpha)
+    new_mean = jax.nn.softmax(log_product, axis=-1)
     new_concentration = x.concentration() + y.concentration()
-    new_alpha = new_mean * new_concentration[..., None] + EPS
+    new_alpha = new_mean * new_concentration[..., None]
     return DirichletHV(alpha=new_alpha, dimensions=x.dimensions)
 
 
@@ -675,11 +676,11 @@ def bind_dirichlet(x: DirichletHV, y: DirichletHV) -> DirichletHV:
 def bundle_dirichlet(hvs: DirichletHV) -> DirichletHV:
     r"""Bundle a batch of Dirichlet HVs by summing concentrations.
 
-    Summing concentrations is the exact posterior update for a Dirichlet
-    under independent observations: if each ``hvs[i]`` is a Dirichlet
-    posterior from :math:`c_i` observations, then the combined posterior
-    over the shared parameter is Dirichlet with
-    :math:`\boldsymbol{\alpha} = \sum_i \boldsymbol{\alpha}_i`.
+    This is an additive evidence-pooling convention. If each input is
+    already a posterior built from the same prior alpha_prior, an exact
+    pooled posterior instead subtracts (n - 1) * alpha_prior from this
+    sum to avoid counting the prior repeatedly. The prior cannot be
+    inferred from the input concentrations and is not subtracted here.
 
     Args:
         hvs: Batched :class:`DirichletHV` with ``alpha`` of shape ``(n, d)``.
@@ -735,6 +736,7 @@ __all__ = [
     "kl_gaussian",
     "permute_gaussian",
     "cleanup_gaussian",
+    "cleanup_gaussian_stacked",
     "inverse_gaussian",
     # Mixture layer
     "MixtureHV",

@@ -1,19 +1,18 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""PVSA quick-start — 90-second tour of the Bayesian layer.
+"""A short tour of distribution-valued hypervectors and calibration.
 
-Run: ``python examples/pvsa_quickstart.py``
+Independent Gaussian binding has exact first two product moments; the product
+itself is not Gaussian. Bundling applies a plug-in normalisation and expected
+cosine is an approximation. These representations do not track dependence
+created by reusing operands, so this example uses independent operands.
 
-Walks through the seven things that make PVSA different from classical HDC:
+The classifier estimates class moments, not posterior uncertainty in its mean.
+Training, temperature fitting, conformal calibration and test evaluation use
+independent draws from the same mixture.
 
-1. Construct a Gaussian hypervector with an explicit mean + variance.
-2. Bind two Gaussian HVs — moments propagate exactly in closed form.
-3. Bundle several Gaussian HVs — variance grows as expected.
-4. Compute *expected* cosine similarity and the *variance* of the similarity.
-5. Lift a deterministic pipeline to PVSA with ``GaussianHV.from_sample``.
-6. Fit a ``BayesianCentroidClassifier`` and read out per-class uncertainty.
-7. Wrap the classifier in a ``ConformalClassifier`` and verify coverage.
+Run: python examples/pvsa_quickstart.py
 """
 
 from __future__ import annotations
@@ -58,10 +57,11 @@ def main() -> None:
     )
 
     # -------------------------------------------------------------- 3.
-    print("\n[3/7] bundle_gaussian: variance sums, mean is normalised to the unit sphere")
+    print("\n[3/7] bundle_gaussian: independent variances sum, followed by plug-in normalisation")
+    w = GaussianHV.random(jax.random.fold_in(key, 2), DIMS, var=0.01)
     stacked = GaussianHV(
-        mu=jnp.stack([x.mu, y.mu, z.mu]),
-        var=jnp.stack([x.var, y.var, z.var]),
+        mu=jnp.stack([x.mu, y.mu, w.mu]),
+        var=jnp.stack([x.var, y.var, w.var]),
         dimensions=DIMS,
     )
     bundled = bundle_gaussian(stacked)
@@ -71,11 +71,11 @@ def main() -> None:
     )
 
     # -------------------------------------------------------------- 4.
-    print("\n[4/7] Expected similarity + similarity variance")
-    sim = float(expected_cosine_similarity(x, z))
-    var_sim = float(similarity_variance(x, z))
-    print(f"      E[cos(x, z)]    = {sim:+.3f}")
-    print(f"      Var[<x, z>]     = {var_sim:.6f}")
+    print("\n[4/7] Approximate cosine mean + exact independent dot-product variance")
+    sim = float(expected_cosine_similarity(x, y))
+    var_sim = float(similarity_variance(x, y))
+    print(f"      approx E[cos(x, y)]    = {sim:+.3f}")
+    print(f"      Var[<x, y>]     = {var_sim:.6f}")
 
     # -------------------------------------------------------------- 5.
     print("\n[5/7] Lift a deterministic HV to PVSA with from_sample(var=0)")
@@ -87,15 +87,23 @@ def main() -> None:
     )
 
     # -------------------------------------------------------------- 6.
-    print("\n[6/7] BayesianCentroidClassifier — per-class Gaussian posteriors")
+    print("\n[6/7] BayesianCentroidClassifier — per-class Gaussian moments")
     k = 4
-    keys = jax.random.split(key, k + 1)
-    centres = jax.random.normal(keys[0], (k, DIMS))
-    centres = centres / (jnp.linalg.norm(centres, axis=-1, keepdims=True) + 1e-8)
-    train_hvs = jnp.concatenate(
-        [centres[c] + 0.05 * jax.random.normal(keys[c + 1], (30, DIMS)) for c in range(k)]
+    centre_key, train_key, temp_key, cal_key, test_key = jax.random.split(
+        jax.random.PRNGKey(100), 5
     )
-    train_labels = jnp.concatenate([jnp.full((30,), c, dtype=jnp.int32) for c in range(k)])
+    centres = jax.random.normal(centre_key, (k, DIMS))
+    centres = centres / jnp.linalg.norm(centres, axis=-1, keepdims=True)
+
+    def sample_mixture(sample_key, n):
+        label_key, noise_key = jax.random.split(sample_key)
+        labels = jax.random.randint(label_key, (n,), 0, k)
+        return centres[labels] + 0.05 * jax.random.normal(noise_key, (n, DIMS)), labels
+
+    train_hvs, train_labels = sample_mixture(train_key, 120)
+    temp_hvs, temp_labels = sample_mixture(temp_key, 80)
+    cal_hvs, cal_labels = sample_mixture(cal_key, 100)
+    test_hvs, test_labels = sample_mixture(test_key, 150)
     clf = BayesianCentroidClassifier.create(num_classes=k, dimensions=DIMS).fit(
         train_hvs,
         train_labels,
@@ -109,16 +117,12 @@ def main() -> None:
     )
 
     # -------------------------------------------------------------- 7.
-    print("\n[7/7] ConformalClassifier — coverage-guaranteed prediction sets")
-    n_cal = 50
-    cal_hvs = train_hvs[:n_cal]
-    cal_labels = train_labels[:n_cal]
-    test_hvs = train_hvs[n_cal:]
-    test_labels = train_labels[n_cal:]
-
+    print("\n[7/7] ConformalClassifier — separate held-out calibration and evaluation")
     logits_cal = clf.logits(cal_hvs)
     logits_test = clf.logits(test_hvs)
-    calibrator = TemperatureCalibrator.create().fit(logits_cal, cal_labels, max_iters=200)
+    calibrator = TemperatureCalibrator.create().fit(
+        clf.logits(temp_hvs), temp_labels, max_iters=200
+    )
     probs_cal = calibrator.calibrate(logits_cal)
     probs_test = calibrator.calibrate(logits_test)
 
@@ -127,11 +131,13 @@ def main() -> None:
     set_size = float(conformal.set_size(probs_test))
     print(
         f"      Conformal α = 0.1  →  empirical coverage = {coverage:.3f}  "
-        f"(target ≥ 0.900)\n"
+        f"(marginal target 0.900 under exchangeability)\n"
         f"      Mean prediction-set size = {set_size:.2f}"
     )
 
-    print("\nAll seven PVSA primitives work out of the box, end-to-end, in < 90 s.")
+    print(
+        "\nThe independent calibration/test draws support marginal coverage; a single run may vary."
+    )
     print("See DESIGN.md for the design rationale and BENCHMARKS.md for numbers.")
 
 

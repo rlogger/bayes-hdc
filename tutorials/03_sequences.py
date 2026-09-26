@@ -106,15 +106,15 @@ print(f"  Retrieval accuracy at T={T_SHORT}: {acc_hier_short:.3f}  (expect ~1.0)
 # The flat representation bundles T terms; its per-item SNR scales as 1/sqrt(T)
 # (Plate 2003 §6.2), so retrieval degrades past T~200 for d=4096.
 #
-# The hierarchical variant keeps both layers at O(sqrt(T)) items.  Its SNR is
-# dominated by 1/sqrt(chunk_size) regardless of how many chunks there are —
-# hence perfect retrieval at T=800 where flat has fallen to ~31%.
-# (Full table in BENCHMARKS.md; we sweep a subset here for speed.)
+# Hierarchical retrieval keeps a cached chunk codebook: it trades additional
+# persistent storage for reduced within-chunk interference. Fixed CHUNK means
+# the number of chunks grows with T; both layers are not O(sqrt(T)) here.
+# Successful outer cleanup is required and is not guaranteed at arbitrary T.
 
 T_VALUES = [32, 64, 128, 200, 300, 400]
 N_SEEDS = 2  # BENCHMARKS.md uses 3; 2 keeps the tutorial fast
 
-print(f"{'T':>5}  {'flat acc':>10}  {'hier acc':>10}  {'gain':>6}")
+print(f"{'T':>5}  {'flat acc':>10}  {'hier acc':>10}  {'gain':>6}  {'flat/hier bytes':>20}")
 print("-" * 38)
 
 for T in T_VALUES:
@@ -144,10 +144,12 @@ for T in T_VALUES:
 
     af = sum(acc_flat_seeds) / N_SEEDS
     ah = sum(acc_hier_seeds) / N_SEEDS
-    print(f"{T:>5}  {af:>10.3f}  {ah:>10.3f}  {ah - af:>+6.3f}")
+    flat_bytes = sum(getattr(x, "nbytes", 0) for x in jax.tree_util.tree_leaves(sf))
+    hier_bytes = sum(getattr(x, "nbytes", 0) for x in jax.tree_util.tree_leaves(sh))
+    print(f"{T:>5}  {af:>10.3f}  {ah:>10.3f}  {ah - af:>+6.3f}  {flat_bytes:>9}/{hier_bytes:<9}")
 
 print()
-print("Flat encoding degrades past T~200; hierarchical stays near-perfect.")
+print("Accuracy is empirical; cached chunks increase hierarchical storage.")
 print("See BENCHMARKS.md for the full sweep up to T=800.")
 
 # ── 6.  Key takeaways ─────────────────────────────────────────────────────────
@@ -157,8 +159,8 @@ print("See BENCHMARKS.md for the full sweep up to T=800.")
 # • seq.get(i)                                          — retrieve HV at index i
 # • cleanup via argmax cosine against the item codebook — symbolic recovery
 #
-# For T <= ~100 both representations are perfect.
-# For T > ~200 use HierarchicalSequence.
-# Both are JAX pytrees: jit, vmap, and grad compose with them.
+# Retrieval limits depend on dimension, vocabulary, seed and storage budget.
+# Pytrees support JAX transformations where the underlying operation permits;
+# hard argmax cleanup is not differentiable with respect to index selection.
 
 print("\nDone.")

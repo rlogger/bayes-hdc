@@ -1,44 +1,16 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""EMG gesture recognition — the canonical modern HDC application.
+"""Synthetic EMG-style gesture classification with temperature scaling.
 
-Hand-gesture recognition from surface electromyography (sEMG) is the
-single most-cited application of HDC since Rahimi et al. (2016). Multi-
-channel EMG is a natural fit for the channel-position-binding encoder:
-each electrode contributes a hypervector that is bound with a
-discretised level of its measured amplitude, and the per-channel
-bindings are bundled into a single window-level hypervector that
-classifies the gesture. The pipeline is fast, low-power, and runs on
-microcontrollers — exactly what the prosthetics, wearables, and
-neuromorphic-edge communities want.
+Independent generated windows have class-specific amplitude profiles.
+Quantisation is fitted on training windows only; a separate set fits the
+temperature. Held-out metrics describe this synthetic experiment, not
+clinical performance or microcontroller power. RandomEncoder uses independent
+feature-value codebooks, not an exact reproduction of a shared ordinal-level
+encoder from the EMG literature.
 
-This example demonstrates the literature-canonical pipeline:
-
-1. Window the EMG stream (here: 200-sample windows across 8 channels).
-2. Compute a per-channel summary statistic (RMS amplitude).
-3. Discretise each channel's RMS into ``L`` ordinal levels.
-4. Encode the window: bundle over channels of
-   ``bind(channel_hv[c], level_hv[level_c])``.
-5. Train a :class:`~bayes_hdc.BayesianCentroidClassifier` and report
-   per-gesture accuracy, calibrated probabilities, and posterior variance.
-
-The data here is synthetic so the example runs deterministically and
-without a network. The encoding pipeline and classifier are
-literature-faithful — pointing
-:func:`bayes_hdc.datasets.load_emg` at the same pipeline runs on the
-real Rahimi-et-al EMG dataset (``EMG_data_for_gestures`` on OpenML).
-
-References:
-
-* Rahimi, A. et al. (2016). "Hyperdimensional Biosignal Processing."
-* Burrello, A. et al. (2018). "Laelaps: Energy-Efficient Seizure Detection."
-* Hersche, M. et al. (2019). "Exploring Embedding Methods in Binary
-  Hyperdimensional Computing."
-
-Run::
-
-    python examples/emg_gesture_recognition.py
+Run: python examples/emg_gesture_recognition.py
 """
 
 from __future__ import annotations
@@ -70,7 +42,7 @@ def _synthetic_emg(key: jax.Array) -> tuple[np.ndarray, np.ndarray]:
 
     Each gesture activates a different subset of channels at a different
     amplitude. The resulting RMS-per-channel signature is what the HDC
-    encoder picks up — exactly the structure real sEMG exhibits.
+    encoder picks up in this controlled synthetic example.
     """
     rng = np.random.default_rng(int(jax.random.bits(key)))
 
@@ -114,15 +86,15 @@ def _rms_per_channel(windows: np.ndarray) -> np.ndarray:
     return np.sqrt(np.mean(windows**2, axis=-1))
 
 
-def _discretise(rms: np.ndarray, num_levels: int) -> np.ndarray:
+def _discretise(rms: np.ndarray, num_levels: int, reference: np.ndarray) -> np.ndarray:
     """Map per-channel RMS to ordinal levels [0, num_levels)."""
-    edges = np.linspace(rms.min(), rms.max() + 1e-6, num_levels + 1)
+    edges = np.linspace(reference.min(), reference.max() + 1e-6, num_levels + 1)
     levels = np.digitize(rms, edges[1:-1])
     return np.clip(levels, 0, num_levels - 1).astype(np.int32)
 
 
 def main() -> None:
-    print("EMG gesture recognition — the canonical modern HDC application")
+    print("Synthetic EMG-style gesture classification")
     print(
         f"  channels = {NUM_CHANNELS}   gestures = {NUM_GESTURES}   "
         f"windows/gesture = {WINDOWS_PER_GESTURE}   D = {DIMS}\n"
@@ -139,18 +111,15 @@ def main() -> None:
 
     # ----------------------------------------------------------------- 2.
     print("\n[2] Discretise each channel's RMS into ordinal levels.")
-    indices = _discretise(rms, NUM_LEVELS)
+    rng = np.random.default_rng(SEED)
+    perm = rng.permutation(len(rms))
+    n_tr, n_cal = int(0.6 * len(rms)), int(0.8 * len(rms))
+    tr_idx, ca_idx, te_idx = perm[:n_tr], perm[n_tr:n_cal], perm[n_cal:]
+    indices = _discretise(rms, NUM_LEVELS, reference=rms[tr_idx])
     print(f"      level indices shape: {indices.shape}   range: [{indices.min()}, {indices.max()}]")
 
-    # 60 / 20 / 20 train / cal / test split, stratified-ish (round-robin).
-    rng = np.random.default_rng(SEED)
-    perm = rng.permutation(len(indices))
-    n = len(perm)
-    n_tr, n_ca = int(0.6 * n), int(0.8 * n)
-    tr_idx, ca_idx, te_idx = perm[:n_tr], perm[n_tr:n_ca], perm[n_ca:]
-
     # ----------------------------------------------------------------- 3.
-    print("\n[3] Encode each window via channel-position binding + bundle.")
+    print("\n[3] Encode independent channel-value codebooks and bundle.")
     vsa = MAP.create(dimensions=DIMS)
     encoder = RandomEncoder.create(
         num_features=NUM_CHANNELS,
@@ -169,7 +138,7 @@ def main() -> None:
     )
 
     # ----------------------------------------------------------------- 4.
-    print("\n[4] Train BayesianCentroidClassifier — per-gesture Gaussian posteriors.")
+    print("\n[4] Train BayesianCentroidClassifier — per-gesture Gaussian moments.")
     clf = BayesianCentroidClassifier.create(
         num_classes=NUM_GESTURES,
         dimensions=DIMS,
@@ -179,7 +148,7 @@ def main() -> None:
     test_acc = float(clf.score(hv_te, y_te))
     per_class_uncertainty = np.asarray(jnp.mean(clf.predict_uncertainty(hv_te), axis=0))
     print(f"      train accuracy: {train_acc:.3f}    test accuracy: {test_acc:.3f}")
-    print("      mean posterior similarity-variance per gesture (test set):")
+    print("      mean dot-product variance per gesture (test set):")
     for g in range(NUM_GESTURES):
         print(f"        {GESTURE_NAMES[g]:<10s}  {per_class_uncertainty[g]:.5f}")
 
@@ -208,10 +177,8 @@ def main() -> None:
         print(f"  {GESTURE_NAMES[true_g]:<6s}" + " ".join(row))
 
     print(
-        "\nThe encoder used here is the literature-canonical "
-        "channel-position binding from Rahimi et al. 2016. The same pipeline,"
-        "\npointed at `bayes_hdc.datasets.load_emg()`, runs on the real "
-        "EMG_data_for_gestures benchmark (one-time OpenML download)."
+        "\nSynthetic results do not establish performance on a real EMG corpus.\n"
+        "Adapt its feature and participant split protocol explicitly."
     )
 
 

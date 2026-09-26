@@ -35,5 +35,5 @@ repos:
       - id: mypy
         files: '^bayes_hdc/'
         additional_dependencies:
-          - 'jax>=0.4.20'
+          - 'jax>=0.4.29'
           - 'numpy'

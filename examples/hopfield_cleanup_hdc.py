@@ -1,36 +1,16 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Modern Hopfield retrieval as a cleanup-memory step in an HDC pipeline.
+"""Cosine-softmax associative retrieval in an HDC pipeline.
 
-Classical HDC cleanup (`bayes_hdc.functional.cleanup`) takes a noisy
-hypervector and projects it onto the closest entry in a codebook by
-nearest-neighbour. The modern continuous Hopfield network of
-Ramsauer et al. (2020, *Hopfield Networks is All You Need*,
-arXiv:2008.02217) is a soft generalisation: it returns a softmax-
-weighted average of stored patterns under cosine similarity, so the
-retrieval is differentiable, calibrated, and reduces to nearest-
-neighbour as the inverse-temperature ``β → ∞``.
+HopfieldMemory returns a normalised softmax-weighted mixture of stored
+patterns. This is attention-style soft cleanup inspired by modern Hopfield
+networks, not a reproduction of recurrent dynamics or a calibrated posterior.
+For a unique best match its high-inverse-temperature limit is hard cleanup;
+ties need not choose a single pattern. The corrupted composite is diagnostic
+only; retrieval is evaluated on a noisy stored ROLE vector.
 
-This example walks through:
-
-1. encoding a 5-symbol vocabulary as MAP hypervectors,
-2. binding two of them into a composite ``c = bind(role, filler)``,
-3. corrupting ``c`` with Gaussian noise on every component,
-4. cleaning up the corrupted vector against the original codebook with
-   the modern-Hopfield retriever in ``bayes_hdc.memory.HopfieldMemory``,
-5. comparing recovered cosine similarity against the classical
-   nearest-neighbour cleanup at the same noise level.
-
-The point: ``HopfieldMemory`` is one drop-in line — its retrieval is
-``softmax(β·sim) @ patterns`` — and provides smooth, differentiable
-cleanup with formal capacity bounds. With high ``β`` it is
-indistinguishable from classical cleanup; with low ``β`` it is a
-well-defined soft retrieval that composes through ``jax.grad``.
-
-Run::
-
-    python examples/hopfield_cleanup_hdc.py
+Run: python examples/hopfield_cleanup_hdc.py
 """
 
 from __future__ import annotations
@@ -43,10 +23,9 @@ from bayes_hdc import MAP, HopfieldMemory, bind_map, cleanup, cosine_similarity
 DIMS = 4096
 SEED = 2026
 # Noise as a fraction of the signal's per-dimension magnitude.
-# MAP vectors at d=4096 have per-entry std ≈ 1; we set the additive
-# noise std to 0.3, giving a signal-to-noise ratio that's challenging
-# but recoverable.
-NOISE_STD = 0.3
+# Unit-norm MAP vectors have per-entry scale ~1/sqrt(DIMS).
+# Noise uses 30% of that scale; values refer to this synthetic setup.
+NOISE_STD = 0.3 / DIMS**0.5
 
 
 def main() -> None:
@@ -125,12 +104,8 @@ def main() -> None:
         bar_len = max(0, int(40 * float(w)))
         print(f"      {label:<8} sim = {float(s):+.4f}  weight = {float(w):.3f}  {'█' * bar_len}")
 
-    print("\nThis is the same softmax-attention retriever used in the modern-")
-    print("Hopfield papers and in the cleanup step of every transformer's")
-    print("self-attention block. Bayes-HDC exposes it as a one-line drop-in")
-    print("over an HDC codebook so VSA pipelines can mix-and-match classical")
-    print("hard cleanup, modern soft cleanup, and PVSA's posterior-aware")
-    print("cleanup_gaussian as the situation requires.")
+    print("\nThe weights are similarity-based attention weights, not calibrated probabilities.")
+    print("This demonstration does not establish the capacity bounds of other Hopfield models.")
 
 
 if __name__ == "__main__":

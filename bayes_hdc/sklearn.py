@@ -25,11 +25,12 @@ clear error; the rest of bayes-hdc has no scikit-learn dependency.
 
 The continuous feature matrix ``X`` is encoded with a random-projection
 ``ProjectionEncoder`` by default, or a random-Fourier ``KernelEncoder``
-(``encoder="kernel"``) that approximates an RBF kernel and is usually more
-accurate on real-valued features; no manual discretisation is needed. The
+(``encoder="kernel"``) that approximates an RBF kernel; no manual discretisation is needed. The
 anomaly detector wraps :class:`~bayes_hdc.ConformalAnomalyDetector`, so its
 ``predict`` inherits the finite-sample false-positive guarantee at the
-chosen ``alpha``.
+chosen ``alpha``, provided preprocessing was learned independently of the
+internal calibration split. Fitting a data-dependent transformer on all fit
+data before this detector splits it does not automatically meet that condition.
 """
 
 from __future__ import annotations
@@ -44,7 +45,14 @@ import numpy as np
 try:
     from sklearn.base import BaseEstimator, ClassifierMixin, OutlierMixin
     from sklearn.utils.multiclass import check_classification_targets
-    from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+    from sklearn.utils.validation import check_is_fitted
+
+    try:
+        from sklearn.utils.validation import validate_data as _validate_data
+    except ImportError:  # scikit-learn < 1.6
+
+        def _validate_data(estimator: Any, *args: Any, **kwargs: Any) -> Any:
+            return estimator._validate_data(*args, **kwargs)
 except ImportError as exc:  # pragma: no cover - exercised only without sklearn
     raise ImportError(
         "bayes_hdc.sklearn requires scikit-learn. Install it with "
@@ -56,13 +64,6 @@ from bayes_hdc.anomaly import ConformalAnomalyDetector, HDCAnomalyScorer
 from bayes_hdc.models import CentroidClassifier
 
 __all__ = ["HDClassifier", "HDAnomalyDetector"]
-
-
-def _check_features(X: Any, n_features: int) -> np.ndarray:
-    X = check_array(X, dtype=np.float32)
-    if X.shape[1] != n_features:
-        raise ValueError(f"X has {X.shape[1]} features, but the estimator expects {n_features}")
-    return X
 
 
 class HDClassifier(ClassifierMixin, BaseEstimator):
@@ -79,8 +80,7 @@ class HDClassifier(ClassifierMixin, BaseEstimator):
     encoder : {"projection", "kernel"}, default="projection"
         Feature encoder. ``"projection"`` is a plain random projection;
         ``"kernel"`` is a random-Fourier-features encoder that approximates
-        an RBF kernel and is typically more accurate on real-valued features
-        (it mirrors TorchHD's ``Sinusoid`` embedding). With ``"kernel"`` the
+        an RBF kernel using ``cos(x @ frequencies + phase)``. With ``"kernel"`` the
         ``gamma`` bandwidth matters and is worth tuning via ``GridSearchCV``.
     gamma : float, default=0.01
         RBF bandwidth for ``encoder="kernel"`` (ignored otherwise).
@@ -125,7 +125,7 @@ class HDClassifier(ClassifierMixin, BaseEstimator):
         raise ValueError(f"encoder must be 'projection' or 'kernel', got {self.encoder!r}")
 
     def fit(self, X: Any, y: Any) -> HDClassifier:
-        X, y = check_X_y(X, y, dtype=np.float32)
+        X, y = _validate_data(self, X, y, dtype=np.float32)
         check_classification_targets(y)
         if self.vsa_model != "map":
             raise ValueError(f"vsa_model must be 'map', got {self.vsa_model!r}")
@@ -142,7 +142,9 @@ class HDClassifier(ClassifierMixin, BaseEstimator):
         return self
 
     def _encode(self, X: Any) -> jax.Array:
-        return self.encoder_.encode_batch(jnp.asarray(_check_features(X, self.n_features_in_)))
+        return self.encoder_.encode_batch(
+            jnp.asarray(_validate_data(self, X, dtype=np.float32, reset=False))
+        )
 
     def predict(self, X: Any) -> np.ndarray:
         check_is_fitted(self, "classifier_")
@@ -200,7 +202,7 @@ class HDAnomalyDetector(OutlierMixin, BaseEstimator):
         self.random_state = random_state
 
     def fit(self, X: Any, y: Any = None) -> HDAnomalyDetector:
-        X = check_array(X, dtype=np.float32, ensure_min_samples=2)
+        X = _validate_data(self, X, dtype=np.float32, ensure_min_samples=2)
         if not 0.0 < self.alpha < 1.0:
             raise ValueError(f"alpha must be in (0, 1), got {self.alpha}")
         if not 0.0 < self.calibration_fraction < 1.0:
@@ -253,12 +255,14 @@ class HDAnomalyDetector(OutlierMixin, BaseEstimator):
         return self
 
     def _encode(self, X: Any) -> jax.Array:
-        return self.encoder_.encode_batch(jnp.asarray(_check_features(X, self.n_features_in_)))
+        return self.encoder_.encode_batch(
+            jnp.asarray(_validate_data(self, X, dtype=np.float32, reset=False))
+        )
 
     def pvalue(self, X: Any) -> np.ndarray:
         """Split-conformal p-values; small = anomalous."""
         check_is_fitted(self, "detector_")
-        return np.asarray(self.detector_.pvalue_batch(self._encode(X)))
+        return np.asarray(self.detector_.pvalue_batch(self._encode(X)), dtype=float)
 
     def predict(self, X: Any) -> np.ndarray:
         """+1 for inliers, -1 for outliers (scikit-learn convention)."""
@@ -272,6 +276,12 @@ class HDAnomalyDetector(OutlierMixin, BaseEstimator):
         larger values are more in-distribution.
         """
         return self.pvalue(X)
+
+    @property
+    def offset_(self) -> float:
+        """Fitted score threshold, consistent with changes to ``alpha``."""
+        check_is_fitted(self, "detector_")
+        return float(self.alpha)
 
     def decision_function(self, X: Any) -> np.ndarray:
         """Signed margin (>= 0 inlier, < 0 outlier), including threshold ties."""

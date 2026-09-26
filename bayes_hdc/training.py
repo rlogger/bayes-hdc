@@ -41,15 +41,9 @@ The intended pattern is::
 The trainer makes no assumptions about the parameterisation; the user
 is responsible for ensuring whatever pytree they pass in remains
 compatible with ``jax.grad`` (avoid storing static fields on the
-optimisation pytree). To our knowledge no other open-source HDC / VSA
-library exposes a comparable end-to-end variational training API
-[Heddes et al. 2023, J. Mach. Learn. Res. 24(255); Cumbo et al. 2023,
-J. Open Source Softw. 8(89): 5704; Bekolay et al. 2014, Front.
-Neuroinform. 7: 48]. On the paper side, HDVQ-VAE (Bryant et al. 2024,
-ESWEEK CASES) uses HDC as a *static* binary codebook inside a VQ-VAE
-— the opposite direction of this module — and the Nesy-GeMs ICLR'23
-HD-VAE workshop paper sketches a related approach without a released
-library.
+optimisation pytree). The supplied objective and likelihood determine the
+statistical interpretation; the optimiser does not validate that an
+objective is an evidence lower bound.
 """
 
 from __future__ import annotations
@@ -61,6 +55,7 @@ import jax
 import jax.numpy as jnp
 
 from bayes_hdc._compat import register_dataclass
+from bayes_hdc._validation import finite_scalar, positive_int
 
 # =============================================================================
 # Adam optimiser — minimal, dependency-free, pytree-native.
@@ -85,6 +80,11 @@ class AdamState:
 
 def adam_init(params: Any) -> AdamState:
     """Initialise an :class:`AdamState` matched to ``params``."""
+    if not jax.tree.leaves(params):
+        raise ValueError("params must contain at least one floating-point array")
+    for leaf in jax.tree.leaves(params):
+        if not jnp.issubdtype(jnp.asarray(leaf).dtype, jnp.floating):
+            raise ValueError("Adam parameters must have real floating-point dtypes")
     zeros = jax.tree.map(jnp.zeros_like, params)
     return AdamState(m=zeros, v=zeros, step=jnp.asarray(0, dtype=jnp.int32))
 
@@ -105,6 +105,11 @@ def adam_update(
     state from update keeps :func:`jit` traces clean and the function
     purely functional (no in-place mutation).
     """
+    finite_scalar(learning_rate, "learning_rate", strict=True)
+    finite_scalar(eps, "eps", strict=True)
+    for name, value in (("b1", b1), ("b2", b2)):
+        if not isinstance(value, jax.core.Tracer) and not 0 <= value < 1:
+            raise ValueError(f"{name} must be in [0, 1)")
     step = state.step + 1
     new_m = jax.tree.map(lambda mi, gi: b1 * mi + (1 - b1) * gi, state.m, grads)
     new_v = jax.tree.map(lambda vi, gi: b2 * vi + (1 - b2) * gi**2, state.v, grads)
@@ -143,7 +148,7 @@ class TrainResult:
 
     @property
     def final_loss(self) -> jax.Array:
-        """Scalar loss at the last training step."""
+        """Last recorded loss, evaluated immediately before the final update."""
         return self.loss_history[-1]
 
 
@@ -190,6 +195,7 @@ def train_variational_codebook(
         ``var = jnp.exp(log_var)`` inside ``loss_fn``). The trainer
         itself imposes no constraints on the parameter pytree.
     """
+    positive_int(n_steps, "n_steps")
     state0 = adam_init(init_params)
 
     def step_fn(

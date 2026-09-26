@@ -21,6 +21,21 @@ jobs:
       - name: Install build tools
         run: pip install --upgrade build
 
+      - name: Validate tag and package versions
+        run: |
+          python - <<'PYCODE'
+          import ast, os, pathlib, tomllib
+          metadata = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
+          version = metadata["project"]["version"]
+          module = ast.parse(pathlib.Path("bayes_hdc/__init__.py").read_text())
+          exported = next(ast.literal_eval(node.value) for node in module.body
+                          if isinstance(node, ast.Assign)
+                          and any(isinstance(t, ast.Name) and t.id == "__version__"
+                                  for t in node.targets))
+          assert exported == version, (exported, version)
+          assert os.environ["GITHUB_REF_NAME"] == "v" + version
+          PYCODE
+
       - name: Build package
         run: python -m build
 
@@ -39,13 +54,29 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install package from build
-        run: |
-          pip install --upgrade pip
-          pip install -e ".[dev,datasets,examples]"
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
-      - name: Run tests
-        run: pytest tests/ -v -k "not benchmark"
+      - name: Install and validate the built wheel
+        run: |
+          python -m pip install --upgrade pip twine
+          python -m twine check dist/*
+          python - <<'PYCODE'
+          from pathlib import Path
+          import subprocess, sys
+          wheels = list(Path("dist").glob("*.whl"))
+          assert len(wheels) == 1, wheels
+          subprocess.check_call([sys.executable, "-m", "pip", "install",
+                                 f"{wheels[0]}[dev,datasets,examples]"])
+          PYCODE
+
+      - name: Test the installed artifact outside the source checkout
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -c "import bayes_hdc; print(bayes_hdc.__file__)"
+          python -m pytest "$GITHUB_WORKSPACE/tests" --import-mode=importlib -v -k "not benchmark"
 
   publish-testpypi:
     runs-on: ubuntu-latest

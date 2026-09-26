@@ -29,9 +29,11 @@ def test_bind_vtb_preserves_broadcast_batch_dimensions(x_batch, y_batch):
     x = jnp.broadcast_to(jnp.array([1.0, 2.0, 0.0, 1.0]), x_batch + (4,))
     y = jnp.arange(1, 1 + 4 * 3, dtype=jnp.float32).reshape(3, 4)
     y = y[0] if not y_batch else y
-    expected = x.reshape(x_batch + (2, 2)) @ y.reshape(y_batch + (2, 2))
+    expected = 2**0.5 * (
+        x.reshape(x_batch + (2, 2)) @ jnp.swapaxes(y.reshape(y_batch + (2, 2)), -1, -2)
+    )
     expected = expected.reshape(expected.shape[:-2] + (4,))
-    assert jnp.array_equal(F.bind_vtb(x, y), expected)
+    assert jnp.allclose(F.bind_vtb(x, y), expected)
 
 
 class TestBSCOperations:

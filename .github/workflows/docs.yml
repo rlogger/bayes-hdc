@@ -18,12 +18,9 @@ on:
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
-# GitHub Pages deployment needs `pages: write` and `id-token: write`
-# in addition to the default read permissions.
+# The build uses read-only permissions; only the deploy job can publish Pages.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -74,6 +71,10 @@ jobs:
           retention-days: 14
 
   deploy:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     name: Deploy to GitHub Pages
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: build

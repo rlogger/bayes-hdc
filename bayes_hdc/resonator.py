@@ -8,15 +8,16 @@ hypervector :math:`z = f_1 \\otimes \\cdots \\otimes f_k` (with each
 :math:`f_i` an unknown entry of :math:`C_i`), a resonator network
 recovers the factor indices by iterative approximation.
 :cite:`frady2020resonator` introduced the deterministic case. This
-module lifts it into PVSA territory with two ingredients no prior
-HDC library ships:
+module provides a stochastic factor search over Gaussian codebooks:
 
-- **Multi-restart MCMC** — run ``n_restarts`` parallel chains from
+- **Multi-restart stochastic search** — run ``n_restarts`` sequential searches from
   random initial index assignments; at each step, for each factor,
   sample a new index from a softmax over cosine similarities between
   the "residual" (target unbound from the other factors) and the
-  codebook entries. Accept with Metropolis probability. Return the
-  chain with the highest final alignment.
+  codebook entries. Return the search with the highest final alignment.
+  There is no Metropolis-Hastings correction or specified stationary
+  target distribution; these trajectories are a search heuristic, not
+  samples from a calibrated Bayesian posterior.
 
 - **Gaussian factors** — the codebooks may be ``GaussianHV`` (each
   row a posterior over a symbol). We search over discrete index
@@ -30,12 +31,12 @@ HDC library ships:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import jax
 import jax.numpy as jnp
 
-from bayes_hdc.constants import EPS
 from bayes_hdc.distributions import (
     GaussianHV,
     bind_gaussian,
@@ -54,7 +55,7 @@ class ResonatorResult:
             composite (``bind(f_1, ..., f_k)``) and the target.
         history: Alignment trajectory of the best chain, shape
             ``(max_iters,)`` — useful for diagnosing convergence.
-        n_restarts: Number of parallel chains that were run.
+        n_restarts: Number of independent chains that were run.
     """
 
     indices: jax.Array
@@ -118,7 +119,7 @@ def probabilistic_resonator(
     max_iters: int = 50,
     temperature: float = 1.0,
 ) -> ResonatorResult:
-    r"""Multi-restart MCMC factorisation of a composite PVSA hypervector.
+    r"""Multi-restart stochastic factor search for a composite PVSA hypervector.
 
     Args:
         codebooks: List of ``k`` batched ``GaussianHV`` objects. Each
@@ -126,14 +127,14 @@ def probabilistic_resonator(
             ``(n_i, d)``. The factorisation finds one index per
             codebook.
         target: Composite hypervector to factorise.
-        key: JAX random key for the MCMC chains and factor proposals.
-        n_restarts: Number of parallel chains, each from a fresh random
+        key: JAX random key for initial assignments and factor proposals.
+        n_restarts: Number of independent chains, each from a fresh random
             index assignment. The highest-alignment chain is returned.
         max_iters: Number of factor-update sweeps per chain.
         temperature: Softmax temperature on similarities when proposing
             new indices. Lower = sharper / greedier; higher = more
-            exploration. The classical deterministic resonator is the
-            ``temperature -> 0`` limit.
+            exploration. Must be strictly positive. This is a heuristic
+            score temperature, not an estimated noise likelihood.
 
     Returns:
         :class:`ResonatorResult` with the best chain's factor indices,
@@ -141,6 +142,30 @@ def probabilistic_resonator(
     """
     if not codebooks:
         raise ValueError("probabilistic_resonator: codebooks must be non-empty")
+    if n_restarts < 1:
+        raise ValueError("n_restarts must be positive")
+    if max_iters < 0:
+        raise ValueError("max_iters must be non-negative")
+    if not math.isfinite(temperature) or temperature <= 0:
+        raise ValueError("temperature must be finite and positive")
+    if target.mu.shape != (target.dimensions,) or target.var.shape != target.mu.shape:
+        raise ValueError("target must be an unbatched GaussianHV")
+    for cb in codebooks:
+        if (
+            cb.mu.ndim != 2
+            or cb.mu.shape[0] == 0
+            or cb.mu.shape[-1] != target.dimensions
+            or cb.var.shape != cb.mu.shape
+            or cb.dimensions != target.dimensions
+        ):
+            raise ValueError("codebooks must be non-empty (n, d) Gaussians matching target")
+    for hv in [target, *codebooks]:
+        if not bool(
+            jnp.all(jnp.isfinite(hv.mu)) & jnp.all(jnp.isfinite(hv.var)) & jnp.all(hv.var >= 0)
+        ):
+            raise ValueError(
+                "Gaussian means and variances must be finite with non-negative variance"
+            )
     k = len(codebooks)
 
     # Initialise each chain with a random index assignment.
@@ -175,13 +200,8 @@ def probabilistic_resonator(
                     return expected_cosine_similarity(residual, candidate)
 
                 scores = jax.vmap(score_row)(jnp.arange(codebooks[j].mu.shape[0]))
-                logits = scores / jnp.maximum(temperature, EPS)
-                proposed = int(
-                    jax.random.categorical(
-                        jax.random.fold_in(step_key, j),
-                        logits,
-                    )
-                )
+                logits = scores / temperature
+                proposed = int(jax.random.categorical(jax.random.fold_in(step_key, j), logits))
                 indices = indices.at[j].set(proposed)
 
             # Record alignment after this sweep.

@@ -18,18 +18,18 @@ called with ``--real-data`` (one-time OpenML download via
 Three classical-HDC classifiers are compared on the same encoded
 hypervectors:
 
-- :class:`~bayes_hdc.CentroidClassifier` — one-shot bundling of training
+- :class:`~bayes_hdc.CentroidClassifier` — single-pass bundling of training
   hypervectors per class (Kanerva 2009, Rahimi et al. 2016). The
   fastest path; no iteration.
 - :class:`~bayes_hdc.AdaptiveHDC` — iterative prototype refinement with
   misclassification-driven updates (Imani et al. 2017 "VoiceHD",
-  generalised). A few epochs noticeably improve test accuracy.
+  generalised). Improvement is evaluated, not assumed.
 - :class:`~bayes_hdc.RegularizedLSClassifier` — closed-form ridge
   regression in hypervector space; auto-selects primal vs. dual form.
 
-For the same task with calibrated probabilities and conformal
-prediction sets, swap ``CentroidClassifier`` for
-``BayesianCentroidClassifier`` — see ``examples/activity_recognition.py``.
+For calibrated probabilities and conformal sets, add separate held-out
+calibration stages; changing classifier class alone does not calibrate it.
+See ``examples/activity_recognition.py``.
 
 Run::
 
@@ -98,11 +98,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.real_data:
-        try:
-            X_tr, y_tr, X_te, y_te, n_classes, label = _load_real_mnist()
-        except Exception as e:  # noqa: BLE001 — surface failure, fall back.
-            print(f"  ! could not load real MNIST ({e}); falling back to sklearn digits.")
-            X_tr, y_tr, X_te, y_te, n_classes, label = _load_sklearn_digits()
+        X_tr, y_tr, X_te, y_te, n_classes, label = _load_real_mnist()
     else:
         X_tr, y_tr, X_te, y_te, n_classes, label = _load_sklearn_digits()
 
@@ -131,7 +127,7 @@ def main() -> None:
     y_te_jax = jnp.asarray(y_te)
 
     # ----------------------------------------------------------------- 2.
-    print("\n[2] CentroidClassifier — one-shot bundling per class.")
+    print("\n[2] CentroidClassifier — single-pass bundling per class.")
     centroid = CentroidClassifier.create(
         num_classes=n_classes,
         dimensions=DIMS,
@@ -164,16 +160,8 @@ def main() -> None:
     print(f"      test accuracy = {rls_acc:.3f}")
 
     # ----------------------------------------------------------------- 5.
-    print("\n[5] Per-class confusion (best classifier):")
-    best_name, best_preds, best_acc = max(
-        [
-            ("CentroidClassifier", np.asarray(centroid.predict(hv_te)), centroid_acc),
-            ("AdaptiveHDC", np.asarray(adaptive.predict(hv_te)), adaptive_acc),
-            ("RegularizedLSClassifier", np.asarray(rls_preds), rls_acc),
-        ],
-        key=lambda t: t[2],
-    )
-    print(f"      best = {best_name} ({best_acc:.3f})")
+    print("\n[5] Per-class confusion for the pre-specified ridge classifier:")
+    best_preds = np.asarray(rls_preds)
     y_te_np = np.asarray(y_te)
     print("      true \\ predicted →")
     header = "       " + " ".join(f"{c:>4d}" for c in range(n_classes))

@@ -136,7 +136,7 @@ def shard_map_bind_gaussian(x: GaussianHV, y: GaussianHV) -> GaussianHV:
         # Single-device host: nothing to shard, just bind directly.
         return bind_gaussian(x, y)
 
-    mesh = Mesh(jax.devices()[:n_dev], axis_names=("i",))
+    mesh = Mesh(jax.local_devices(), axis_names=("i",))
     spec = PartitionSpec("i", None)
     sharded = shard_map(
         bind_gaussian,
@@ -159,6 +159,8 @@ def shard_classifier_posteriors(
     single-device host, returns the inputs unchanged with a leading
     axis of size 1.
     """
+    if mu.ndim != 2 or mu.shape != var.shape:
+        raise ValueError("mu and var must have the same shape (num_classes, dimensions)")
     n_dev = jax.local_device_count()
     k = mu.shape[0]
     if k % n_dev != 0:

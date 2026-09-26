@@ -189,6 +189,7 @@ def test_anomaly_score_samples_higher_is_more_normal():
     rng = np.random.default_rng(2)
     X_out = rng.normal(loc=15.0, scale=1.0, size=(30, 6))
     det = HDAnomalyDetector(dimensions=3000, random_state=2).fit(X_norm)
+    assert det.score_samples(X_norm).dtype == np.dtype(float)
     assert det.score_samples(X_norm).mean() > det.score_samples(X_out).mean()
 
 
@@ -196,6 +197,7 @@ def test_anomaly_decision_function_sign_matches_predict():
     X_norm, _ = make_blobs(n_samples=200, n_features=6, centers=1, cluster_std=1.0, random_state=3)
     det = HDAnomalyDetector(alpha=0.1, dimensions=3000, random_state=3).fit(X_norm)
     df = det.decision_function(X_norm)
+    assert det.offset_ == det.alpha
     pred = det.predict(X_norm)
     # decision_function >= 0  <=>  predicted inlier (+1)
     assert np.all((df >= 0) == (pred == 1))
@@ -275,3 +277,12 @@ def test_estimators_raise_not_fitted_before_fit():
         det.predict(X)
     with pytest.raises(NotFittedError):
         det.pvalue(X)
+
+
+@pytest.mark.parametrize(
+    "estimator", [HDClassifier(dimensions=16), HDAnomalyDetector(dimensions=16, alpha=0.3)]
+)
+def test_estimators_follow_sklearn_feature_validation_contract(estimator):
+    from sklearn.utils.estimator_checks import check_n_features_in_after_fitting
+
+    check_n_features_in_after_fitting(type(estimator).__name__, estimator)

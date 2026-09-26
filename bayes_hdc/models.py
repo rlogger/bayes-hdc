@@ -12,8 +12,22 @@ import jax.numpy as jnp
 
 from bayes_hdc import functional as F
 from bayes_hdc._compat import register_dataclass
+from bayes_hdc._validation import (
+    finite_array,
+    finite_scalar,
+    positive_int,
+    sample_label,
+    training_arrays,
+)
 from bayes_hdc.constants import EPS
 from bayes_hdc.vsa import VSAModel, create_vsa_model
+
+
+def _validate_classifier_vsa(vsa: VSAModel, dimensions: int) -> None:
+    if vsa.dimensions != dimensions:
+        raise ValueError("vsa_model.dimensions must match the classifier dimensions")
+    if vsa.name not in {"map", "hrr", "fhrr", "vtb", "bsc"}:
+        raise ValueError(f"Unsupported classifier VSA {vsa.name!r}; use MAP, HRR, FHRR, VTB or BSC")
 
 
 @register_dataclass
@@ -47,6 +61,8 @@ class CentroidClassifier:
             initial_prototypes: Optional initial prototypes of shape (num_classes, dimensions)
             key: JAX random key for initialization
         """
+        positive_int(num_classes, "num_classes")
+        positive_int(dimensions, "dimensions")
         if isinstance(vsa_model, str):
             vsa_model_name = vsa_model
             vsa = create_vsa_model(vsa_model, dimensions)
@@ -54,8 +70,12 @@ class CentroidClassifier:
             vsa_model_name = vsa_model.name
             vsa = vsa_model
 
+        _validate_classifier_vsa(vsa, dimensions)
+
         if initial_prototypes is not None:
-            prototypes = initial_prototypes
+            prototypes = jnp.asarray(initial_prototypes)
+            if prototypes.shape != (num_classes, dimensions):
+                raise ValueError("initial_prototypes must have shape (num_classes, dimensions)")
         else:
             if key is None:
                 key = jax.random.PRNGKey(0)
@@ -121,34 +141,33 @@ class CentroidClassifier:
         Returns:
             Trained CentroidClassifier (new instance)
         """
-        if train_hvs.shape[0] == 0:
-            raise ValueError("Cannot fit CentroidClassifier: training data is empty")
+        train_hvs, train_labels = training_arrays(
+            train_hvs, train_labels, self.dimensions, self.num_classes
+        )
 
         new_prototypes_list = []
         for class_idx in range(self.num_classes):
             class_mask = train_labels == class_idx
             num_samples = jnp.sum(class_mask)
 
-            if num_samples > 0:
-                weights = jnp.where(class_mask[:, None], 1.0, 0.0)
-                if self.vsa_model_name == "bsc":
-                    weighted_hvs = train_hvs.astype(jnp.float32) * weights
-                    summed = jnp.sum(weighted_hvs, axis=0)
-                    centroid = summed > (num_samples / 2.0)
-                else:
-                    weighted_hvs = train_hvs * weights
-                    summed = jnp.sum(weighted_hvs, axis=0)
-                    centroid = summed / (jnp.linalg.norm(summed) + EPS)
-                new_prototypes_list.append(centroid)
+            selected = jnp.where(class_mask[:, None], train_hvs, 0)
+            summed = jnp.sum(selected, axis=0)
+            if self.vsa_model_name == "bsc":
+                centroid = summed > (num_samples / 2.0)
             else:
-                new_prototypes_list.append(self.prototypes[class_idx])
+                centroid = summed / (jnp.linalg.norm(summed) + EPS)
+            new_prototypes_list.append(
+                jnp.where(num_samples > 0, centroid, self.prototypes[class_idx])
+            )
 
         return self.replace(prototypes=jnp.stack(new_prototypes_list))
 
     def update_online(
-        self, sample_hv: jax.Array, label: int, learning_rate: float = 0.1
+        self, sample_hv: jax.Array, label: Union[int, jax.Array], learning_rate: float = 0.1
     ) -> "CentroidClassifier":
         """Update classifier online with a single sample."""
+        sample_hv, label = sample_label(sample_hv, label, self.dimensions, self.num_classes)
+        finite_scalar(learning_rate, "learning_rate")
         old_prototype = self.prototypes[label]
 
         if self.vsa_model_name == "bsc":
@@ -188,12 +207,16 @@ class AdaptiveHDC:
         vsa_model: Union[str, VSAModel] = "map",
         key: Optional[jax.Array] = None,
     ) -> "AdaptiveHDC":
+        positive_int(num_classes, "num_classes")
+        positive_int(dimensions, "dimensions")
         if isinstance(vsa_model, str):
             vsa_model_name = vsa_model
             vsa = create_vsa_model(vsa_model, dimensions)
         else:
             vsa_model_name = vsa_model.name
             vsa = vsa_model
+
+        _validate_classifier_vsa(vsa, dimensions)
 
         if key is None:
             key = jax.random.PRNGKey(0)
@@ -241,7 +264,8 @@ class AdaptiveHDC:
         class mean, then walks the training set for `epochs` passes;
         on each misclassification the true-class prototype is moved
         toward the sample by `learning_rate` and re-normalised.
-        Accuracy-preserving, single-sided LVQ update.
+        This is a single-sided LVQ heuristic; training or test accuracy
+        is not guaranteed to improve monotonically.
 
         Args:
             train_hvs: Training hypervectors of shape ``(n, d)``.
@@ -249,9 +273,12 @@ class AdaptiveHDC:
             epochs: Number of refinement epochs after the centroid init.
             learning_rate: Refinement step size.
         """
-        if train_hvs.shape[0] == 0:
-            raise ValueError("Cannot fit AdaptiveHDC: training data is empty")
+        train_hvs, train_labels = training_arrays(
+            train_hvs, train_labels, self.dimensions, self.num_classes
+        )
 
+        positive_int(epochs, "epochs")
+        finite_scalar(learning_rate, "learning_rate")
         classifier = self
         for class_idx in range(self.num_classes):
             class_mask = train_labels == class_idx
@@ -300,7 +327,10 @@ class AdaptiveHDC:
         else:
             new_true_proto = F.bundle_bsc(jnp.stack([true_proto, sample_hv]), axis=0)
 
-        return self.replace(prototypes=self.prototypes.at[true_label].set(new_true_proto))
+        return self.replace(
+            prototypes=self.prototypes.at[true_label].set(new_true_proto),
+            num_updates=self.num_updates.at[true_label].add(1),
+        )
 
     @jax.jit
     def score(self, test_hvs: jax.Array, test_labels: jax.Array) -> jax.Array:
@@ -333,10 +363,14 @@ class LVQClassifier:
         vsa_model: Union[str, VSAModel] = "map",
         key: Optional[jax.Array] = None,
     ) -> "LVQClassifier":
+        positive_int(num_classes, "num_classes")
+        positive_int(dimensions, "dimensions")
         if isinstance(vsa_model, str):
             vsa = create_vsa_model(vsa_model, dimensions)
         else:
             vsa = vsa_model
+
+        _validate_classifier_vsa(vsa, dimensions)
         if key is None:
             key = jax.random.PRNGKey(0)
         return LVQClassifier(
@@ -371,9 +405,15 @@ class LVQClassifier:
         lr: float = 0.1,
     ) -> "LVQClassifier":
         """Train with LVQ updates (winner-take-all, move toward/away)."""
-        if train_hvs.shape[0] == 0:
-            raise ValueError("Cannot fit LVQClassifier: training data is empty")
+        train_hvs, train_labels = training_arrays(
+            train_hvs, train_labels, self.dimensions, self.num_classes
+        )
+        positive_int(epochs, "epochs")
+        finite_scalar(lr, "lr", strict=True)
         clf = self
+        latent = (
+            self.prototypes.astype(jnp.float32) if self.vsa_model_name == "bsc" else self.prototypes
+        )
         for _ in range(epochs):
             for i in range(len(train_hvs)):
                 x, y_true = train_hvs[i], int(train_labels[i])
@@ -381,7 +421,7 @@ class LVQClassifier:
                 # Native BSC hypervectors are booleans, which cannot be
                 # subtracted. Compute their LVQ displacement in real space.
                 difference = (
-                    x.astype(jnp.float32) - clf.prototypes[pred].astype(jnp.float32)
+                    x.astype(jnp.float32) - latent[pred]
                     if self.vsa_model_name == "bsc"
                     else x - clf.prototypes[pred]
                 )
@@ -393,10 +433,8 @@ class LVQClassifier:
                     new_p = clf.prototypes[pred] + delta
                     new_p = new_p / (jnp.linalg.norm(new_p) + EPS)
                 else:
-                    new_p = F.bundle_bsc(
-                        jnp.stack([clf.prototypes[pred], (clf.prototypes[pred] + delta) > 0.5]),
-                        axis=0,
-                    )
+                    latent = latent.at[pred].add(delta)
+                    new_p = latent[pred] > 0.5
                 clf = clf.replace(prototypes=clf.prototypes.at[pred].set(new_p))
         return clf
 
@@ -444,6 +482,9 @@ class RegularizedLSClassifier:
         num_classes: int,
         reg: float = 1.0,
     ) -> "RegularizedLSClassifier":
+        positive_int(dimensions, "dimensions")
+        positive_int(num_classes, "num_classes")
+        finite_scalar(reg, "reg")
         return RegularizedLSClassifier(
             weights=jnp.zeros((dimensions, num_classes)),
             dimensions=dimensions,
@@ -457,22 +498,26 @@ class RegularizedLSClassifier:
         Uses whichever of the primal (d×d) or dual (n×n) formulation
         conditions better given the training-set size vs dimensionality.
         """
+        train_hvs, train_labels = training_arrays(
+            train_hvs, train_labels, self.dimensions, self.num_classes
+        )
+        train_hvs = train_hvs.astype(jnp.result_type(train_hvs.dtype, jnp.float32))
         n = train_hvs.shape[0]
-        if n == 0:
-            raise ValueError("Cannot fit RegularizedLSClassifier: training data is empty")
 
         Y = jax.nn.one_hot(train_labels, self.num_classes)
 
-        if n >= self.dimensions:
+        if self.reg == 0:
+            weights = jnp.linalg.lstsq(train_hvs, Y, rcond=None)[0]
+        elif n >= self.dimensions:
             # Primal form: (d × d) system.
-            XtX = train_hvs.T @ train_hvs + self.reg * jnp.eye(self.dimensions)
-            XtY = train_hvs.T @ Y
+            XtX = train_hvs.conj().T @ train_hvs + self.reg * jnp.eye(self.dimensions)
+            XtY = train_hvs.conj().T @ Y
             weights = jnp.linalg.solve(XtX, XtY)
         else:
             # Dual form: (n × n) system, far better conditioned when d >> n.
-            K = train_hvs @ train_hvs.T + self.reg * jnp.eye(n)
+            K = train_hvs @ train_hvs.conj().T + self.reg * jnp.eye(n)
             alpha = jnp.linalg.solve(K, Y)  # (n, num_classes)
-            weights = train_hvs.T @ alpha  # (d, num_classes)
+            weights = train_hvs.conj().T @ alpha  # (d, num_classes)
 
         return self.replace(weights=weights)
 
@@ -487,7 +532,7 @@ class RegularizedLSClassifier:
         is_single = queries.ndim == 1
         if is_single:
             queries = queries[None, :]
-        logits = queries @ self.weights
+        logits = jnp.real(queries @ self.weights)
         predictions = jnp.argmax(logits, axis=-1)
         if is_single:
             return predictions[0]
@@ -505,7 +550,7 @@ class RegularizedLSClassifier:
         is_single = queries.ndim == 1
         if is_single:
             queries = queries[None, :]
-        logits = queries @ self.weights
+        logits = jnp.real(queries @ self.weights)
         probs = jax.nn.softmax(logits, axis=-1)
         if is_single:
             return probs[0]
@@ -563,6 +608,9 @@ class HDRegressor:
         output_dim: int,
         reg: float = 1.0,
     ) -> "HDRegressor":
+        positive_int(dimensions, "dimensions")
+        positive_int(output_dim, "output_dim")
+        finite_scalar(reg, "reg")
         return HDRegressor(
             weights=jnp.zeros((dimensions, output_dim)),
             dimensions=dimensions,
@@ -582,11 +630,18 @@ class HDRegressor:
             A fitted ``HDRegressor`` (immutable update; the original is
             unchanged).
         """
+        train_hvs = jnp.asarray(train_hvs)
+        if train_hvs.ndim != 2 or train_hvs.shape[1] != self.dimensions:
+            raise ValueError(f"train_hvs must have shape (n, {self.dimensions})")
         n = train_hvs.shape[0]
         if n == 0:
             raise ValueError("Cannot fit HDRegressor: training data is empty")
-
-        Y = train_targets
+        finite_array(train_hvs, "train_hvs")
+        train_hvs = train_hvs.astype(jnp.result_type(train_hvs.dtype, jnp.float32))
+        Y = jnp.asarray(train_targets)
+        if Y.ndim not in (1, 2):
+            raise ValueError("train_targets must have shape (n,) or (n, output_dim)")
+        finite_array(Y, "train_targets")
         if Y.ndim == 1:
             Y = Y[:, None]
         if Y.shape[0] != n:
@@ -599,16 +654,18 @@ class HDRegressor:
                 f"was created with output_dim={self.output_dim}"
             )
 
-        if n >= self.dimensions:
+        if self.reg == 0:
+            weights = jnp.linalg.lstsq(train_hvs, Y, rcond=None)[0]
+        elif n >= self.dimensions:
             # Primal form: (d × d) system.
-            XtX = train_hvs.T @ train_hvs + self.reg * jnp.eye(self.dimensions)
-            XtY = train_hvs.T @ Y
+            XtX = train_hvs.conj().T @ train_hvs + self.reg * jnp.eye(self.dimensions)
+            XtY = train_hvs.conj().T @ Y
             weights = jnp.linalg.solve(XtX, XtY)
         else:
             # Dual form: (n × n) system, far better conditioned when d >> n.
-            K = train_hvs @ train_hvs.T + self.reg * jnp.eye(n)
+            K = train_hvs @ train_hvs.conj().T + self.reg * jnp.eye(n)
             alpha = jnp.linalg.solve(K, Y)  # (n, k)
-            weights = train_hvs.T @ alpha  # (d, k)
+            weights = train_hvs.conj().T @ alpha  # (d, k)
 
         return self.replace(weights=weights)
 
@@ -621,9 +678,8 @@ class HDRegressor:
 
         Returns:
             Predictions of shape ``(k,)`` or ``(n, k)`` matching the
-            input rank. If the regressor was created with
-            ``output_dim=1``, the trailing singleton is squeezed only
-            when the input was a single vector.
+            input rank. A single scalar-output prediction has shape
+            ``(1,)``; the trailing output axis is retained.
         """
         if queries.ndim == 1:
             return queries @ self.weights  # (d,) @ (d, k) -> (k,)
@@ -642,9 +698,13 @@ class HDRegressor:
         if Y.ndim == 1:
             Y = Y[:, None]
         preds = self.predict(test_hvs)
-        ss_res = jnp.sum((Y - preds) ** 2)
-        ss_tot = jnp.sum((Y - jnp.mean(Y, axis=0, keepdims=True)) ** 2)
-        return 1.0 - ss_res / (ss_tot + EPS)
+        ss_res = jnp.sum(jnp.abs(Y - preds) ** 2)
+        ss_tot = jnp.sum(jnp.abs(Y - jnp.mean(Y, axis=0, keepdims=True)) ** 2)
+        return jnp.where(
+            ss_tot > 0,
+            1.0 - ss_res / jnp.where(ss_tot > 0, ss_tot, 1.0),
+            jnp.where(ss_res == 0, 1.0, 0.0),
+        )
 
     def replace(self, **updates: Any) -> "HDRegressor":
         return dataclass_replace(self, **updates)
@@ -673,17 +733,16 @@ class ClusteringModel:
         vsa_model: Union[str, "VSAModel"] = "map",
         key: Optional[jax.Array] = None,
     ) -> "ClusteringModel":
+        positive_int(num_clusters, "num_clusters")
+        positive_int(dimensions, "dimensions")
         if key is None:
             key = jax.random.PRNGKey(0)
-
-        if isinstance(vsa_model, str):
-            vsa_model_name = vsa_model
-        else:
-            vsa_model_name = vsa_model.name
-
-        centroids = jax.random.normal(key, (num_clusters, dimensions))
-        norms = jnp.linalg.norm(centroids, axis=-1, keepdims=True)
-        centroids = centroids / (norms + EPS)
+        vsa = create_vsa_model(vsa_model, dimensions) if isinstance(vsa_model, str) else vsa_model
+        _validate_classifier_vsa(vsa, dimensions)
+        vsa_model_name = vsa.name
+        centroids = vsa.random(key, (num_clusters, dimensions))
+        if vsa_model_name != "bsc":
+            centroids = centroids / (jnp.linalg.norm(centroids, axis=-1, keepdims=True) + EPS)
 
         return ClusteringModel(
             centroids=centroids,
@@ -706,21 +765,35 @@ class ClusteringModel:
         Returns:
             Updated ClusteringModel with refined centroids
         """
+        hvs = jnp.asarray(hvs)
+        if hvs.ndim != 2 or hvs.shape[0] == 0 or hvs.shape[1] != self.dimensions:
+            raise ValueError(f"hvs must have nonempty shape (n, {self.dimensions})")
+        positive_int(max_iters, "max_iters")
+        finite_array(hvs, "hvs")
+        if self.vsa_model_name != "bsc":
+            hvs = hvs / (jnp.linalg.norm(hvs, axis=-1, keepdims=True) + EPS)
         centroids = self.centroids
 
         for _ in range(max_iters):
-            sims = hvs @ centroids.T
+            sims = (
+                jnp.mean(hvs[:, None, :] == centroids[None, :, :], axis=-1)
+                if self.vsa_model_name == "bsc"
+                else jnp.real(hvs @ centroids.conj().T)
+            )
             assignments = jnp.argmax(sims, axis=-1)
 
             new_centroids = []
             for k in range(self.num_clusters):
                 mask = assignments == k
                 count = jnp.sum(mask)
-                cluster_sum = jnp.sum(hvs * mask[:, None], axis=0)
+                cluster_sum = jnp.sum(jnp.where(mask[:, None], hvs, 0), axis=0)
                 fallback = centroids[k]
-                centroid = jnp.where(count > 0, cluster_sum / (count + EPS), fallback)
-                norm = jnp.linalg.norm(centroid) + EPS
-                new_centroids.append(centroid / norm)
+                if self.vsa_model_name == "bsc":
+                    centroid = jnp.where(count > 0, cluster_sum > count / 2, fallback)
+                else:
+                    centroid = jnp.where(count > 0, cluster_sum / (count + EPS), fallback)
+                    centroid = centroid / (jnp.linalg.norm(centroid) + EPS)
+                new_centroids.append(centroid)
 
             stacked_centroids: jax.Array = jnp.stack(new_centroids)
 
@@ -743,7 +816,11 @@ class ClusteringModel:
         single = hvs.ndim == 1
         if single:
             hvs = hvs[None, :]
-        sims = hvs @ self.centroids.T
+        sims = (
+            jnp.mean(hvs[:, None, :] == self.centroids[None, :, :], axis=-1)
+            if self.vsa_model_name == "bsc"
+            else jnp.real(hvs @ self.centroids.conj().T)
+        )
         result = jnp.argmax(sims, axis=-1)
         return result[0] if single else result
 
@@ -756,5 +833,6 @@ __all__ = [
     "AdaptiveHDC",
     "LVQClassifier",
     "RegularizedLSClassifier",
+    "HDRegressor",
     "ClusteringModel",
 ]

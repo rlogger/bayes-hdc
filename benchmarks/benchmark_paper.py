@@ -14,7 +14,6 @@ Writes benchmarks/paper_results.json. Run:
 
 from __future__ import annotations
 
-import json
 import time
 from pathlib import Path
 
@@ -27,12 +26,16 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import LocalOutlierFactor
-from sklearn.preprocessing import StandardScaler
 from sklearn.svm import OneClassSVM
 
-from bayes_hdc import expected_calibration_error
-from bayes_hdc.sklearn import HDAnomalyDetector, HDClassifier
+from bayes_hdc import ProjectionEncoder, expected_calibration_error, fit_anomaly_pipeline
+from bayes_hdc.sklearn import HDClassifier
 from bayes_hdc.uncertainty import ConformalClassifier, TemperatureCalibrator
+
+if __package__:
+    from ._common import provenance, standardize_train, write_json
+else:
+    from _common import provenance, standardize_train, write_json
 
 SEED = 0
 DIMS = 10000
@@ -51,7 +54,7 @@ def _try_torchhd_accuracy(Xtr, ytr, Xte, yte, n_classes, dims=DIMS):
         import torchhd
         from torchhd import embeddings
         from torchhd.models import Centroid
-    except Exception:
+    except ImportError:
         return None
     try:
         torch.manual_seed(SEED)
@@ -91,14 +94,23 @@ def classification_benchmark():
     rows = []
     for name, loader in DATASETS.items():
         data = loader()
-        X = StandardScaler().fit_transform(data.data.astype(np.float32))
+        X = data.data.astype(np.float32)
         y = data.target.astype(np.int64)
         n_classes = int(y.max() + 1)
-        Xtr, Xtmp, ytr, ytmp = train_test_split(X, y, test_size=0.4, random_state=SEED, stratify=y)
+        Xtr, Xtmp, ytr, ytmp = train_test_split(
+            X,
+            y,
+            test_size=0.4,
+            random_state=SEED,
+        )
         Xcal, Xte, ycal, yte = train_test_split(
-            Xtmp, ytmp, test_size=0.5, random_state=SEED, stratify=ytmp
+            Xtmp,
+            ytmp,
+            test_size=0.5,
+            random_state=SEED,
         )
 
+        Xtr, Xcal, Xte = standardize_train(Xtr, Xcal, Xte)
         clf = HDClassifier(dimensions=DIMS, random_state=SEED).fit(Xtr, ytr)
         proba_te = np.asarray(clf.predict_proba(Xte))
         acc = float((clf.predict(Xte) == yte).mean())
@@ -125,7 +137,7 @@ def classification_benchmark():
         # Fair reference baselines on identical splits.
         logreg = LogisticRegression(max_iter=2000).fit(Xtr, ytr)
         logreg_acc = float((logreg.predict(Xte) == yte).mean())
-        torchhd_acc = _try_torchhd_accuracy(Xtr, ytr, Xte, yte, n_classes)
+        torchhd_acc = _try_torchhd_accuracy(Xtr, ytr, Xte, yte, n_classes, dims=DIMS)
 
         rows.append(
             {
@@ -159,7 +171,7 @@ def anomaly_benchmark():
     rows = []
     for name, loader in DATASETS.items():
         data = loader()
-        X = StandardScaler().fit_transform(data.data.astype(np.float32))
+        X = data.data.astype(np.float32)
         y = data.target.astype(np.int64)
         normal_cls = int(np.bincount(y).argmax())
         is_norm = y == normal_cls
@@ -179,11 +191,21 @@ def anomaly_benchmark():
             X_test = np.vstack([Xn_te, Xa])
             y_test = np.concatenate([np.zeros(len(Xn_te)), np.ones(len(Xa))]).astype(int)
 
-            # bayes-hdc: higher p-value = more normal, so anomaly score = -pvalue.
-            det = HDAnomalyDetector(alpha=ALPHA, dimensions=DIMS, random_state=seed).fit(Xn_tr)
-            pv = det.pvalue(X_test)
-            per_seed["hd_auroc"].append(float(roc_auc_score(y_test, -pv)))
-            per_seed["hd_fpr"].append(float((det.predict(Xn_te) == -1).mean()))
+            # Hold out calibration BEFORE learning any preprocessing.
+            Xfit, Xcal = train_test_split(Xn_tr, test_size=0.3, random_state=seed)
+            Xfit, Xcal, X_test, Xn_te = standardize_train(Xfit, Xcal, X_test, Xn_te)
+            encoder = ProjectionEncoder.create(
+                input_dim=Xfit.shape[1], dimensions=DIMS, key=jax.random.PRNGKey(seed)
+            )
+            det = fit_anomaly_pipeline(encoder, jnp.asarray(Xfit), jnp.asarray(Xcal), alpha=ALPHA)
+            test_hv = encoder.encode_batch(jnp.asarray(X_test))
+            # Rank with the raw score; p-value discretization creates avoidable ties.
+            scores = np.asarray(det.scorer.score_batch(test_hv))
+            per_seed["hd_auroc"].append(float(roc_auc_score(y_test, scores)))
+            normal_hv = encoder.encode_batch(jnp.asarray(Xn_te))
+            per_seed["hd_fpr"].append(
+                float(np.asarray(det.predict_batch(normal_hv, alpha=ALPHA)).mean())
+            )
 
             # sklearn baselines: decision_function higher = more normal → negate.
             for bname, model in {
@@ -191,7 +213,7 @@ def anomaly_benchmark():
                 "LOF": LocalOutlierFactor(novelty=True),
                 "OneClassSVM": OneClassSVM(gamma="scale"),
             }.items():
-                model.fit(Xn_tr)
+                model.fit(Xfit)
                 score = -model.decision_function(X_test)
                 per_seed[bname].append(float(roc_auc_score(y_test, score)))
 
@@ -223,30 +245,15 @@ def anomaly_benchmark():
     return rows
 
 
-def provenance():
-    import platform
-    import subprocess
-    import sys
-
-    try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True,
-            text=True,
-            cwd=Path(__file__).parent,
-            check=False,
-        ).stdout.strip()
-    except OSError:
-        commit = "unknown"
-    return {
-        "commit": commit or "unknown",
-        "python": sys.version.split()[0],
-        "jax": jax.__version__,
-        "platform": platform.platform(),
-    }
-
-
 def main():
+    import argparse
+
+    global DIMS
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dimensions", type=int, default=DIMS)
+    parser.add_argument("--output", type=Path, default=Path(__file__).parent / "paper_results.json")
+    args = parser.parse_args()
+    DIMS = args.dimensions
     print(f"bayes-hdc paper benchmark (d={DIMS}, alpha={ALPHA}, seed={SEED})")
     print(f"jax backend: {jax.default_backend()}")
     t0 = time.perf_counter()
@@ -258,14 +265,16 @@ def main():
             "alpha": ALPHA,
             "classification_seed": SEED,
             "anomaly_seeds": ANOM_SEEDS,
+            "protocol": "training-only-preprocessing-v2",
+            "comparison": "different encoders; not a matched implementation or SOTA comparison",
         },
         "provenance": provenance(),
         "classification": cls,
         "anomaly": anom,
         "runtime_s": round(time.perf_counter() - t0, 1),
     }
-    p = Path(__file__).parent / "paper_results.json"
-    p.write_text(json.dumps(out, indent=2))
+    p = args.output
+    write_json(p, out)
     print(f"\nwrote {p} ({out['runtime_s']}s)")
 
 

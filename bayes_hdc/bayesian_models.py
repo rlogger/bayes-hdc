@@ -4,18 +4,18 @@
 """Bayesian learning models — classifiers that report uncertainty natively.
 
 These classifiers sit on top of the PVSA layer (``distributions.py``)
-rather than the deterministic VSA layer (``models.py``). They store a
-posterior distribution per class and expose three output modes:
+rather than the deterministic VSA layer (``models.py``). They store
+Gaussian moments per class and expose three output modes:
 
 - ``predict(x)`` — argmax prediction (MAP);
 - ``predict_proba(x)`` — softmax over expected similarities;
 - ``predict_uncertainty(x)`` — per-class variance of the similarity
-  score. Returns a ``(batch, num_classes)`` array that quantifies
-  how certain the classifier is about each possible class assignment.
+  dot-product score. Returns a ``(batch, num_classes)`` array on the
+  dot-product scale; this does not quantify class-label probabilities.
 
-No existing HDC library ships a classifier that stores per-class
-posteriors and reports class-conditional similarity variance. This is
-an original contribution of the ``bayes-hdc`` library.
+Similarity variances are model-based signals, not calibrated class
+probabilities. The batch and EMA estimators describe within-class spread;
+only the conjugate Gaussian model has a posterior over a fixed class mean.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ import jax
 import jax.numpy as jnp
 
 from bayes_hdc._compat import register_dataclass
+from bayes_hdc._validation import finite_scalar, positive_int, sample_label, training_arrays
 from bayes_hdc.constants import EPS
 from bayes_hdc.distributions import GaussianHV
 
@@ -35,15 +36,17 @@ from bayes_hdc.distributions import GaussianHV
 @register_dataclass
 @dataclass
 class BayesianCentroidClassifier:
-    r"""Gaussian-posterior classifier — one :class:`GaussianHV` per class.
+    r"""Gaussian moment classifier — one :class:`GaussianHV` per class.
 
-    The classifier stores a posterior :math:`p(w_c) = \mathcal{N}(\mu_c,
+    The classifier stores a Gaussian moment approximation :math:`p(w_c) = \mathcal{N}(\mu_c,
     \mathrm{diag}(\sigma_c^2))` for each class's prototype
-    hypervector. Fitted by empirical-Bayes: for every class ``c`` we
+    hypervector. Fitted by variance shrinkage: for every class ``c`` we
     take :math:`\mu_c` as the sample mean and :math:`\sigma_c^2` as
     the sample diagonal variance of the in-class training
     hypervectors, regularised by a prior of strength ``prior_strength``
-    to prevent variance collapse on small classes.
+    to prevent variance collapse on small classes. This estimates within-class
+    variability, not the posterior variance of the estimated mean.
+    It need not shrink to zero as the sample size grows.
 
     At test time the classifier exposes three modes:
 
@@ -54,8 +57,8 @@ class BayesianCentroidClassifier:
       calibratable with :class:`~bayes_hdc.uncertainty.TemperatureCalibrator`.
     - :meth:`predict_uncertainty` — per-class variance of the
       dot-product similarity, computed in closed form from the stored
-      posterior variances. A PVSA-exclusive signal not available from
-      deterministic classifiers.
+      stored variances. This is a dot-product variance; it is not the variance of the
+      cosine scores used for prediction.
 
     Attributes:
         mu: Class means of shape ``(num_classes, d)``.
@@ -76,6 +79,8 @@ class BayesianCentroidClassifier:
         dimensions: int,
     ) -> BayesianCentroidClassifier:
         """Construct an untrained classifier with standard-normal priors."""
+        positive_int(num_classes, "num_classes")
+        positive_int(dimensions, "dimensions")
         return BayesianCentroidClassifier(
             mu=jnp.zeros((num_classes, dimensions)),
             var=jnp.ones((num_classes, dimensions)),
@@ -89,7 +94,7 @@ class BayesianCentroidClassifier:
         train_labels: jax.Array,
         prior_strength: float = 1.0,
     ) -> BayesianCentroidClassifier:
-        r"""Fit empirical-Bayes Gaussian posterior per class.
+        r"""Fit a mean and shrinkage variance per class.
 
         For each class :math:`c`:
 
@@ -98,7 +103,7 @@ class BayesianCentroidClassifier:
             \tilde\sigma_c^2 &= \frac{1}{n_c} \sum_{i: y_i = c} (x_i - \mu_c)^2 \\
             \sigma_c^2 &= \frac{n_c \tilde\sigma_c^2 + \lambda}{n_c + \lambda}
 
-        The third line is a Bayesian-regularised variance with prior
+        The third line is a shrinkage variance with prior
         strength :math:`\lambda = ` ``prior_strength``, which prevents
         variance from collapsing to zero for small classes and gives
         sensible uncertainty even in the limit :math:`n_c = 0`.
@@ -107,13 +112,17 @@ class BayesianCentroidClassifier:
             train_hvs: Training hypervectors of shape ``(n, d)``.
             train_labels: Integer labels of shape ``(n,)``.
             prior_strength: Non-negative Bayesian prior strength
-                (default 1.0). Higher values → wider posteriors.
+                (default 1.0). Higher values pull variance toward one.
 
         Returns:
             A new :class:`BayesianCentroidClassifier` with fitted moments.
         """
-        if train_hvs.shape[0] == 0:
-            raise ValueError("Cannot fit BayesianCentroidClassifier: training data is empty")
+        train_hvs, train_labels = training_arrays(
+            train_hvs, train_labels, self.dimensions, self.num_classes
+        )
+        if jnp.iscomplexobj(train_hvs):
+            raise ValueError("Gaussian class models require real-valued hypervectors")
+        finite_scalar(prior_strength, "prior_strength")
 
         new_mu = []
         new_var = []
@@ -127,7 +136,7 @@ class BayesianCentroidClassifier:
 
             centered_sq = jnp.where(mask[:, None], (train_hvs - mu_c) ** 2, 0.0)
             sample_var = jnp.sum(centered_sq, axis=0) / safe_n
-            var_c = (n_c * sample_var + prior_strength) / (n_c + prior_strength)
+            var_c = (n_c * sample_var + prior_strength) / jnp.maximum(n_c + prior_strength, EPS)
 
             # Empty-class fallback: retain broad prior.
             mu_c = jnp.where(n_c > 0, mu_c, self.mu[c])
@@ -139,7 +148,7 @@ class BayesianCentroidClassifier:
         return self.replace(mu=jnp.stack(new_mu), var=jnp.stack(new_var))
 
     def class_posterior(self, class_idx: int) -> GaussianHV:
-        """Return the stored posterior for class ``class_idx`` as a GaussianHV."""
+        """Return stored class moments as a GaussianHV (legacy method name)."""
         return GaussianHV(
             mu=self.mu[class_idx],
             var=self.var[class_idx],
@@ -157,8 +166,8 @@ class BayesianCentroidClassifier:
     def logits(self, queries: jax.Array) -> jax.Array:
         """Pre-softmax cosine-similarity scores against each class posterior mean.
 
-        This is the canonical input to :meth:`~bayes_hdc.TemperatureCalibrator.fit`
-        and :meth:`~bayes_hdc.ConformalClassifier.fit`.
+        Pass these scores to :meth:`~bayes_hdc.TemperatureCalibrator.fit`.
+        Pass their softmax probabilities to :meth:`~bayes_hdc.ConformalClassifier.fit`.
 
         Args:
             queries: Hypervector(s) of shape ``(D,)`` or ``(N, D)``.
@@ -183,7 +192,7 @@ class BayesianCentroidClassifier:
 
     @jax.jit
     def predict_proba(self, queries: jax.Array) -> jax.Array:
-        """Softmax over cosine similarities — class probabilities."""
+        """Softmax scores, requiring held-out calibration for probability claims."""
         single = queries.ndim == 1
         batched = queries[None, :] if single else queries
         sims = jax.vmap(self._similarity_row)(batched)
@@ -196,14 +205,15 @@ class BayesianCentroidClassifier:
 
         For a query :math:`x` (treated as a zero-variance point) and a
         class posterior :math:`W_c \sim \mathcal{N}(\mu_c, \Sigma_c)`
-        with diagonal :math:`\Sigma_c = \mathrm{diag}(\sigma_c^2)`:
+        with diagonal :math:`\Sigma_c = \mathrm{diag}(\sigma_c^2)` (the fitted
+        class-moment approximation, not a posterior over the mean):
 
         .. math::
             \mathrm{Var}[\langle x, W_c \rangle]
             = \sum_i x_i^2 \sigma_{c,i}^2
 
-        High values for a given class indicate the classifier is
-        uncertain about that assignment.
+        The scale depends on the query norm and within-class spread.
+        This is not a calibrated error probability or cosine-score variance.
 
         Returns:
             Shape ``(num_classes,)`` for a single query, ``(batch,
@@ -262,10 +272,11 @@ class BayesianAdaptiveHDC:
     is trusted vs. the current posterior.
 
     Compared to :class:`BayesianCentroidClassifier`, which does a
-    single empirical-Bayes pass over the whole training set, this
-    classifier supports streaming data, distribution shift, and
-    anytime-valid uncertainty that depends on the number of
-    observations per class seen so far.
+    single moment-estimation pass over the training set, this classifier
+    updates a posterior over a fixed class mean under independent Gaussian
+    observations with known noise variance. There is no forgetting or
+    distribution-shift guarantee, and credible intervals are not
+    anytime-valid frequentist confidence sequences.
 
     Attributes:
         mu: Class means, shape ``(num_classes, d)``.
@@ -289,6 +300,10 @@ class BayesianAdaptiveHDC:
         obs_var: float = 0.1,
     ) -> BayesianAdaptiveHDC:
         """Construct an untrained classifier with an isotropic Gaussian prior."""
+        positive_int(num_classes, "num_classes")
+        positive_int(dimensions, "dimensions")
+        finite_scalar(prior_var, "prior_var")
+        finite_scalar(obs_var, "obs_var", strict=True)
         return BayesianAdaptiveHDC(
             mu=jnp.zeros((num_classes, dimensions)),
             var=jnp.full((num_classes, dimensions), float(prior_var)),
@@ -297,8 +312,11 @@ class BayesianAdaptiveHDC:
             dimensions=dimensions,
         )
 
-    def update(self, sample: jax.Array, label: int) -> BayesianAdaptiveHDC:
+    def update(self, sample: jax.Array, label: int | jax.Array) -> BayesianAdaptiveHDC:
         """Single Kalman update for one (sample, label) pair."""
+        sample, label = sample_label(sample, label, self.dimensions, self.num_classes)
+        if jnp.iscomplexobj(sample):
+            raise ValueError("Gaussian class models require real-valued hypervectors")
         mu_c = self.mu[label]
         var_c = self.var[label]
         denom = self.obs_var + var_c
@@ -326,11 +344,16 @@ class BayesianAdaptiveHDC:
             train_hvs: Training hypervectors of shape ``(n, d)``.
             train_labels: Integer labels of shape ``(n,)``.
             epochs: Number of passes through the data. More epochs
-                tighten the posterior further (bounded below by the
-                observation-noise floor).
+                reuse observations and tighten the posterior toward zero.
+                Use one epoch for the stated independent-observation model;
+                additional passes count the same evidence repeatedly.
         """
-        if train_hvs.shape[0] == 0:
-            raise ValueError("Cannot fit BayesianAdaptiveHDC: training data is empty")
+        train_hvs, train_labels = training_arrays(
+            train_hvs, train_labels, self.dimensions, self.num_classes
+        )
+        if jnp.iscomplexobj(train_hvs):
+            raise ValueError("Gaussian class models require real-valued hypervectors")
+        positive_int(epochs, "epochs")
 
         obs_var = self.obs_var
 
@@ -402,7 +425,7 @@ class BayesianAdaptiveHDC:
 @register_dataclass
 @dataclass
 class StreamingBayesianHDC:
-    r"""Bounded-memory streaming classifier with exponential decay.
+    r"""Exponentially weighted Gaussian moment classifier (legacy class name).
 
     Maintains an exponentially-decayed running mean and variance per
     class, controlled by a ``decay`` factor :math:`\lambda \in (0, 1)`:
@@ -410,13 +433,15 @@ class StreamingBayesianHDC:
     .. math::
         \mu_\text{new} &= \lambda \mu_\text{old} + (1 - \lambda) x \\
         \sigma^2_\text{new} &= \lambda \sigma^2_\text{old}
-                                + (1 - \lambda) (x - \mu_\text{new})^2
+                                + \lambda (1 - \lambda) (x - \mu_\text{old})^2
 
-    This is the bounded-memory variant of :class:`BayesianAdaptiveHDC`:
+    Like :class:`BayesianAdaptiveHDC`, this uses bounded memory:
     posterior memory is ``O(K × d)``, independent of stream length,
     and distribution shift is handled gracefully — old observations
     have exponentially decaying weight, so a changing data stream
-    naturally re-fits the posterior without an explicit reset.
+    adapts the moments without an explicit reset. These are weighted
+    data moments, not a conjugate Bayesian posterior or calibrated
+    uncertainty under distribution shift.
 
     Compared to :class:`BayesianAdaptiveHDC`, the Kalman-style updates
     there yield a strict posterior-narrowing sequence (variance can
@@ -446,6 +471,9 @@ class StreamingBayesianHDC:
         prior_var: float = 1.0,
     ) -> StreamingBayesianHDC:
         """Construct a streaming classifier with broad prior and specified decay."""
+        positive_int(num_classes, "num_classes")
+        positive_int(dimensions, "dimensions")
+        finite_scalar(prior_var, "prior_var")
         if not 0.0 < decay < 1.0:
             raise ValueError(f"decay must be in (0, 1); got {decay}")
         return StreamingBayesianHDC(
@@ -456,14 +484,17 @@ class StreamingBayesianHDC:
             dimensions=dimensions,
         )
 
-    def update(self, sample: jax.Array, label: int) -> StreamingBayesianHDC:
+    def update(self, sample: jax.Array, label: int | jax.Array) -> StreamingBayesianHDC:
         """Single EMA update for one observation."""
+        sample, label = sample_label(sample, label, self.dimensions, self.num_classes)
+        if jnp.iscomplexobj(sample):
+            raise ValueError("Gaussian class models require real-valued hypervectors")
         mu_old = self.mu[label]
         var_old = self.var[label]
         lam = self.decay
 
         new_mu = lam * mu_old + (1.0 - lam) * sample
-        new_var = lam * var_old + (1.0 - lam) * (sample - new_mu) ** 2
+        new_var = lam * var_old + lam * (1.0 - lam) * (sample - mu_old) ** 2
 
         return self.replace(
             mu=self.mu.at[label].set(new_mu),
@@ -482,8 +513,12 @@ class StreamingBayesianHDC:
         JIT-compiles into one XLA computation. Memory is ``O(K * d)``
         and stays constant across the stream.
         """
-        if train_hvs.shape[0] == 0:
-            raise ValueError("Cannot fit StreamingBayesianHDC: training data is empty")
+        train_hvs, train_labels = training_arrays(
+            train_hvs, train_labels, self.dimensions, self.num_classes
+        )
+        if jnp.iscomplexobj(train_hvs):
+            raise ValueError("Gaussian class models require real-valued hypervectors")
+        positive_int(epochs, "epochs")
 
         lam = self.decay
 
@@ -496,7 +531,7 @@ class StreamingBayesianHDC:
             mu_old = mu[label]
             var_old = var[label]
             new_mu = lam * mu_old + (1.0 - lam) * sample
-            new_var = lam * var_old + (1.0 - lam) * (sample - new_mu) ** 2
+            new_var = lam * var_old + lam * (1.0 - lam) * (sample - mu_old) ** 2
             return (mu.at[label].set(new_mu), var.at[label].set(new_var)), None
 
         labels = train_labels.astype(jnp.int32)

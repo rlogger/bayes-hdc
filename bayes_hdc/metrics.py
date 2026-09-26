@@ -49,21 +49,11 @@ def bundle_snr(d: int, n: int) -> jax.Array:
 
 @jax.jit
 def bundle_capacity(d: int, delta: float = 0.05) -> jax.Array:
-    """Maximum number of vectors that can be bundled and still retrieved.
+    """Heuristic bundle-size scale ``sqrt(d / (2 log(1/delta)))``.
 
-    Returns the largest *n* such that the probability of correct retrieval
-    (cosine similarity of the target exceeding all others) stays above
-    1 - *delta*.  For MAP with a codebook of size C = n, the approximate
-    capacity is proportional to sqrt(d).
-
-    Uses the conservative bound n_max ≈ sqrt(d / (2 * ln(1 / delta))).
-
-    Args:
-        d: Dimensionality
-        delta: Tolerable error probability (default: 0.05)
-
-    Returns:
-        Approximate maximum number of bundled vectors
+    This legacy heuristic is not a retrieval-probability bound. It omits
+    the codebook size, encoding correlations, and cleanup rule. Evaluate
+    retrieval empirically for the intended workload before sizing it.
     """
     return jnp.sqrt(d / (2.0 * jnp.log(1.0 / delta)))
 
@@ -75,16 +65,18 @@ def required_dimension(
 ) -> jax.Array:
     r"""Plate's HRR capacity bound — minimum dimension for reliable cleanup.
 
-    Implements the formula given in Stewart, Tang & Eliasmith (2010,
+    Implements the formula given in Stewart, Tang & Eliasmith (2011,
     Eq. 1, citing Plate 2003):
 
     .. math::
-        D \approx 4.5 (k + 0.7) \ln \!\left( \frac{M}{30 q^4} \right)
+        D \approx 4.5 (k + 0.7) \ln \!\left( \frac{M}{30 (1-q)^4} \right)
 
     where ``k = chunk_size`` is the number of role-filler pairs bundled
     into a single composite hypervector, ``M = codebook_size`` is the
     number of atomic items in the cleanup memory, and ``q`` is the
-    target fraction of correct retrievals (usually close to 1).
+    target fraction of correct retrievals (usually close to 1). The source
+    uses ``q`` for the probability of error; this API accepts success
+    probability, so the formula uses ``1 - q``.
 
     The bound is approximate: the constants ``4.5`` and ``0.7`` come
     from a Gaussian-tail analysis of HRR cleanup and assume Plate's
@@ -96,7 +88,7 @@ def required_dimension(
     Args:
         chunk_size: Number of role-filler pairs in each composite (k).
         codebook_size: Number of atomic items in cleanup memory (M).
-        q: Target fraction of correct retrievals in [0, 1] (default 0.99).
+        q: Target fraction of correct retrievals in (0, 1) (default 0.99).
 
     Returns:
         Required hypervector dimension (rounded up to the next int).
@@ -105,7 +97,7 @@ def required_dimension(
     Plate, T. A. (2003). Holographic Reduced Representation: Distributed
     Representation for Cognitive Structures. CSLI Publications. (Eq. 1
     of the capacity analysis chapter.)
-    Stewart, T. C., Tang, Y., Eliasmith, C. (2010). A Biologically
+    Stewart, T. C., Tang, Y., Eliasmith, C. (2011). A Biologically
     Realistic Cleanup Memory: Autoassociation in Spiking Neurons.
     Cognitive Systems Research 12: 84-92.
     """
@@ -115,9 +107,9 @@ def required_dimension(
         raise ValueError(f"codebook_size must be >= 1; got {codebook_size}")
     if not 0.0 < q < 1.0:
         raise ValueError(f"q must be in (0, 1); got {q}")
-    log_arg = jnp.maximum(codebook_size / (30.0 * q**4), 1.0)
+    log_arg = jnp.maximum(codebook_size / (30.0 * (1.0 - q) ** 4), 1.0)
     d = 4.5 * (chunk_size + 0.7) * jnp.log(log_arg)
-    return jnp.ceil(d).astype(jnp.int32)
+    return jnp.maximum(1, jnp.ceil(d).astype(jnp.int32))
 
 
 @jax.jit
@@ -135,8 +127,12 @@ def effective_dimensions(x: jax.Array) -> jax.Array:
     Returns:
         Participation ratio (scalar or batch)
     """
-    x2 = x * x
-    return jnp.sum(x2, axis=-1) ** 2 / (jnp.sum(x2 * x2, axis=-1) + EPS)
+    magnitudes = jnp.abs(x.astype(jnp.result_type(x.dtype, jnp.float32)))
+    scale = jnp.max(magnitudes, axis=-1, keepdims=True)
+    scaled = magnitudes / jnp.where(scale > 0, scale, 1)
+    x2 = scaled**2
+    denominator = jnp.sum(x2**2, axis=-1)
+    return jnp.sum(x2, axis=-1) ** 2 / jnp.where(denominator > 0, denominator, 1)
 
 
 @jax.jit
@@ -167,7 +163,8 @@ def signal_energy(x: jax.Array) -> jax.Array:
     Returns:
         Squared L2 norm
     """
-    return jnp.sum(x * x, axis=-1)
+    x = x.astype(jnp.result_type(x.dtype, jnp.float32))
+    return jnp.sum(jnp.abs(x) ** 2, axis=-1)
 
 
 @jax.jit
@@ -201,7 +198,7 @@ def cosine_matrix(vectors: jax.Array) -> jax.Array:
     """
     norms = jnp.linalg.norm(vectors, axis=-1, keepdims=True) + EPS
     normed = vectors / norms
-    return jnp.clip(normed @ normed.T, -1.0, 1.0)
+    return jnp.clip(jnp.real(normed @ normed.conj().T), -1.0, 1.0)
 
 
 @jax.jit
@@ -221,7 +218,9 @@ def retrieval_confidence(query: jax.Array, codebook: jax.Array) -> jax.Array:
     norms_cb = jnp.linalg.norm(codebook, axis=-1, keepdims=True) + EPS
     normed_cb = codebook / norms_cb
     q_norm = query / (jnp.linalg.norm(query) + EPS)
-    sims = normed_cb @ q_norm
+    if codebook.shape[0] < 2:
+        raise ValueError("retrieval_confidence needs at least two codebook entries")
+    sims = jnp.real(normed_cb.conj() @ q_norm)
     top2 = jax.lax.top_k(sims, k=2)
     return top2[0][0] - top2[0][1]
 
@@ -247,7 +246,8 @@ def expected_calibration_error(
         \big| \mathrm{acc}(B_b) - \mathrm{conf}(B_b) \big|
 
     where :math:`B_b` is the set of samples whose top-1 probability falls in
-    bin :math:`b`. An ECE of 0 means the classifier is perfectly calibrated.
+    bin :math:`b`. An ECE of zero means these empirical bin averages agree; it does
+    not establish calibration at every confidence or for every class.
 
     Args:
         probs: Class probabilities of shape ``(n, k)``. Rows must sum to 1.
@@ -257,6 +257,10 @@ def expected_calibration_error(
     Returns:
         Scalar ECE in ``[0, 1]``.
     """
+    if n_bins < 1:
+        raise ValueError("n_bins must be >= 1")
+    if probs.ndim != 2 or probs.shape[0] == 0 or labels.shape != (probs.shape[0],):
+        raise ValueError("probs and labels must have nonempty shapes (n, k) and (n,)")
     confidences = jnp.max(probs, axis=-1)
     predictions = jnp.argmax(probs, axis=-1)
     correct = (predictions == labels).astype(jnp.float32)
@@ -284,9 +288,13 @@ def maximum_calibration_error(
 ) -> jax.Array:
     """Maximum Calibration Error — the worst bin's accuracy-confidence gap.
 
-    Upper bound on the per-prediction miscalibration. Useful when the tail
-    of overconfident predictions matters more than the average.
+    This is the largest empirical bin-average gap, not a bound on
+    individual predictions or population miscalibration.
     """
+    if n_bins < 1:
+        raise ValueError("n_bins must be >= 1")
+    if probs.ndim != 2 or probs.shape[0] == 0 or labels.shape != (probs.shape[0],):
+        raise ValueError("probs and labels must have nonempty shapes (n, k) and (n,)")
     confidences = jnp.max(probs, axis=-1)
     predictions = jnp.argmax(probs, axis=-1)
     correct = (predictions == labels).astype(jnp.float32)
@@ -326,6 +334,8 @@ def brier_score(
     Returns:
         Scalar Brier score in ``[0, 2]``.
     """
+    if probs.ndim != 2 or probs.shape[1] != n_classes:
+        raise ValueError("n_classes must equal the number of probability columns")
     one_hot = jax.nn.one_hot(labels, n_classes)
     return jnp.mean(jnp.sum((probs - one_hot) ** 2, axis=-1))
 
@@ -351,7 +361,7 @@ def negative_log_likelihood(probs: jax.Array, labels: jax.Array) -> jax.Array:
     """
     n = labels.shape[0]
     picked = probs[jnp.arange(n), labels]
-    return -jnp.mean(jnp.log(jnp.maximum(picked, EPS)))
+    return -jnp.mean(jnp.log(picked))
 
 
 @functools.partial(jax.jit, static_argnames=("n_bins",))
@@ -366,6 +376,10 @@ def reliability_curve(
     each of shape ``(n_bins,)``. Empty bins have zeros in the accuracy and
     confidence slots.
     """
+    if n_bins < 1:
+        raise ValueError("n_bins must be >= 1")
+    if probs.ndim != 2 or probs.shape[0] == 0 or labels.shape != (probs.shape[0],):
+        raise ValueError("probs and labels must have nonempty shapes (n, k) and (n,)")
     confidences = jnp.max(probs, axis=-1)
     predictions = jnp.argmax(probs, axis=-1)
     correct = (predictions == labels).astype(jnp.float32)
@@ -389,6 +403,7 @@ __all__ = [
     # Capacity / representation diagnostics
     "bundle_snr",
     "bundle_capacity",
+    "required_dimension",
     "effective_dimensions",
     "sparsity",
     "signal_energy",

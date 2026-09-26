@@ -414,10 +414,10 @@ class TestVTBModel:
         x = self.model.random(k1, (10000,))
         y = self.model.random(k2, (10000,))
         bound = self.model.bind(x, y)
-        x_inv = self.model.inverse(x)
-        unbound = self.model.bind(x_inv, bound)
+        y_inv = self.model.inverse(y)
+        unbound = self.model.bind(bound, y_inv)
         unbound_norm = unbound / (jnp.linalg.norm(unbound) + 1e-8)
-        sim = self.model.similarity(unbound_norm, y)
+        sim = self.model.similarity(unbound_norm, x)
         assert sim > 0.5
 
 
@@ -519,11 +519,11 @@ class TestBSBCCoverage:
         assert hv.shape == (100,)
 
     def test_random_short_1d_shape(self):
-        """Cover the second 1D branch (shape != (dimensions,) but len==1)."""
+        """Do not silently return more dimensions than were requested."""
         m = BSBC.create(dimensions=100, block_size=10, k_active=2)
         k = jax.random.PRNGKey(0)
-        hv = m.random(k, (50,))
-        assert hv.ndim == 1
+        with pytest.raises(ValueError, match="shape"):
+            m.random(k, (50,))
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ This module provides various encoding strategies to transform different types
 of data (discrete features, continuous values, images) into hypervectors.
 """
 
+import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -20,6 +21,18 @@ from bayes_hdc.vsa import VSAModel, create_vsa_model
 
 if TYPE_CHECKING:
     from bayes_hdc.structures import HierarchicalSequence
+
+
+def _encoder_model(vsa_model: Union[str, VSAModel], dimensions: int) -> VSAModel:
+    """Validate the representations implemented by these encoders."""
+    if dimensions < 1:
+        raise ValueError("dimensions must be positive")
+    vsa = create_vsa_model(vsa_model, dimensions) if isinstance(vsa_model, str) else vsa_model
+    if vsa.dimensions != dimensions:
+        raise ValueError("vsa_model dimensions must match the encoder dimensions")
+    if vsa.name not in {"bsc", "map", "hrr", "fhrr"}:
+        raise ValueError("encoders support bsc, map, hrr, and fhrr representations")
+    return vsa
 
 
 @register_dataclass
@@ -64,12 +77,11 @@ class RandomEncoder:
             key = jax.random.PRNGKey(0)
 
         # Handle both string and VSAModel
-        if isinstance(vsa_model, str):
-            vsa_model_name = vsa_model
-            vsa = create_vsa_model(vsa_model, dimensions)
-        else:
-            vsa_model_name = vsa_model.name
-            vsa = vsa_model
+        vsa = _encoder_model(vsa_model, dimensions)
+        vsa_model_name = vsa.name
+
+        if num_features < 1 or num_values < 1:
+            raise ValueError("num_features and num_values must be positive")
 
         # Generate random codebook
         codebook = vsa.random(key, shape=(num_features, num_values, dimensions))
@@ -93,6 +105,8 @@ class RandomEncoder:
         Returns:
             Encoded hypervector of shape (dimensions,)
         """
+        if indices.shape != (self.num_features,):
+            raise ValueError("indices must have shape (num_features,)")
         # Clamp indices to valid range to avoid out-of-bounds access
         indices = jnp.clip(indices.astype(jnp.int32), 0, self.num_values - 1)
         # Select hypervector for each feature
@@ -100,10 +114,7 @@ class RandomEncoder:
         selected = jax.vmap(lambda i: self.codebook[i, indices[i]])(jnp.arange(self.num_features))
 
         # Bundle all feature hypervectors
-        if self.vsa_model_name == "bsc":
-            return F.bundle_bsc(selected, axis=0)
-        else:
-            return F.bundle_map(selected, axis=0)
+        return create_vsa_model(self.vsa_model_name, self.dimensions).bundle(selected)
 
     @jax.jit
     def encode_batch(self, indices: jax.Array) -> jax.Array:
@@ -166,13 +177,15 @@ class LevelEncoder:
             key = jax.random.PRNGKey(0)
 
         # Handle both string and VSAModel
-        if isinstance(vsa_model, str):
-            vsa_model_name = vsa_model
-            vsa = create_vsa_model(vsa_model, dimensions)
-        else:
-            vsa_model_name = vsa_model.name
-            vsa = vsa_model
+        vsa = _encoder_model(vsa_model, dimensions)
+        vsa_model_name = vsa.name
 
+        if num_levels < 2:
+            raise ValueError("num_levels must be at least 2")
+        if encoding_type not in {"linear", "circular"}:
+            raise ValueError("encoding_type must be 'linear' or 'circular'")
+        if not math.isfinite(min_value) or not math.isfinite(max_value):
+            raise ValueError("min_value and max_value must be finite")
         if min_value >= max_value:
             raise ValueError(
                 f"min_value ({min_value}) must be less than max_value ({max_value}). "
@@ -204,13 +217,17 @@ class LevelEncoder:
         """
         # Normalize value to [0, num_levels - 1] (range validated at create time)
         value_range = self.max_value - self.min_value
-        normalized = (value - self.min_value) / jnp.maximum(value_range, EPS)
-        normalized = jnp.clip(normalized, 0.0, 1.0)
-        level_pos = normalized * (self.num_levels - 1)
+        normalized = (value - self.min_value) / value_range
+        if self.encoding_type == "circular":
+            level_pos = jnp.mod(normalized, 1.0) * self.num_levels
+        else:
+            level_pos = jnp.clip(normalized, 0.0, 1.0) * (self.num_levels - 1)
 
-        # Get lower and upper level indices
+        # Circular interpolation also interpolates the last level to the first.
         lower_idx = jnp.floor(level_pos).astype(jnp.int32)
-        upper_idx = jnp.ceil(level_pos).astype(jnp.int32)
+        upper_idx = (lower_idx + 1) % self.num_levels
+        if self.encoding_type == "linear":
+            upper_idx = jnp.minimum(lower_idx + 1, self.num_levels - 1)
 
         # Interpolation weight
         weight = level_pos - lower_idx
@@ -220,7 +237,11 @@ class LevelEncoder:
         upper_hv = self.level_hvs[upper_idx]
 
         # Linear interpolation for real-valued models
-        if self.vsa_model_name in ["map", "hrr", "fhrr"]:
+        if self.vsa_model_name == "fhrr":
+            # Interpolate along the shortest phase arc, retaining unit modulus.
+            phase_delta = jnp.angle(upper_hv * jnp.conj(lower_hv))
+            return lower_hv * jnp.exp(1j * weight[..., None] * phase_delta)
+        if self.vsa_model_name in ["map", "hrr"]:
             # Weighted combination
             encoded = (1 - weight[..., None]) * lower_hv + weight[..., None] * upper_hv
             # Normalize
@@ -282,10 +303,10 @@ class ProjectionEncoder:
             key = jax.random.PRNGKey(0)
 
         # Handle both string and VSAModel
-        if isinstance(vsa_model, str):
-            vsa_model_name = vsa_model
-        else:
-            vsa_model_name = vsa_model.name
+        vsa_model_name = _encoder_model(vsa_model, dimensions).name
+
+        if input_dim < 1:
+            raise ValueError("input_dim must be positive")
 
         # Create random projection matrix (normalized)
         projection_matrix = jax.random.normal(key, shape=(input_dim, dimensions))
@@ -315,6 +336,8 @@ class ProjectionEncoder:
         if self.vsa_model_name == "bsc":
             # Threshold for binary
             return projected > 0
+        elif self.vsa_model_name == "fhrr":
+            return jnp.exp(1j * projected)
         else:
             # Normalize for real-valued
             norm = jnp.linalg.norm(projected)
@@ -374,10 +397,12 @@ class KernelEncoder:
         if key is None:
             key = jax.random.PRNGKey(0)
 
-        if isinstance(vsa_model, str):
-            vsa_model_name = vsa_model
-        else:
-            vsa_model_name = vsa_model.name
+        vsa_model_name = _encoder_model(vsa_model, dimensions).name
+
+        if input_dim < 1:
+            raise ValueError("input_dim must be positive")
+        if not math.isfinite(gamma) or gamma < 0:
+            raise ValueError("gamma must be finite and non-negative")
 
         # Random Fourier features: omega ~ N(0, 2*gamma I), bias ~ U(0, 2*pi)
         key_omega, key_bias = jax.random.split(key)
@@ -397,6 +422,8 @@ class KernelEncoder:
     def encode(self, x: jax.Array) -> jax.Array:
         """Encode input using RBF kernel approximation."""
         proj = jnp.dot(x, self.omega) + self.bias
+        if self.vsa_model_name == "fhrr":
+            return jnp.exp(1j * proj)
         features = jnp.cos(proj) * jnp.sqrt(2.0 / self.dimensions)
 
         if self.vsa_model_name == "bsc":
@@ -446,13 +473,11 @@ class GraphEncoder:
         if key is None:
             key = jax.random.PRNGKey(0)
 
-        if isinstance(vsa_model, str):
-            vsa_model_name = vsa_model
-            vsa = create_vsa_model(vsa_model, dimensions)
-        else:
-            vsa_model_name = vsa_model.name
-            vsa = vsa_model
+        vsa = _encoder_model(vsa_model, dimensions)
+        vsa_model_name = vsa.name
 
+        if num_nodes < 1:
+            raise ValueError("num_nodes must be positive")
         node_embeddings = vsa.random(key, (num_nodes, dimensions))
 
         return GraphEncoder(
@@ -496,8 +521,14 @@ class GraphEncoder:
             or zeros for an empty graph.
         """
         edges = jnp.clip(edges.astype(jnp.int32), 0, self.num_nodes - 1)
-        encoded = F.graph_encode(edges, self.node_embeddings, directed=True)
-        return encoded / (jnp.linalg.norm(encoded) + EPS)
+        if edges.ndim != 2 or edges.shape[-1] != 2:
+            raise ValueError("edges must have shape (num_edges, 2)")
+        if edges.shape[0] == 0:
+            return jnp.zeros(self.dimensions, dtype=self.node_embeddings.dtype)
+        vsa = create_vsa_model(self.vsa_model_name, self.dimensions)
+        sources = self.node_embeddings[edges[:, 0]]
+        targets = F.permute(self.node_embeddings[edges[:, 1]])
+        return vsa.bundle(vsa.bind(sources, targets))
 
 
 @register_dataclass
@@ -571,10 +602,7 @@ class TokenEncoder:
         if key is None:
             key = jax.random.PRNGKey(0)
 
-        if isinstance(vsa_model, str):
-            vsa = create_vsa_model(vsa_model, dimensions)
-        else:
-            vsa = vsa_model
+        vsa = _encoder_model(vsa_model, dimensions)
         codebook = vsa.random(key, shape=(vocab_size, dimensions))
 
         # L2-normalise per-row so each token's hypervector lives on

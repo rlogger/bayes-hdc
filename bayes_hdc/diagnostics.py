@@ -32,6 +32,7 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 
+from bayes_hdc._validation import positive_int
 from bayes_hdc.distributions import GaussianHV
 
 
@@ -49,8 +50,9 @@ class PPCResult:
         p_value: Two-sided empirical :math:`p`-value — the fraction of
             simulated statistics at least as extreme (in absolute
             deviation from the mean) as the observed one. Values near
-            0.5 indicate excellent fit; values near 0 / 1 indicate
-            misspecification.
+            zero flag large deviations. A value near one means the
+            observation is close to the predictive mean, not that it is
+            misspecified. This diagnostic is not a calibrated hypothesis test.
     """
 
     observed: float
@@ -74,7 +76,7 @@ def statistic_cosine_to_reference(
     eps = 1e-8
     ref_norm = reference / (jnp.linalg.norm(reference) + eps)
     x_norm = x / (jnp.linalg.norm(x, axis=-1, keepdims=True) + eps)
-    return jnp.max(x_norm @ ref_norm)
+    return jnp.max(jnp.real(x_norm.conj() @ ref_norm))
 
 
 def posterior_predictive_check(
@@ -87,7 +89,9 @@ def posterior_predictive_check(
     """Compare an observed statistic to its posterior-predictive distribution.
 
     Args:
-        posterior: Fitted PVSA posterior to check.
+        posterior: Gaussian used directly as the predictive distribution.
+            No observation likelihood or additional noise is integrated;
+            a latent-parameter posterior alone is not a predictive model.
         observed: Observed data, shape ``(n, d)``.
         statistic: Callable mapping ``(n, d)`` to a scalar.
         key: JAX random key.
@@ -98,6 +102,9 @@ def posterior_predictive_check(
         :class:`PPCResult` with the observed statistic, the predictive
         mean / std / 95 % CI, and a two-sided empirical p-value.
     """
+    positive_int(n_replicas, "n_replicas")
+    if observed.ndim != 2 or observed.shape[0] == 0 or observed.shape[1] != posterior.dimensions:
+        raise ValueError("observed must have nonempty shape (n, posterior.dimensions)")
     n_obs = observed.shape[0]
     obs_stat = float(statistic(observed))
 
@@ -162,8 +169,9 @@ def coverage_calibration_check(
     classifier on ``(probs_cal, labels_cal)`` and measures the
     empirical coverage and mean set size on
     ``(probs_test, labels_test)``. Useful for verifying that the
-    classifier actually delivers its claimed coverage guarantee and
-    for choosing a practical operating point.
+    empirical coverage behavior. A single test-set sweep does not prove
+    a population guarantee. Choose an operating point on validation data,
+    then use a fresh test set for its final evaluation.
 
     Args:
         conformal_factory: Callable ``alpha -> ConformalClassifier``.
@@ -174,6 +182,8 @@ def coverage_calibration_check(
     """
     if alphas is None:
         alphas = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
+    if len(alphas) == 0:
+        raise ValueError("alphas must be nonempty")
     alphas_arr = jnp.asarray(alphas, dtype=jnp.float32)
 
     coverages = []

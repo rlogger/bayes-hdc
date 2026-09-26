@@ -1,30 +1,17 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Resonator-network factorisation of a composite hypervector.
+"""Stochastic factor search over Gaussian hypervector codebooks.
 
-Given a composite hypervector ``c = bind(f_1, f_2, f_3)`` formed by
-binding one factor drawn from each of three codebooks, *factorisation*
-recovers the index triple ``(i_1, i_2, i_3)`` such that
-``c == bind(codebook_1[i_1], codebook_2[i_2], codebook_3[i_3])``.
+The public probabilistic_resonator uses softmax index proposals and multiple
+restarts, then keeps the best final alignment. It is inspired by resonator
+factorisation, but has no specified Bayesian stationary distribution or
+Metropolis-Hastings correction. Low temperature makes proposals greedier;
+it does not make this an exact implementation of Frady et al. (2020).
+Gaussian reciprocal and cosine calculations are approximations. Exact
+recovery is checked against the generated index tuple.
 
-A naive brute-force search costs ``n_1 * n_2 * n_3`` similarity scores;
-the **resonator network** (Frady et al. 2020 *Neural Computation* 32(12):
-2311-2331) reduces this to roughly ``O((n_1 + n_2 + n_3) * iters)`` by
-maintaining one approximate factor estimate per slot and iterating a
-constrained-similarity update. Kleyko et al. (2023, *ACM Computing
-Surveys* 55(9), §2.1.4) cites factorisation as one of HDC's
-distinctive deterministic-behaviour applications.
-
-This example demonstrates the **probabilistic resonator** in
-``bayes_hdc.resonator.probabilistic_resonator``: a multi-restart MCMC
-factorisation that runs on PVSA ``GaussianHV`` codebooks and tracks the
-alignment-vs-iteration trajectory of each chain. The deterministic
-resonator is the ``temperature -> 0`` limit of this implementation.
-
-Run::
-
-    python examples/resonator_factorisation.py
+Run: python examples/resonator_factorisation.py
 """
 
 from __future__ import annotations
@@ -49,9 +36,9 @@ def _make_codebook(key: jax.Array, n: int, d: int) -> GaussianHV:
     """A batched ``GaussianHV`` of ``n`` random unit-sphere atomic vectors."""
     mu = jax.random.normal(key, (n, d))
     mu = mu / jnp.linalg.norm(mu, axis=-1, keepdims=True)
-    # Small, constant variance keeps the delta-method inverse well behaved
-    # (the resonator unbinds via approximate reciprocal under Gaussian
-    # binding; var ~ 1/d would blow up the inverse).
+    # Nonzero variance illustrates the representation. Some means are close
+    # to zero, so reciprocal delta approximations can be inaccurate even
+    # at this variance; this demo is not posterior inference.
     var = jnp.full((n, d), 0.001)
     return GaussianHV(mu=mu, var=var, dimensions=d)
 
@@ -103,11 +90,9 @@ def main() -> None:
     if recovered == TRUE_INDICES:
         print("\n[3] ✓ Exact factorisation recovered.")
     else:
-        # Probabilistic algorithms sometimes converge to a near-orthogonal
-        # alternative; check whether the recovered alignment is high enough
-        # to call it a soft success.
+        # Alignment is descriptive; a different tuple is not exact recovery.
         if float(result.alignment) > 0.6:
-            print("\n[3] ~ Near-match (alignment > 0.6); the recovered factors")
+            print("\n[3] Different tuple with alignment > 0.6; the recovered factors")
             print("    explain the composite well even though indices differ.")
         else:
             print("\n[3] ✗ Did not recover the factorisation. Try increasing")
@@ -126,13 +111,8 @@ def main() -> None:
         bar_len = max(0, int(width * v / max_alignment))
         print(f"  iter {i:>3d}: {v:+.4f}  {'█' * bar_len}")
 
-    print("\nThe resonator updates one factor at a time: it un-binds the")
-    print("composite by every other factor (using the delta-method approximate")
-    print("inverse for Gaussian HVs), then projects onto the codebook for the")
-    print("current slot. With n_restarts random initialisations the algorithm")
-    print("escapes shallow local optima — the same multi-restart trick the")
-    print("deterministic Frady-et-al-2020 resonator network uses to break")
-    print("symmetry on hard factorisation instances.")
+    print("\nThis is a stochastic search heuristic with approximate reciprocal moments.")
+    print("Restarts may improve search, but give no recovery or posterior-calibration guarantee.")
 
 
 if __name__ == "__main__":

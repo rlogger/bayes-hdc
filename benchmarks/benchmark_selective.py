@@ -2,38 +2,18 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Selective classification: PVSA vs deterministic HDC.
+"""Compare singleton-set abstention with an MSP threshold on one HDC model.
 
-Setup
------
-
-A selective classifier either makes a prediction or abstains. The goal
-is: trade coverage (fraction of samples predicted) for accuracy on the
-covered subset.
-
-- **Bayes-HDC** uses :class:`ConformalClassifier`: the classifier
-  predicts confidently on samples whose conformal set has size 1
-  (only one class is admitted at the requested :math:`1 - \\alpha`
-  coverage) and abstains otherwise.
-
-- **TorchHD baseline (MSP threshold)** uses max-softmax probability:
-  predict if :math:`\\max_c p(c \\mid x) \\geq \\tau`, otherwise abstain.
-  :math:`\\tau` is chosen to match Bayes-HDC's coverage so the
-  comparison is honest.
-
-Both libraries run the same classifier (``AdaptiveHDC`` on Bayes-HDC's
-side, ``Centroid`` on TorchHD's side) over the same discretised
-encoding. The difference reported is the accuracy on the confident
-subset, isolating the value of conformal-guarantee abstention over
-softmax thresholding.
-
-Results are written to ``benchmarks/benchmark_selective_results.json``.
+This is a within-model scoring ablation, not a TorchHD comparison. Temperature
+and conformal calibration use distinct observations. The MSP threshold targets
+the singleton acceptance fraction measured on the temperature/tuning subset,
+never the test subset. Marginal conformal coverage does not guarantee error
+control on the accepted subset. Realized test acceptance rates can differ.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -58,6 +38,11 @@ from bayes_hdc import (
     TemperatureCalibrator,
 )
 
+if __package__:
+    from ._common import provenance, write_json
+else:
+    from _common import provenance, write_json
+
 DEFAULT_DIMENSIONS = 10_000
 DEFAULT_LEVELS = 64
 DEFAULT_SEED = 42
@@ -72,7 +57,7 @@ class SelectiveResult:
     # Bayes-HDC conformal selective.
     coverage_pvsa: float
     accuracy_confident_pvsa: float
-    # TorchHD MSP threshold matched to PVSA coverage.
+    # MSP threshold selected on the tuning subset of the same model.
     coverage_msp: float
     accuracy_confident_msp: float
     threshold_msp: float
@@ -102,14 +87,16 @@ def _run_one(
         y,
         test_size=0.3,
         random_state=seed,
-        stratify=y,
     )
     X_train, X_cal, y_train, y_cal = train_test_split(
         X_train,
         y_train,
         test_size=CAL_FRACTION,
         random_state=seed,
-        stratify=y_train,
+    )
+
+    X_temp, X_cal, y_temp, y_cal = train_test_split(
+        X_cal, y_cal, test_size=0.5, random_state=seed + 1
     )
 
     disc = KBinsDiscretizer(n_bins=levels, encode="ordinal", strategy="quantile")
@@ -127,9 +114,11 @@ def _run_one(
     )
 
     hv_tr = _encode(X_train, disc, enc)
+    hv_temp = _encode(X_temp, disc, enc)
     hv_ca = _encode(X_cal, disc, enc)
     hv_te = _encode(X_test, disc, enc)
 
+    jax.block_until_ready((hv_tr, hv_temp, hv_ca, hv_te))
     t0 = time.perf_counter()
     clf = AdaptiveHDC.create(
         num_classes=n_classes,
@@ -144,12 +133,13 @@ def _run_one(
     def _logits(hv, p):
         return hv @ p.T
 
+    logits_temp = _logits(hv_temp, clf.prototypes)
     logits_ca = _logits(hv_ca, clf.prototypes)
     logits_te = _logits(hv_te, clf.prototypes)
 
     # Temperature-scaled probabilities for both scoring functions.
     calibrator = TemperatureCalibrator.create().fit(
-        logits_ca, jnp.asarray(y_cal), max_iters=500, lr=0.05
+        logits_temp, jnp.asarray(y_temp), max_iters=500, lr=0.05
     )
     probs_ca = calibrator.calibrate(logits_ca)
     probs_te = calibrator.calibrate(logits_te)
@@ -168,15 +158,17 @@ def _run_one(
     else:
         accuracy_confident_pvsa = float("nan")
 
-    # MSP threshold: pick τ so that coverage on calibration set equals coverage_pvsa.
-    # Matching the empirical coverage makes the two methods directly comparable.
-    cal_max = np.asarray(jnp.max(probs_ca, axis=-1))
-    if coverage_pvsa >= 1.0:
-        threshold = float(cal_max.min() - 1e-9)
-    elif coverage_pvsa <= 0.0:
-        threshold = float(cal_max.max() + 1e-9)
+    # Choose the operating threshold without observing test predictions.
+    probs_tuning = calibrator.calibrate(logits_temp)
+    tuning_sets = np.asarray(conformal.predict_set(probs_tuning))
+    target_acceptance = float(np.mean(tuning_sets.sum(axis=-1) == 1))
+    cal_max = np.asarray(jnp.max(probs_tuning, axis=-1))
+    if target_acceptance >= 1.0:
+        threshold = 0.0
+    elif target_acceptance <= 0.0:
+        threshold = float(np.nextafter(np.float32(1.0), np.float32(np.inf)))
     else:
-        threshold = float(np.quantile(cal_max, 1.0 - coverage_pvsa))
+        threshold = float(np.quantile(cal_max, 1.0 - target_acceptance))
 
     te_max = np.asarray(jnp.max(probs_te, axis=-1))
     confident_msp = te_max >= threshold
@@ -250,7 +242,14 @@ def main() -> int:
         results.append(asdict(res))
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(results, indent=2))
+    write_json(
+        args.output,
+        {
+            "config": vars(args) | {"output": str(args.output)},
+            "provenance": provenance(),
+            "results": results,
+        },
+    )
     print(f"\n→ wrote results to {args.output}")
     return 0
 

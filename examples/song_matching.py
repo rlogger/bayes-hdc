@@ -158,7 +158,7 @@ def main() -> None:
     sim_mat = song_hvs @ song_hvs.T
 
     # ---------------------------------------------------------------- table
-    print("Pairwise song similarity (cosine, 1.00 = identical theme):")
+    print("Pairwise song similarity (cosine, 1.00 = identical vector direction):")
     print("=" * 96)
     header = " " * 22 + "".join(f"{n[:10]:>11}" for n in song_names)
     print(header)
@@ -188,7 +188,7 @@ def main() -> None:
     query_words = ["road", "driving", "night", "highway"]
     query_hv = encode_song(query_words)
     sims = (song_hvs @ query_hv).tolist()
-    ranked = sorted(zip(song_names, sims, strict=True), key=lambda x: -x[1])
+    ranked = sorted(zip(song_names, sims), key=lambda x: -x[1])
     print(f"  query: {query_words}")
     for name, s in ranked[:3]:
         overlap = sorted(set(query_words) & set(SONGS[name]))

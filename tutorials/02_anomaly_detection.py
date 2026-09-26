@@ -1,53 +1,23 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Calibrated one-shot anomaly detection with HDC, from first principles.
+"""Split-conformal anomaly detection on independent synthetic samples.
 
-This is the second tutorial in the read-in-order series (after
-``01_quickstart.py``). It builds the full split-conformal anomaly stack
-on top of the public ``bayes_hdc.anomaly`` API and shows *why* the
-conformal layer earns its keep: a finite-sample false-positive-rate
-guarantee that a naive distance threshold does not give you.
+Fits a scoring pipeline on proper training data and calibrates on separate
+normal observations. For exchangeable calibration/normal test observations,
+conformal p-values are super-uniform and control marginal false-positive
+probability. They do not bound every realised test-batch FPR, guarantee
+anomaly power, or remain valid under arbitrary temporal dependence or shift.
 
-Eight self-contained sections, each runnable in isolation once the
-imports below have executed. End-to-end runtime is a few seconds on a
-CPU at ``d = 4096``.
+The tutorial compares a fixed threshold to recalibration, then illustrates
+refitting with known-normal samples from each current regime. This is an
+oracle simulation, not a guarantee for unlabeled streaming deployment.
 
-    1. Motivation — why HDC for anomaly detection.
-    2. Simplest setup — scorer + conformal detector on a synthetic
-       normal cluster; ASCII histogram of holdout p-values (~uniform).
-    3. The coverage guarantee, empirically — 200 calib/test splits.
-    4. Versus a naive max-z-score threshold with no calibration.
-    5. Multi-VSA — the same demo across MAP, BSC, and HRR.
-    6. Tabular fraud-style demo — scaler -> KBinsDiscretizer ->
-       RandomEncoder -> fit_anomaly_pipeline; precision/recall/F1.
-    7. Streaming twist — re-fit the detector on a drifting window so
-       p-values track distribution shift.
-    8. Where next.
+Reference: Bates, Candes, Lei, Romano and Sesia (2023), Testing for Outliers
+with Conformal p-values, Annals of Statistics 51(1):149-178,
+https://arxiv.org/abs/2104.08279.
 
-The algorithms are not new; the contribution of this library is a
-clean, JAX-pytree-native plug-in for HDC nonconformity scores. The
-split-conformal protocol is Laxhammar (2014) for the anomaly setting,
-refined into the modern p-value form by Lei et al. (2018) and Bates et
-al. (2023). The HDC nonconformity score and its conformalisation
-follow Furlong & Eliasmith (2024) and Liang et al. (2026)
-(ConformalHDC).
-
-References:
-    Bates, Candes, Lei, Romano (2023) — Testing for Outliers with
-        Conformal p-Values, Ann. Statist. 51(1).
-    Furlong & Eliasmith (2024) — Probabilistic Hyperdimensional
-        Computing, Cognitive Neurodynamics 18.
-    Laxhammar (2014) — Conformal Anomaly Detection, Licentiate Thesis.
-    Lei, G'Sell, Rinaldo, Tibshirani, Wasserman (2018) —
-        Distribution-Free Predictive Inference for Regression,
-        JASA 113(523).
-    Liang et al. (2026) — Conformal Hyperdimensional Computing for
-        Anomaly Detection, ICML.
-
-Run::
-
-    python tutorials/02_anomaly_detection.py
+Run: python tutorials/02_anomaly_detection.py
 """
 
 from __future__ import annotations
@@ -107,24 +77,12 @@ def section_1_motivation() -> None:
     print("[1] Why HDC for anomaly detection")
     print("=" * 68)
     print(
-        "\n"
-        "  Hyperdimensional computing fits anomaly detection unusually\n"
-        "  well. A single pass over the normal class bundles into one\n"
-        "  prototype hypervector — there is no iterative training loop, so\n"
-        "  the detector is genuinely one-shot: show it the normal regime\n"
-        "  once and it is ready. What it lacks on its own is a calibrated\n"
-        "  notion of 'how anomalous'. A raw cosine distance is just a\n"
-        "  number; its scale drifts with the data and gives no error\n"
-        "  control.\n\n"
-        "  The split-conformal wrapper supplies exactly that missing\n"
-        "  piece. It converts any HDC nonconformity score into a p-value\n"
-        "  that is uniform on [0, 1] under the exchangeability null, so\n"
-        "  thresholding at level alpha bounds the false-positive rate by\n"
-        "  alpha in finite samples — with no distributional assumption and\n"
-        "  no assumption that the underlying score is any good. The unique\n"
-        "  combination here is one-shot HDC capacity plus a distribution-\n"
-        "  free coverage guarantee (Furlong & Eliasmith 2024; Liang et\n"
-        "  al. 2026, building on Laxhammar 2014 and Lei et al. 2018).\n"
+        "\nA single-pass centroid supplies a normality score. Separate normal\n"
+        "calibration data convert that frozen score to finite-rank p-values.\n"
+        "Under exchangeability, P(p <= alpha) <= alpha for a normal test point.\n"
+        "This is a marginal statement; ties can make p-values conservative.\n"
+        "Realised batch FPRs can exceed alpha, and anomaly recall is not guaranteed.\n"
+        "The wrapper is model-independent and can also calibrate non-HDC scores.\n"
     )
 
 
@@ -170,8 +128,7 @@ def section_2_simplest() -> ProjectionEncoder:
     holdout_p = np.asarray(detector.pvalue_batch(encoder.encode_batch(holdout)))
     print(f"\n  Holdout p-values: mean = {holdout_p.mean():.3f} (uniform -> 0.50),")
     print(f"                     std  = {holdout_p.std():.3f} (uniform -> 0.289)")
-    print("\n  Histogram of holdout p-values (a roughly flat profile means")
-    print("  the conformal null is well-calibrated):\n")
+    print("\n  Histogram of holdout p-values (descriptive; ties can make it conservative):\n")
     print(ascii_hist(holdout_p, n_bins=10, width=40))
 
     # Sanity check: a far-away cluster should be flagged with low p-values.
@@ -186,13 +143,13 @@ def section_2_simplest() -> ProjectionEncoder:
 
 
 # =====================================================================
-# 3. The coverage guarantee, empirically
+# 3. Repeated-split empirical false-positive rates
 # =====================================================================
 
 
 def section_3_coverage() -> None:
     print("=" * 68)
-    print("[3] The coverage guarantee, empirically (200 splits)")
+    print("[3] Repeated-split empirical false-positive rates (200 splits)")
     print("=" * 68)
 
     alpha = 0.1
@@ -227,21 +184,14 @@ def section_3_coverage() -> None:
         fprs.append(float(flags.mean()))
 
     fprs = np.asarray(fprs)
-    se = float(np.sqrt(alpha * (1.0 - alpha) / n_test))
-    band_lo, band_hi = alpha - 3.0 * se, alpha + 3.0 * se
-    within = float(((fprs >= band_lo) & (fprs <= band_hi)).mean())
-
-    print(f"  mean empirical FPR   = {fprs.mean():.4f}   (target alpha = {alpha})")
-    print(f"  per-split FPR std     = {fprs.std():.4f}")
-    print(f"  binomial SE          = {se:.4f}")
-    print(f"  +/- 3*SE band        = [{band_lo:.4f}, {band_hi:.4f}]")
-    print(f"  fraction of splits in the band = {within:.3f}")
-    if fprs.mean() <= alpha + 3.0 * se and within >= 0.9:
-        print("\n  PASS: the empirical FPR clusters around alpha within 3*SE,")
-        print("  as the finite-sample conformal guarantee predicts.")
-    else:
-        print("\n  NOTE: coverage outside the expected band — rerun with a")
-        print("  different seed if this triggers (it should be rare).")
+    # Test flags share a calibration sample and are dependent marginally.
+    # Estimate uncertainty across independent calibration/test replications,
+    # rather than using a binomial band for all test flags together.
+    se_mean = float(fprs.std(ddof=1) / np.sqrt(n_splits))
+    print(f"  mean empirical FPR   = {fprs.mean():.4f}   (marginal target <= {alpha})")
+    print(f"  per-split FPR std     = {fprs.std(ddof=1):.4f}")
+    print(f"  Monte Carlo SE of the mean across splits = {se_mean:.4f}")
+    print("  This simulation describes one score/distribution; it is not a proof.")
     print()
 
 
@@ -268,16 +218,16 @@ def section_4_naive_comparison() -> None:
 
     # The naive baseline: freeze a z-score threshold from the training
     # scores once (mean + 3*std) and never touch it again. This is the
-    # default ad-hoc HDC anomaly rule in much of the applied literature.
+    # illustrative heuristic; it is not claimed to be a literature baseline.
     train_scores = np.asarray(scorer.score_batch(train_hv))
     naive_thr = float(train_scores.mean() + 3.0 * train_scores.std())
     print("\n  Naive rule: flag if nonconformity score > mean + 3*std")
     print(f"  of the training scores (= {naive_thr:.4f}). Fixed forever.")
     print(f"  Conformal rule: predict_batch(..., alpha = {alpha}), which")
     print("  recalibrates on each window's own calibration set.\n")
-    print("  We hold the distribution NORMAL but let its spread grow. A")
-    print("  well-behaved detector should keep the false-positive rate")
-    print("  flat; both populations are in-distribution.\n")
+    print("  Each spread defines a different normal regime. Conformal gets new")
+    print("  known-normal calibration data from that regime; the fixed threshold does not.")
+    print("  This contrasts recalibration with staleness, not equally adapted methods.\n")
 
     print("    spread   naive FPR   conformal FPR")
     print("    " + "-" * 38)
@@ -299,7 +249,7 @@ def section_4_naive_comparison() -> None:
     print("\n  The naive threshold's FPR drifts upward as the spread grows")
     print("  (its fixed cut no longer matches the score distribution),")
     print(f"  while the conformal FPR stays near alpha = {alpha}. Conformal")
-    print("  calibration is what makes the error control distribution-free.")
+    print("  control here relies on calibration/test samples sharing the current regime.")
     print()
 
 
@@ -310,7 +260,7 @@ def section_4_naive_comparison() -> None:
 
 def section_5_multi_vsa() -> None:
     print("=" * 68)
-    print("[5] Coverage holds across VSA models (MAP, BSC, HRR)")
+    print("[5] Empirical rates across VSA models (MAP, BSC, HRR)")
     print("=" * 68)
 
     alpha = 0.1
@@ -324,8 +274,8 @@ def section_5_multi_vsa() -> None:
 
     print("    VSA    metric    holdout FPR   anomaly recall")
     print("    " + "-" * 48)
-    for vsa in ("map", "bsc", "hrr"):
-        key = jax.random.PRNGKey(SEED + hash(vsa) % 1000)
+    for model_index, vsa in enumerate(("map", "bsc", "hrr")):
+        key = jax.random.PRNGKey(SEED + model_index)
         k_enc, k_tr, k_cal, k_hold, k_an = jax.random.split(key, 5)
         encoder = ProjectionEncoder.create(input_dim=2, dimensions=DIMS, vsa_model=vsa, key=k_enc)
 
@@ -349,8 +299,8 @@ def section_5_multi_vsa() -> None:
             f"    {vsa:<5}  {detector.scorer.distance_metric:<8}  {fpr:>9.3f}     {recall:>11.3f}"
         )
 
-    print(f"\n  Holdout FPR sits near alpha = {alpha} for every model, and the")
-    print("  anomaly cluster is recovered with high recall. The same")
+    print(f"\n  Marginal FPR target is <= {alpha}; realised rates and recall vary.")
+    print("  The same")
     print("  conformal wrapper is VSA-agnostic; only the nonconformity")
     print("  metric changes underneath it.")
     print()
@@ -450,7 +400,7 @@ def section_6_fraud() -> None:
     print("\n  Fraud is recovered at high recall while the false-positive")
     print("  rate on genuine transactions stays close to the conformal")
     print(f"  budget of alpha = {alpha} (it is a single finite-sample draw,")
-    print("  so expect a little binomial scatter around the target).")
+    print("  so the realised FPR can exceed alpha; test flags share calibration data).")
     print()
 
 
@@ -472,7 +422,7 @@ def section_7_streaming() -> None:
     # composable approach: re-fit the scorer + conformal detector on a
     # recent window of the (still-normal) stream. Both classes are cheap
     # to rebuild because fit() is a single bundle + sort, so a sliding-
-    # window refit is a perfectly practical online strategy.
+    # window refit is illustrated here using known-normal oracle data.
 
     key = jax.random.PRNGKey(SEED + 4)
     k_enc, k_base = jax.random.split(key)
@@ -485,9 +435,8 @@ def section_7_streaming() -> None:
     print("\n  The normal mean rotates around the origin over time. A stale")
     print("  detector (fit once at t=0) and a window-refit detector (re-fit")
     print("  on the most recent normal window) are both scored on fresh")
-    print("  normal data from the current regime. Mean p-value near 0.5")
-    print("  means 'correctly recognised as normal'; near 0 means the")
-    print("  detector is false-alarming on in-distribution data.\n")
+    print("  normal data from the current regime. A mean p-value is only descriptive;")
+    print("  it is not a probability of normality or a calibration diagnostic by itself.\n")
 
     base = synth_cluster(k_base, 400, centre=[3.0, 0.0], scale=0.3)
     stale_scorer = HDCAnomalyScorer.create(dimensions=DIMS, vsa_model="map")
@@ -503,7 +452,7 @@ def section_7_streaming() -> None:
 
         # Stale detector: never updated since t=0.
         stale_p = float(
-            np.asarray(stale_detector.pvalue_batch(encoder.encode_batch(current[:150]))).mean()
+            np.asarray(stale_detector.pvalue_batch(encoder.encode_batch(current[150:]))).mean()
         )
 
         # Window refit: rebuild scorer + detector from the recent window.
@@ -521,7 +470,8 @@ def section_7_streaming() -> None:
     print("  mean p-value collapses toward 0 — it now flags the new normal")
     print("  as anomalous. Re-fitting on the recent window restores mean")
     print("  p-value near 0.5: the detector tracks the shift and the")
-    print("  conformal guarantee holds against the *current* distribution.")
+    print("  current-regime calibration/test draws are exchangeable in this simulation.")
+    print("  Arbitrary drift, overlapping windows and unlabelled refits need different analysis.")
     print()
 
 
@@ -572,7 +522,7 @@ def main() -> None:
     section_6_fraud()
     section_7_streaming()
     section_8_where_next()
-    print("Tutorial 02 complete. Next: 03_calibration_and_coverage.py.\n")
+    print("Tutorial 02 complete. Next: 03_sequences.py.\n")
 
 
 if __name__ == "__main__":

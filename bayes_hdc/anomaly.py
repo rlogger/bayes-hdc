@@ -18,51 +18,19 @@ top of HDC nonconformity scores. It composes two layers:
 - :class:`ConformalAnomalyDetector` — a split-conformal wrapper around
   any scorer. :meth:`fit` records the scorer's outputs on a held-out
   calibration set of normal data; :meth:`pvalue` returns a conformal
-  *p*-value uniform on :math:`[0, 1]` under the exchangeability null,
+  *p*-value super-uniform under the exchangeability null,
   and :meth:`predict` thresholds the p-value at level :math:`\\alpha`
   with a finite-sample false-positive-rate (FPR) guarantee.
 
-The split-conformal protocol is the one Laxhammar (2014) introduced for
-anomaly detection and Lei et al. (2018) and Bates et al. (2023) refined
-into the modern p-value form. The HDC plug-in for the nonconformity
-score follows Kleyko et al. (2017), Imani et al. (2019), Pandey et al.
-(2021), Thomas et al. (2021), Furlong & Eliasmith (2024) for the
-deterministic score and Liang et al. (2026) ConformalHDC for the
-conformalisation choice. Cherubin et al. (2015) and Smith et al. (2014)
-give the underlying one-class and partial-label variants. The
-algorithmic random-world textbook is Vovk et al. (2005).
-
-Both classes are JAX pytrees: ``jit``, ``vmap``, and ``grad`` compose
-through them without special handling. The scorer is parametrised by a
-:class:`~bayes_hdc.vsa.VSAModel` instance (or model name) so the same
-detector works with any VSA — BSC, MAP, HRR, FHRR, etc.
+The scorer must be fitted on a training split independent of calibration
+and test observations. Conservative conformal p-values are super-uniform
+under exchangeability; ties make them more conservative. Calibration and
+thresholding are discrete, while continuous cosine scores support gradients.
 
 References:
-    Bates et al. (2023), Testing for Outliers with Conformal p-Values,
-    arXiv:2104.13135.
-    Cherubin et al. (2015), Conformal One-Class Classification for
-    Secure Computer Anomaly Detection, COPA.
-    Frady, Kleyko & Sommer (2020), Vector Symbolic Architectures for
-    Cognitive Embeddings, IEEE TPAMI 42(12).
-    Furlong & Eliasmith (2024), Probabilistic Hyperdimensional Computing
-    for Robust Uncertainty Estimation in Anomaly Detection.
-    Imani et al. (2019), Efficient Anomaly Detection using
-    Hyperdimensional Computing, JMLR 20(135).
-    Kleyko, Osipov, Rozov et al. (2017), Exploring Hyperdimensional
-    Computing for Efficient Anomaly Detection in Complex Cybersecurity
-    Systems, IEEE ISCAS.
-    Laxhammar (2014), Conformal Anomaly Detection, Licentiate Thesis.
-    Lei, Candes, Richtarik (2018), Distribution-Free Predictive
-    Inference for Regression, JASA 113(523).
-    Liang et al. (2026), Conformal Hyperdimensional Computing for
-    Anomaly Detection, ICML.
-    Pandey, Imani & Rosing (2021), Hardware-Efficient Learning on
-    Hyperdimensional Computing: Temporal Dataset Anomaly Detection,
-    IEEE IoT-J 8(10).
-    Smith et al. (2014), Conformal Anomaly Detection under Partial
-    Labels, IFIP AIAI.
-    Thomas, Thakur & Sommer (2021), Real-Time Anomaly Detection in
-    Time Series with Hyperdimensional Computing, CoNLL.
+    Bates, Candès, Lei, Romano & Sesia (2023), Testing for Outliers with
+    Conformal p-Values, Annals of Statistics 51(1), 149–178.
+    https://arxiv.org/abs/2104.08279
     Vovk, Gammerman & Shafer (2005), Algorithmic Learning in a Random
     World, Springer.
 """
@@ -76,6 +44,7 @@ import jax
 import jax.numpy as jnp
 
 from bayes_hdc._compat import register_dataclass
+from bayes_hdc._validation import finite_array, positive_int
 from bayes_hdc.constants import EPS
 
 # ----------------------------------------------------------------------
@@ -108,12 +77,9 @@ class HDCAnomalyScorer:
     (typically in :math:`[0, 1]` after normalisation) and in
     :math:`[0, 1]` for Hamming.
 
-    This score is the standard HDC nonconformity measure used by
-    Kleyko et al. (2017), Imani et al. (2019), Pandey et al. (2021),
-    Thomas et al. (2021), and Furlong & Eliasmith (2024). The k-nearest
-    variant is a kernel-style alternative that preserves
-    multi-modal structure in the reference set rather than collapsing
-    it into a single centroid.
+    The k-nearest variant preserves multiple modes in the reference
+    set instead of collapsing it into a single centroid. Detection power
+    depends on the encoder, metric, and data distribution.
 
     Attributes:
         centroid: Bundled / mean reference hypervector of shape
@@ -182,6 +148,8 @@ class HDCAnomalyScorer:
         Returns:
             An unfitted ``HDCAnomalyScorer``.
         """
+        positive_int(dimensions, "dimensions")
+        positive_int(k_neighbors, "k_neighbors")
         if isinstance(vsa_model, str):
             vsa_model_name = vsa_model
         else:
@@ -246,6 +214,7 @@ class HDCAnomalyScorer:
                 f"but scorer was created with dimensions={self.dimensions}"
             )
 
+        finite_array(hvs, "normal_hypervectors")
         if self.distance_metric == "hamming":
             # Majority bundle for BSC. Cast booleans to float for the sum.
             hvs_float = hvs.astype(jnp.float32)
@@ -285,7 +254,7 @@ class HDCAnomalyScorer:
         y_f = y.astype(dtype)
         x_norm = x_f / (jnp.linalg.norm(x_f, axis=-1, keepdims=True) + EPS)
         y_norm = y_f / (jnp.linalg.norm(y_f, axis=-1, keepdims=True) + EPS)
-        return jnp.real(jnp.sum(jnp.conj(x_norm) * y_norm, axis=-1))
+        return jnp.clip(jnp.real(jnp.sum(jnp.conj(x_norm) * y_norm, axis=-1)), -1.0, 1.0)
 
     def score(self, query: jax.Array) -> jax.Array:
         r"""Compute the nonconformity score of a single ``query``.
@@ -294,6 +263,11 @@ class HDCAnomalyScorer:
             Scalar ``jax.Array`` :math:`s(x; \mathcal{R}) \geq 0`,
             larger = more anomalous.
         """
+        if not self.fitted:
+            raise ValueError("HDCAnomalyScorer must be fitted before scoring")
+        query = jnp.asarray(query)
+        if query.shape != (self.dimensions,):
+            raise ValueError(f"query must have shape ({self.dimensions},)")
         if self.k_neighbors <= 1:
             sim = self._similarity(query, self.centroid)
             return 1.0 - sim
@@ -341,9 +315,10 @@ class ConformalAnomalyDetector:
     .. math::
         p(x) \;=\; \frac{1 + |\{i : \alpha_i \geq \alpha(x)\}|}{n + 1},
 
-    which is uniformly distributed on :math:`[0, 1]` under the
-    exchangeability null :math:`x \sim P_{\text{normal}}`
-    (Laxhammar, 2014; Lei et al., 2018; Bates et al., 2023). The
+    which is super-uniform under exchangeability of calibration and normal
+    test observations (Bates et al., 2023). Without ties its marginal
+    distribution is uniform on the finite grid ``{1/(n+1), ..., 1}``,
+    not continuous Uniform[0, 1]. The
     decision rule
 
     .. math::
@@ -381,6 +356,8 @@ class ConformalAnomalyDetector:
     scorer: HDCAnomalyScorer
     calibration_scores: jax.Array  # (n_calibration,), sorted ascending
     n_calibration: int = field(metadata=dict(static=True), default=0)
+    fitted: bool = field(metadata=dict(static=True), default=False)
+    alpha: float = field(metadata=dict(static=True), default=0.05)
 
     @staticmethod
     def create(
@@ -390,9 +367,8 @@ class ConformalAnomalyDetector:
         """Build an unfitted detector around a (possibly unfitted) scorer.
 
         Args:
-            scorer: An :class:`HDCAnomalyScorer`. Will be re-fit inside
-                :meth:`fit` if no normal data has been bundled into it
-                yet, otherwise reused as-is.
+            scorer: An :class:`HDCAnomalyScorer`. Fit it on a separate
+                training split before calling this detector's :meth:`fit`.
             n_calibration: Pre-allocate the calibration buffer to this
                 many entries. Pass the size of the calibration set so
                 the pytree shape is static under JIT.
@@ -417,12 +393,9 @@ class ConformalAnomalyDetector:
 
         The scorer is left untouched (use :meth:`HDCAnomalyScorer.fit`
         on a separate "training" split, then call this :meth:`fit` on a
-        held-out calibration split — that is the split-conformal
-        protocol of Lei et al. (2018)). If the underlying scorer has
-        not yet been fitted, it is auto-fitted on
-        the same data as a convenience; this collapses into the
-        in-sample variant and the FPR guarantee then holds only
-        asymptotically.
+        held-out calibration split). An unfitted scorer is rejected:
+        fitting it on calibration data would invalidate the finite-sample
+        false-positive-rate guarantee.
 
         Args:
             normal_data_hvs: Calibration hypervectors of shape
@@ -444,24 +417,22 @@ class ConformalAnomalyDetector:
         if n == 0:
             raise ValueError("Cannot fit ConformalAnomalyDetector: normal_data_hvs is empty (n=0).")
 
-        # Auto-fit the scorer if it has not been trained yet. A zero
-        # centroid is valid for BSC and cancelling cosine references,
-        # so its norm cannot be used to infer fitted state. This is a
-        # convenience for
-        # the in-sample case; for proper split-conformal guarantees the
-        # caller should fit the scorer on a separate proper-training
-        # split first.
+        if hvs.shape[1] != self.scorer.dimensions:
+            raise ValueError(f"normal_data_hvs must have {self.scorer.dimensions} columns")
+        finite_array(hvs, "normal_data_hvs")
         scorer = self.scorer
         if not scorer.fitted:
-            scorer = scorer.fit(hvs)
+            raise ValueError("Fit the scorer on a separate training split before calibration")
 
-        cal_scores = scorer.score_batch(hvs).astype(jnp.float32)
+        cal_scores = scorer.score_batch(hvs)
         cal_scores = jnp.sort(cal_scores)
 
         return ConformalAnomalyDetector(
             scorer=scorer,
             calibration_scores=cal_scores,
             n_calibration=n,
+            fitted=True,
+            alpha=self.alpha,
         )
 
     def score(self, query_hv: jax.Array) -> jax.Array:
@@ -477,7 +448,7 @@ class ConformalAnomalyDetector:
         r"""Conformal p-value :math:`p(x) \in (0, 1]`.
 
         :math:`p(x) = \frac{1 + |\{i : \alpha_i \geq \alpha(x)\}|}{n + 1}`.
-        Uniform on :math:`[0, 1]` under the exchangeability null;
+        Super-uniform under the exchangeability null;
         smaller values are stronger evidence against normality.
 
         Args:
@@ -486,6 +457,8 @@ class ConformalAnomalyDetector:
         Returns:
             Scalar p-value as ``jax.Array``.
         """
+        if not self.fitted:
+            raise ValueError("ConformalAnomalyDetector must be fitted before pvalue")
         score = self.score(query_hv)
         n = self.n_calibration
         # ``calibration_scores`` is stored sorted ascending (see ``fit``), so the
@@ -507,7 +480,7 @@ class ConformalAnomalyDetector:
         """
         return jax.vmap(self.pvalue)(queries)
 
-    def predict(self, query_hv: jax.Array, alpha: float = 0.05) -> jax.Array:
+    def predict(self, query_hv: jax.Array, alpha: float | None = None) -> jax.Array:
         r"""Boolean anomaly flag at miscoverage level :math:`\alpha`.
 
         Returns ``True`` iff the conformal p-value is at most
@@ -527,11 +500,12 @@ class ConformalAnomalyDetector:
         Raises:
             ValueError: If ``alpha`` is not strictly in :math:`(0, 1)`.
         """
-        if not (0.0 < float(alpha) < 1.0):
+        alpha = self.alpha if alpha is None else alpha
+        if not isinstance(alpha, jax.core.Tracer) and not (0.0 < float(alpha) < 1.0):
             raise ValueError(f"alpha must be in (0, 1), got {alpha}")
-        return self.pvalue(query_hv) <= float(alpha)
+        return self.pvalue(query_hv) <= alpha
 
-    def predict_batch(self, queries: jax.Array, alpha: float = 0.05) -> jax.Array:
+    def predict_batch(self, queries: jax.Array, alpha: float | None = None) -> jax.Array:
         """Vectorised :meth:`predict` over a batch of queries.
 
         Args:
@@ -541,18 +515,21 @@ class ConformalAnomalyDetector:
         Returns:
             Boolean array of shape ``(batch,)``.
         """
-        if not (0.0 < float(alpha) < 1.0):
+        alpha = self.alpha if alpha is None else alpha
+        if not isinstance(alpha, jax.core.Tracer) and not (0.0 < float(alpha) < 1.0):
             raise ValueError(f"alpha must be in (0, 1), got {alpha}")
-        return self.pvalue_batch(queries) <= float(alpha)
+        return self.pvalue_batch(queries) <= alpha
 
     def predict_fdr(self, queries: jax.Array, q: float = 0.1) -> jax.Array:
         r"""Flag anomalies in a batch with false-discovery-rate control.
 
         Applies the Benjamini-Hochberg (BH) procedure to the conformal
-        p-values of the batch. Because split-conformal p-values are
-        positively dependent (PRDS), BH controls the expected fraction
+        p-values of the batch. Under the independent-test-sample
+        assumptions of Bates et al. (including independent normal test
+        observations and an independent proper-training split), these
+        p-values are positively dependent (PRDS), so BH controls the expected fraction
         of *false discoveries* among the flagged points at level
-        :math:`q` (Bates, Candès, Lei & Romano, 2023, *Testing for
+        :math:`q` (Bates, Candès, Lei, Romano & Sesia, 2023, *Testing for
         outliers with conformal p-values*, Annals of Statistics):
 
         .. math::
@@ -580,13 +557,15 @@ class ConformalAnomalyDetector:
         Raises:
             ValueError: If ``q`` is not strictly in :math:`(0, 1)`.
         """
-        if not (0.0 < float(q) < 1.0):
+        if not isinstance(q, jax.core.Tracer) and not (0.0 < float(q) < 1.0):
             raise ValueError(f"q must be in (0, 1), got {q}")
         p = self.pvalue_batch(queries)
         m = p.shape[0]
+        if m == 0:
+            return jnp.zeros((0,), dtype=jnp.bool_)
         sorted_p = jnp.sort(p)
         # BH critical line (i/m) * q for i = 1..m.
-        crit = (jnp.arange(1, m + 1) / m) * float(q)
+        crit = (jnp.arange(1, m + 1) / m) * q
         below = sorted_p <= crit
         # Largest rank k (1-indexed) with p_(k) <= (k/m) q; 0 if none.
         ranks = jnp.where(below, jnp.arange(1, m + 1), 0)
@@ -634,7 +613,7 @@ def fit_anomaly_pipeline(
     guarantee: ``normal_data`` and ``calibration_data`` must come from
     *disjoint* splits exchangeable with the test distribution. Calling
     this function with the same data for both arguments is in-sample
-    and gives only an asymptotic guarantee.
+    and does not have this guarantee.
 
     Args:
         encoder: Any object exposing ``encode_batch(features) ->
@@ -706,7 +685,7 @@ def fit_anomaly_pipeline(
         n_calibration=int(calibration_hvs.shape[0]),
     ).fit(calibration_hvs)
 
-    return detector
+    return detector.replace(alpha=float(alpha))
 
 
 __all__ = [

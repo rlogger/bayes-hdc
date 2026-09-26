@@ -14,7 +14,7 @@ import os
 import sys
 from datetime import datetime
 
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # ----------------------------------------------------------------------
 # Project metadata
@@ -24,13 +24,10 @@ project = "bayes-hdc"
 author = "R.S."
 copyright = f"{datetime.now().year}, {author}"
 
-try:  # Pull the version from the installed package so docs always match.
-    from bayes_hdc import __version__ as _pkg_version
-    release = _pkg_version
-    version = ".".join(_pkg_version.split(".")[:2])
-except Exception:  # pragma: no cover — docs build before package importable
-    release = "0.4.0a0"
-    version = "0.4"
+from bayes_hdc import __version__ as _pkg_version
+
+release = _pkg_version
+version = ".".join(_pkg_version.split(".")[:2])
 
 # ----------------------------------------------------------------------
 # Extensions
@@ -94,7 +91,7 @@ intersphinx_mapping = {
 # Build behaviour
 # ----------------------------------------------------------------------
 
-templates_path = ["_templates"]
+templates_path = []
 exclude_patterns = [
     "_build",
     "Thumbs.db",
@@ -214,7 +211,7 @@ ogp_custom_meta_tags = [
   "author": {"@type": "Person", "name": "R.S."},
   "keywords": "hyperdimensional computing, vector symbolic architectures, JAX, Bayesian machine learning, conformal prediction, uncertainty quantification"
 }
-</script>""",
+</script>""".replace("0.4.0a0", release),
 ]
 
 # Robots.txt — allow all crawlers, point at sitemap.

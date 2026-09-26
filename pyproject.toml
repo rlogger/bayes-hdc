@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -100,23 +100,27 @@ dev = [
     "mypy>=1.0",
 ]
 docs = [
-    "sphinx>=4.0.0",
-    "sphinx-rtd-theme>=1.0.0",
-    "myst-parser>=0.18.0",
-    "sphinx-autodoc-typehints>=1.12.0",
+    "sphinx>=7.0,<9",
+    "furo>=2024.1",
+    "myst-parser>=2.0",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-design>=0.5",
+    "sphinx-autodoc-typehints>=2.0",
+    "sphinx-sitemap>=2.9.0",
+    "sphinxext-opengraph>=0.9",
 ]
 examples = [
     "matplotlib>=3.5.0",
-    "scikit-learn>=1.0.0",
+    "scikit-learn>=1.2.0",
     "tqdm>=4.62.0",
 ]
 datasets = [
-    "scikit-learn>=1.0.0",
+    "scikit-learn>=1.2.0",
 ]
 benchmark = [
     "torch>=2.0.0",
     "torch-hd>=5.0.0",
-    "scikit-learn>=1.0.0",
+    "scikit-learn>=1.2.0",
 ]
 
 [project.urls]
@@ -129,6 +133,9 @@ Discussions = "https://github.com/rlogger/bayes-hdc/discussions"
 Changelog = "https://github.com/rlogger/bayes-hdc/blob/main/CHANGELOG.md"
 "Design notes" = "https://github.com/rlogger/bayes-hdc/blob/main/DESIGN.md"
 Benchmarks = "https://github.com/rlogger/bayes-hdc/blob/main/BENCHMARKS.md"
+
+[tool.setuptools.package-data]
+bayes_hdc = ["py.typed"]
 
 [tool.setuptools.packages.find]
 where = ["."]

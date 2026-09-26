@@ -1,61 +1,19 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Network-intrusion-style calibrated anomaly detection with HDC.
+"""Synthetic network-style anomaly detection with split-conformal p-values.
 
-A one-class network-intrusion detector built entirely on the public
-``bayes_hdc.anomaly`` API. The detector is trained on *normal traffic
-only*; attacks are never shown during fitting. At test time each flow
-gets a split-conformal *p*-value with a distribution-free guarantee:
-the false-positive rate on exchangeable normal traffic is bounded by
-``alpha`` regardless of the encoder, the score function, or the true
-traffic distribution (Laxhammar 2014; Bates et al. 2023).
+Train the scaler, discretiser and score on normal training flows; calibrate
+on independent normal flows drawn from the same fixed mixture. The guarantee
+is a marginal false-positive probability <= alpha under exchangeability,
+not a bound on every realised test-batch rate or arbitrary traffic shift.
+The generated features are illustrative and are not NSL-KDD/CICIDS data.
 
-Pipeline (NSL-KDD-style flow records, ~10 numeric features):
+Reference: Bates, Candes, Lei, Romano and Sesia (2023), Testing for Outliers
+with Conformal p-values, Annals of Statistics 51(1):149-178,
+https://arxiv.org/abs/2104.08279.
 
-1. **`StandardScaler`** — zero-mean / unit-variance per feature, fit on
-   the normal-training split only (the calibration and test splits are
-   transformed with the same statistics).
-2. **`KBinsDiscretizer`** (ordinal) — quantise each standardised
-   feature into a fixed number of bins, yielding integer indices in
-   ``[0, n_bins)``. This is exactly the input ``RandomEncoder`` wants.
-3. **`RandomEncoder`** — map the per-feature bin indices to a single
-   bundled MAP hypervector per flow.
-4. **`fit_anomaly_pipeline`** — encode the normal-training and
-   calibration splits, fit the ``HDCAnomalyScorer`` centroid on the
-   former, and calibrate the ``ConformalAnomalyDetector`` p-value
-   distribution on the latter. The detector object is imported from
-   ``bayes_hdc``; this example never defines one.
-
-The synthetic generator stands in for a real loader. Swap the
-synthetic generator for your NSL-KDD / CICIDS-2017 / UNSW-NB15 loader:
-return ``(features, labels, attack_names)`` arrays with one numeric
-feature row per flow and everything downstream is unchanged.
-
-Output sections:
-
-* fit summary (encoder shape, calibration size, p-value floor);
-* calibration-set p-value distribution (should look ~uniform);
-* test-set false-positive rate on NORMAL traffic (should sit near
-  ``alpha`` — this is the conformal guarantee, observed);
-* detection power (recall at ``alpha``) per attack type.
-
-References:
-  * Laxhammar (2014), Conformal Anomaly Detection, Licentiate Thesis
-    (Univ. Skovde) — the one-class conformal anomaly protocol.
-  * Bates, Candes, Lei, Romano, Sesia (2023), Testing for Outliers
-    with Conformal p-Values, Ann. Statist. 51(1):149-178 — the
-    finite-sample FPR guarantee for conformal outlier p-values.
-  * Lei, G'Sell, Rinaldo, Tibshirani, Wasserman (2018), JASA 113(523)
-    — the split-conformal train / calibrate protocol.
-  * Kleyko, Osipov, Rozov et al. (2017), Exploring Hyperdimensional
-    Computing for Efficient Anomaly Detection in Complex Cybersecurity
-    Systems, IEEE ISCAS — HDC nonconformity scores for intrusion
-    detection.
-
-Run::
-
-    python examples/anomaly_detection_intrusion.py
+Run: python examples/anomaly_detection_intrusion.py
 """
 
 from __future__ import annotations
@@ -110,7 +68,7 @@ ATTACK_NAMES = ("dos", "probe", "r2l")
 # ----------------------------------------------------------------------
 
 
-def _normal_traffic(rng: np.random.Generator, n: int) -> np.ndarray:
+def _normal_traffic(rng: np.random.Generator, n: int, loadings: np.ndarray) -> np.ndarray:
     """Sample ``n`` benign flows as a mixture of correlated Gaussians."""
     # Three benign service profiles, each a correlated Gaussian blob.
     means = np.array(
@@ -125,7 +83,6 @@ def _normal_traffic(rng: np.random.Generator, n: int) -> np.ndarray:
     # A shared low-rank correlation structure across features so the
     # blobs are not axis-aligned — encoded HDC similarity then has to
     # cope with genuine feature dependence, as in real flow records.
-    loadings = rng.standard_normal((N_FEATURES, 3)) * 0.35
 
     comp = rng.choice(len(weights), size=n, p=weights)
     latent = rng.standard_normal((n, 3))
@@ -134,9 +91,11 @@ def _normal_traffic(rng: np.random.Generator, n: int) -> np.ndarray:
     return (base + jitter).astype(np.float32)
 
 
-def _attack_traffic(rng: np.random.Generator, n: int, family: str) -> np.ndarray:
+def _attack_traffic(
+    rng: np.random.Generator, n: int, family: str, loadings: np.ndarray
+) -> np.ndarray:
     """Sample ``n`` malicious flows for one attack family."""
-    base = _normal_traffic(rng, n)
+    base = _normal_traffic(rng, n, loadings)
     shift = np.zeros((1, N_FEATURES), dtype=np.float32)
     scale = np.ones((1, N_FEATURES), dtype=np.float32)
 
@@ -173,15 +132,17 @@ def synthesise_dataset(
     """
     rng = np.random.default_rng(seed)
 
-    train = _normal_traffic(rng, N_TRAIN)
-    calib = _normal_traffic(rng, N_CAL)
+    # Freeze the population covariance before drawing independent splits.
+    loadings = rng.standard_normal((N_FEATURES, 3)) * 0.35
+    train = _normal_traffic(rng, N_TRAIN, loadings)
+    calib = _normal_traffic(rng, N_CAL, loadings)
 
-    test_chunks = [_normal_traffic(rng, N_TEST_NORMAL)]
+    test_chunks = [_normal_traffic(rng, N_TEST_NORMAL, loadings)]
     labels = [np.zeros(N_TEST_NORMAL, dtype=np.int32)]
     attack_ids = [np.full(N_TEST_NORMAL, -1, dtype=np.int32)]
 
     for a_id, family in enumerate(ATTACK_NAMES):
-        test_chunks.append(_attack_traffic(rng, N_PER_ATTACK, family))
+        test_chunks.append(_attack_traffic(rng, N_PER_ATTACK, family, loadings))
         labels.append(np.ones(N_PER_ATTACK, dtype=np.int32))
         attack_ids.append(np.full(N_PER_ATTACK, a_id, dtype=np.int32))
 
@@ -209,6 +170,7 @@ def fit_preprocessor(train: np.ndarray) -> tuple[StandardScaler, KBinsDiscretize
         n_bins=N_BINS,
         encode="ordinal",  # integer bin indices, not one-hot
         strategy="quantile",  # equal-mass bins on the normal distribution
+        subsample=None,
     )
     discretiser.fit(scaler.transform(train))
     return scaler, discretiser
@@ -311,11 +273,11 @@ def main() -> None:
         )
 
     # ----------------------------------------------------------------- 5.
-    print("\n[5] Calibration-set p-value distribution (should be ~uniform).")
+    print("\n[5] Calibration self-ranks (descriptive only).")
     # Self-scored calibration p-values are a sanity check, not the
-    # guarantee: under exchangeability the calibration p-values are
-    # (sub-)uniform on (0, 1]. A roughly flat histogram means the score
-    # is well-calibrated on normal traffic.
+    # guarantee. Ranking the same observations used for calibration is
+    # largely tautological. Fresh exchangeable normal points have
+    # super-uniform p-values; ties can make their distribution conservative.
     calib_hvs = encoder.encode_batch(calib_idx)
     calib_p = np.asarray(detector.pvalue_batch(calib_hvs))
     _histogram(calib_p)
@@ -339,13 +301,7 @@ def main() -> None:
         f"      observed FPR on normal   : {fpr:.3f}   "
         f"({int(test_flags[normal_mask].sum())} / {n_normal_test} flagged)"
     )
-    if fpr <= ALPHA + 0.03:
-        print("      ok: false-positive rate sits at / below alpha (within slack)")
-    else:
-        print(
-            "      note: FPR above alpha — expected occasionally on a finite "
-            "test split; rerun with a larger N_TEST_NORMAL or N_CAL"
-        )
+    print("      Marginal control does not bound every realised test-batch FPR.")
     overall_recall = float(test_flags[attack_mask].mean())
     print(
         f"      overall attack recall    : {overall_recall:.3f}   "
@@ -366,17 +322,11 @@ def main() -> None:
 
     # ----------------------------------------------------------------- 8.
     print(
-        "\nThe detector is trained on normal traffic alone, yet the conformal\n"
-        "layer delivers a finite-sample false-positive guarantee on normal\n"
-        "flows (Laxhammar 2014; Bates et al. 2023): the observed FPR in [6]\n"
-        "sits at / below alpha by construction, with no distributional\n"
-        "assumptions. Per-family recall in [7] tracks how far each attack\n"
-        "cluster sits from the benign manifold in the HDC space — loud\n"
-        "volumetric floods (dos) and scattered scans (probe) are easy;\n"
-        "stealthy remote-to-local (r2l) is the hard, low-recall case, as in\n"
-        "real intrusion benchmarks. Every step is JIT-compiled, vmappable,\n"
-        "and pytree-native. Swap the synthetic generator for your NSL-KDD /\n"
-        "CICIDS-2017 / UNSW-NB15 loader and the pipeline is unchanged."
+        "\nThese are synthetic flow records, not an intrusion benchmark.\n"
+        "With the frozen scorer, independent calibration, and exchangeable\n"
+        "normal test flows, p-values control marginal false-positive probability.\n"
+        "A realised test-batch FPR can exceed alpha. Real traffic needs a\n"
+        "time/group-aware evaluation and separate checks for distribution shift."
     )
 
 

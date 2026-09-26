@@ -23,6 +23,7 @@ A Survey on Hyperdimensional Computing aka Vector Symbolic
 Architectures, Part I. ACM Computing Surveys 55(6): Article 130.
 """
 
+import math
 from dataclasses import dataclass, field
 
 import jax
@@ -290,10 +291,11 @@ class FHRR(VSAModel):
         return x * y
 
     def bundle(self, vectors: jax.Array, axis: int = 0) -> jax.Array:
-        """Bundle using normalized sum."""
+        """Sum phasors and retain their phases (zero sums map to phase zero)."""
         summed = jnp.sum(vectors, axis=axis)
-        norm = jnp.linalg.norm(summed, axis=-1, keepdims=True)
-        return summed / (norm + EPS)
+        magnitude = jnp.abs(summed)
+        safe_magnitude = jnp.where(magnitude > 0, magnitude, 1.0)
+        return jnp.where(magnitude > 0, summed / safe_magnitude, 1.0 + 0.0j)
 
     @jax.jit
     def inverse(self, x: jax.Array) -> jax.Array:
@@ -328,8 +330,10 @@ class FHRR(VSAModel):
 class BSBC(VSAModel):
     """Binary Sparse Block Codes (B-SBC).
 
-    Block-sparse binary vectors with k_active ones per block, XOR binding,
-    majority bundling. The BSC operations carry over directly (Kanerva
+    BSC operations with a block-sparse initializer (k_active ones per block).
+    XOR binding and majority bundling do not preserve this sparsity pattern;
+    this is not the sparsity-preserving block-binding algebra sometimes
+    also called B-SBC. The BSC operations carry over directly (Kanerva
     1997); the sparse-block construction follows the line traced in
     Kleyko et al. (2023) Part I §2.3.7 (sparse binary HDC family).
 
@@ -359,6 +363,8 @@ class BSBC(VSAModel):
         Returns:
             Initialized BSBC model
         """
+        if dimensions < 1 or block_size < 1:
+            raise ValueError("dimensions and block_size must be positive")
         if dimensions % block_size != 0:
             raise ValueError(
                 f"dimensions ({dimensions}) must be divisible by block_size ({block_size})"
@@ -393,6 +399,8 @@ class BSBC(VSAModel):
 
     def random(self, key: jax.Array, shape: tuple) -> jax.Array:
         """Generate random block-sparse binary hypervectors."""
+        if not shape or shape[-1] != self.dimensions:
+            raise ValueError("shape must end with the model dimensions")
         num_blocks = self.dimensions // self.block_size
 
         def gen_block(key_b: jax.Array) -> jax.Array:
@@ -400,11 +408,8 @@ class BSBC(VSAModel):
             block = jnp.zeros(self.block_size, dtype=jnp.bool_)
             return block.at[perm[: self.k_active]].set(True)
 
-        batch_size = max(1, int(jnp.prod(jnp.array(shape))) // self.dimensions)
-        keys = jax.random.split(key, batch_size * num_blocks + 1)[1:]
-        keys_per_hv = jnp.reshape(
-            jnp.stack(keys[: batch_size * num_blocks]), (batch_size, num_blocks, 2)
-        )
+        batch_size = math.prod(shape[:-1])
+        keys_per_hv = jax.random.split(key, (batch_size, num_blocks))
 
         def make_hv(block_keys: jax.Array) -> jax.Array:
             blocks = jax.vmap(gen_block)(block_keys)
@@ -412,10 +417,6 @@ class BSBC(VSAModel):
 
         hvs = jax.vmap(make_hv)(keys_per_hv)
 
-        if batch_size == 1 and shape == (self.dimensions,):
-            return hvs[0]
-        if batch_size == 1 and len(shape) == 1:
-            return hvs[0]
         return jnp.reshape(hvs, shape)
 
 
@@ -505,11 +506,15 @@ class MCR(VSAModel):
 class VTB(VSAModel):
     """Vector-Derived Transformation Binding (VTB).
 
-    Real-valued vectors with matrix multiplication binding, normalized sum bundling.
+    Real-valued vectors with the scaled block-diagonal binding of
+    Gosmann and Eliasmith (2019), normalized sum bundling. Binding is
+    neither associative nor commutative; unbinding uses a right inverse.
     """
 
     @staticmethod
     def create(dimensions: int = 10000) -> "VTB":
+        if dimensions < 1:
+            raise ValueError("VTB requires positive square dimensions")
         n = round(dimensions**0.5)
         if n * n != dimensions:
             raise ValueError(f"VTB requires dimensions to be a perfect square, got {dimensions}")
@@ -526,7 +531,7 @@ class VTB(VSAModel):
 
     @jax.jit
     def inverse(self, x: jax.Array) -> jax.Array:
-        """Inverse via matrix pseudoinverse."""
+        """Approximate right inverse via matrix transposition."""
         return F.inverse_vtb(x)
 
     @jax.jit

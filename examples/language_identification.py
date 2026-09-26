@@ -1,34 +1,16 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Language identification with PVSA — calibrated confidence & conformal prediction.
+"""Character-trigram language classification with held-out calibration.
 
-Character-level HDC language identifier, following the Joshi, Halseth, and
-Kanerva (2016) design, extended with PVSA calibration and conformal
-prediction. Identifies which of five European languages a short text sample
-belongs to and reports:
+This illustrative 100-phrase corpus uses random MAP character vectors, cyclic
+permutation, binding, and bundling. It is inspired by the n-gram construction
+in Joshi, Halseth and Kanerva (2016), not a reproduction of their benchmark.
+Ridge classification, temperature scaling and split conformal use separate
+splits. No conditional coverage by language/length or general-corpus accuracy
+is established by this small hand-written sample.
 
-- **MAP prediction** — the most likely language.
-- **Calibrated probability** — well-calibrated confidence (Guo et al. 2017).
-- **Conformal prediction set** — the set of all languages consistent with
-  the input at α = 0.1. Short ambiguous inputs expand the set; long
-  unambiguous ones collapse to a single language.
-
-Text is encoded as a bundle of position-bound character trigrams
-(Joshi, Halseth, and Kanerva 2016 encoding):
-    text_hv = bundle_i [ char_hv[ci] * permute(char_hv[ci+1], 1) * permute(char_hv[ci+2], 2) ]
-which turns an arbitrary-length string into a single fixed-size hypervector.
-
-The "permute-by-position, bind, bundle" family of order-encoding schemes
-goes back to BEAGLE (Jones & Mewhort 2007, *Psychological Review* 114(1):
-1-37), where it was applied to word n-grams using HRR circular convolution
-and a fixed placeholder vector. The Joshi-Halseth-Kanerva (2016) encoder
-used here applies the same idea to character n-grams with MAP-style
-elementwise binding.
-
-Run::
-
-    python examples/language_identification.py
+Run: python examples/language_identification.py
 """
 
 from __future__ import annotations
@@ -51,8 +33,7 @@ DIMS = 4096
 SEED = 42
 
 # A tiny, self-contained corpus: 20 phrases per language (common greetings,
-# idioms, pangrams). Enough to train a bigram classifier that generalises to
-# unseen sentences.
+# idioms, pangrams). Used only to illustrate a trigram encoder on a small held-out split.
 CORPUS: dict[str, list[str]] = {
     "english": [
         "the quick brown fox jumps over the lazy dog",
@@ -167,7 +148,7 @@ CORPUS: dict[str, list[str]] = {
 }
 
 LANGUAGES = list(CORPUS.keys())
-# 26 lowercase letters + space + digits: cap at 64 for simplicity.
+# 26 lowercase letters and space; other characters are discarded.
 ALPHABET = "abcdefghijklmnopqrstuvwxyz "
 CHAR_TO_IDX = {c: i for i, c in enumerate(ALPHABET)}
 
@@ -217,32 +198,19 @@ def main() -> None:
         key=k_cb,
     ).codebook[0]  # shape (|alphabet|, D)
 
-    # Split 20 phrases per language → 10 train, 5 calibration, 5 test.
-    # Larger cal+test sets make the conformal quantile better-behaved.
+    # A small illustrative corpus, not a representative language benchmark.
+    # Randomly partition all rows before fitting any estimator.
+    records = [(text, i) for i, lang in enumerate(LANGUAGES) for text in CORPUS[lang]]
     rng = np.random.default_rng(SEED)
-    train_hvs_list, train_labels_list = [], []
-    cal_hvs_list, cal_labels_list = [], []
-    test_hvs_list, test_labels_list, test_texts = [], [], []
-    for lang_idx, lang in enumerate(LANGUAGES):
-        phrases = list(CORPUS[lang])
-        rng.shuffle(phrases)
-        for phrase in phrases[:10]:
-            train_hvs_list.append(encode_text(phrase, char_cb, DIMS))
-            train_labels_list.append(lang_idx)
-        for phrase in phrases[10:15]:
-            cal_hvs_list.append(encode_text(phrase, char_cb, DIMS))
-            cal_labels_list.append(lang_idx)
-        for phrase in phrases[15:]:
-            test_hvs_list.append(encode_text(phrase, char_cb, DIMS))
-            test_labels_list.append(lang_idx)
-            test_texts.append(phrase)
-
-    train_hvs = jnp.stack(train_hvs_list)
-    train_labels = jnp.asarray(train_labels_list, dtype=jnp.int32)
-    cal_hvs = jnp.stack(cal_hvs_list)
-    cal_labels = jnp.asarray(cal_labels_list, dtype=jnp.int32)
-    test_hvs = jnp.stack(test_hvs_list)
-    test_labels = jnp.asarray(test_labels_list, dtype=jnp.int32)
+    perm = rng.permutation(len(records))
+    train_idx, temp_idx, cal_idx, test_idx = np.split(perm, [50, 65, 80])
+    all_hvs = jnp.stack([encode_text(text, char_cb, DIMS) for text, _ in records])
+    all_labels = jnp.asarray([label for _, label in records], dtype=jnp.int32)
+    train_hvs, train_labels = all_hvs[train_idx], all_labels[train_idx]
+    temp_hvs, temp_labels = all_hvs[temp_idx], all_labels[temp_idx]
+    cal_hvs, cal_labels = all_hvs[cal_idx], all_labels[cal_idx]
+    test_hvs, test_labels = all_hvs[test_idx], all_labels[test_idx]
+    test_texts = [records[i][0] for i in test_idx]
 
     # Fit ridge regression on training hypervectors.
     clf = RegularizedLSClassifier.create(
@@ -253,18 +221,17 @@ def main() -> None:
     logits_cal = cal_hvs @ clf.weights
     logits_test = test_hvs @ clf.weights
 
-    # Calibrate on cal set.
+    # Temperature uses a disjoint split, then freezes before conformal fitting.
     calibrator = TemperatureCalibrator.create().fit(
-        logits_cal,
-        cal_labels,
+        temp_hvs @ clf.weights,
+        temp_labels,
         max_iters=200,
     )
     probs_cal = calibrator.calibrate(logits_cal)
     probs_test = calibrator.calibrate(logits_test)
 
     # Conformal wrap at α = 0.2 (target ≥ 80 % marginal coverage).
-    # Tighter α saturates the n_cal = 25 quantile to "always include all 5"
-    # classes; α = 0.2 keeps the set sizes informative.
+    # The finite calibration sample can yield large or uninformative sets.
     alpha = 0.2
     conformal = ConformalClassifier.create(alpha=alpha).fit(probs_cal, cal_labels)
     set_mask = conformal.predict_set(probs_test)
@@ -292,9 +259,9 @@ def main() -> None:
         print(f"  {mark}  [{pred_lang:>8s} @ {max_probs[i]:.2f}] set={in_set}")
         print(f"      text: '{txt}'  (true: {true_lang})")
     print(
-        "\nAmbiguous / short inputs naturally produce larger conformal sets; long "
-        "unambiguous sentences collapse to a singleton. The coverage guarantee holds "
-        "regardless of sentence length."
+        "\nThese hand-picked phrases illustrate the API. Coverage is marginal\n"
+        "under exchangeability, not conditional on sentence length or language.\n"
+        "This corpus does not establish performance on general language data."
     )
 
 

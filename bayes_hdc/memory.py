@@ -6,6 +6,7 @@
 Sparse Distributed Memory (SDM), Hopfield networks, and attention-based retrieval.
 """
 
+import math
 from dataclasses import dataclass, field
 from dataclasses import replace as dc_replace
 from typing import Optional
@@ -34,6 +35,10 @@ class SparseDistributedMemory:
         radius: float = 0.0,
         key: Optional[jax.Array] = None,
     ) -> "SparseDistributedMemory":
+        if num_locations < 1 or dimensions < 1:
+            raise ValueError("num_locations and dimensions must be positive")
+        if not math.isfinite(radius) or not 0 <= radius <= 2:
+            raise ValueError("radius must be a finite cosine distance in [0, 2]")
         if key is None:
             key = jax.random.PRNGKey(0)
         locs = jax.random.normal(key, (num_locations, dimensions))
@@ -99,6 +104,8 @@ class HopfieldMemory:
         dimensions: int,
         beta: float = 1.0,
     ) -> "HopfieldMemory":
+        if dimensions < 1 or not math.isfinite(beta) or beta <= 0:
+            raise ValueError("dimensions and beta must be positive and beta finite")
         return HopfieldMemory(
             patterns=jnp.zeros((0, dimensions)),
             dimensions=dimensions,
@@ -137,6 +144,10 @@ class AttentionMemory:
         temperature: float = 1.0,
         num_heads: int = 1,
     ) -> "AttentionMemory":
+        if dimensions < 1:
+            raise ValueError("dimensions must be positive")
+        if not math.isfinite(temperature) or temperature <= 0:
+            raise ValueError("temperature must be finite and positive")
         if num_heads < 1:
             raise ValueError(f"num_heads must be >= 1, got {num_heads}")
         if num_heads > 1 and dimensions % num_heads != 0:

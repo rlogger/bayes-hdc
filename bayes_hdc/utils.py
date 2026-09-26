@@ -37,16 +37,18 @@ def benchmark_function(
     Returns:
         Dictionary with timing statistics (mean, std, min, max, median in ms)
     """
+    if num_trials < 1 or warmup < 0:
+        raise ValueError("num_trials must be positive and warmup non-negative")
     for _ in range(warmup):
         result = fn(*args, **kwargs)
         jax.block_until_ready(result)
 
     times_list: list[float] = []
     for _ in range(num_trials):
-        start = time.time()
+        start = time.perf_counter()
         result = fn(*args, **kwargs)
         jax.block_until_ready(result)
-        end = time.time()
+        end = time.perf_counter()
         times_list.append((end - start) * 1000)
 
     times = jnp.array(times_list)

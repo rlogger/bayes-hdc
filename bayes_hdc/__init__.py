@@ -1,19 +1,14 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Bayes-HDC: Probabilistic Vector Symbolic Architectures (PVSA) on JAX.
+"""Hyperdimensional computing and probabilistic VSA tools in JAX.
 
-PVSA is an HDC algebra in which every hypervector is a posterior
-distribution, and every VSA primitive propagates that posterior's
-moments in closed form. Bayes-HDC is the first library implementing
-PVSA: it ships Gaussian and Dirichlet hypervector types, a
-temperature calibrator, a conformal classifier with coverage
-guarantees, and calibration metrics (ECE / MCE / Brier / reliability).
-
-On top of PVSA, the library provides a complete deterministic VSA
-foundation (eight classical models, five encoders, five classifiers,
-three memory modules, four symbolic data structures, capacity analysis)
-as a baseline and substrate.
+Includes deterministic VSA models, diagonal Gaussian and Dirichlet
+representations, moment propagation under stated independence assumptions,
+learning models, temperature scaling, and split-conformal wrappers.
+Moment-matched operations need not preserve the full distribution. Conformal
+coverage requires held-out calibration and exchangeable calibration/test data;
+these wrappers do not guarantee accuracy, selective risk, or robustness to shift.
 """
 
 __version__ = "0.5.0a1"

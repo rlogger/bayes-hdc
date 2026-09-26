@@ -20,7 +20,7 @@ RUN apt-get update \
         build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml README.md LICENSE ORIGINALITY.md CITATION.cff ./
+COPY pyproject.toml README.md LICENSE CITATION.cff ./
 COPY bayes_hdc/ bayes_hdc/
 
 RUN pip install --no-cache-dir --upgrade pip \
@@ -63,8 +63,8 @@ CMD ["bash", "-c", "\
     python benchmarks/benchmark_ood.py \
         --output benchmarks/results/ood.json && \
     python benchmarks/generate_figures.py \
-        --results benchmarks/results/calibration.json && \
-    cp -r benchmarks/figures benchmarks/results/figures || true && \
+        --results benchmarks/results/calibration.json \
+        --output-dir benchmarks/results/figures && \
     echo 'All benchmarks complete — results in benchmarks/results/'"]
 
 # --------- minimal runtime image ---------

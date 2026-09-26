@@ -2,41 +2,18 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Out-of-distribution detection: PVSA vs classical HDC.
+"""Empirical held-out-class detection using a single HDC classifier.
 
-Setup
------
-
-- Train a classifier on :math:`K - 1` in-distribution (ID) classes.
-- At test time, score each sample against the classifier and ask:
-  "Is this sample from the held-out (OOD) class?"
-- Report AUROC for ID vs OOD discrimination.
-
-Scoring functions under comparison
-----------------------------------
-
-1. **Max softmax probability (MSP)** — the standard baseline
-   (Hendrycks & Gimpel, 2017). Available on both libraries; the score
-   is :math:`\\max_c p(c \\mid x)`. Higher = more confident the sample is ID.
-
-2. **Negative conformal set size (PVSA-only)** — uses
-   ``ConformalClassifier`` fitted on an ID calibration set. A sample is
-   scored by the number of classes the conformal procedure includes at
-   :math:`1 - \\alpha` coverage: ID samples get small sets (1), OOD
-   samples tend to get large sets (set-size grows when no class is a
-   confident match). The score is ``-set_size`` so larger is more-ID,
-   matching the MSP convention.
-
-This is a PVSA-native OOD signal — it cannot be computed without the
-conformal machinery that ``bayes-hdc`` ships and TorchHD does not.
-
-Results are written to ``benchmarks/benchmark_ood_results.json``.
+Compare maximum softmax probability before/after temperature scaling and
+conformal set size. Set size is only a candidate OOD score: unfamiliar samples
+can also produce empty or confident singleton sets. No OOD detection guarantee
+follows from marginal in-distribution conformal coverage. Conformal wrappers
+can be applied to any classifier, including TorchHD outputs.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -57,6 +34,11 @@ from bayes_hdc import (
     TemperatureCalibrator,
 )
 
+if __package__:
+    from ._common import provenance, write_json
+else:
+    from _common import provenance, write_json
+
 DEFAULT_DIMENSIONS = 10_000
 DEFAULT_LEVELS = 64
 DEFAULT_SEED = 42
@@ -72,7 +54,7 @@ class OODResult:
     n_ood_test: int
     auroc_msp: float  # baseline, both libraries
     auroc_msp_calibrated: float  # after temperature scaling
-    auroc_conformal_set_size: float  # PVSA-only
+    auroc_conformal_set_size: float  # empirical candidate score
     fit_ms: float
 
 
@@ -113,17 +95,19 @@ def _run_one(
         y_id_remapped,
         test_size=0.3,
         random_state=seed,
-        stratify=y_id_remapped,
     )
     X_train, X_cal, y_train, y_cal = train_test_split(
         X_train,
         y_train,
         test_size=CAL_FRACTION,
         random_state=seed,
-        stratify=y_train,
     )
 
     # Fit discretiser on training ID data only.
+    X_temp, X_cal, y_temp, y_cal = train_test_split(
+        X_cal, y_cal, test_size=0.5, random_state=seed + 1
+    )
+
     disc = KBinsDiscretizer(n_bins=levels, encode="ordinal", strategy="quantile")
     disc.fit(X_train)
 
@@ -139,10 +123,12 @@ def _run_one(
     )
 
     hv_tr = _encode(X_train, disc, enc)
+    hv_temp = _encode(X_temp, disc, enc)
     hv_ca = _encode(X_cal, disc, enc)
     hv_te = _encode(X_test, disc, enc)
     hv_ood = _encode(X_ood, disc, enc)
 
+    jax.block_until_ready((hv_tr, hv_temp, hv_ca, hv_te, hv_ood))
     t0 = time.perf_counter()
     clf = AdaptiveHDC.create(
         num_classes=n_classes,
@@ -158,13 +144,14 @@ def _run_one(
     def _logits(hv: jax.Array, p: jax.Array) -> jax.Array:
         return hv @ p.T
 
+    logits_temp = _logits(hv_temp, clf.prototypes)
     logits_ca = _logits(hv_ca, clf.prototypes)
     logits_id_test = _logits(hv_te, clf.prototypes)
     logits_ood = _logits(hv_ood, clf.prototypes)
 
     # Temperature scaling on calibration set.
     calibrator = TemperatureCalibrator.create().fit(
-        logits_ca, jnp.asarray(y_cal), max_iters=500, lr=0.05
+        logits_temp, jnp.asarray(y_temp), max_iters=500, lr=0.05
     )
 
     probs_id_test_raw = jax.nn.softmax(logits_id_test, axis=-1)
@@ -195,7 +182,7 @@ def _run_one(
     auroc_msp = float(roc_auc_score(y_auroc, msp_raw))
     auroc_msp_cal = float(roc_auc_score(y_auroc, msp_cal))
 
-    # Conformal set size as OOD score (PVSA-only).
+    # Conformal set size as an empirical candidate OOD score.
     conformal = ConformalClassifier.create(alpha=alpha).fit(probs_ca_cal, jnp.asarray(y_cal))
     set_mask_id = conformal.predict_set(probs_id_test_cal)
     set_mask_ood = conformal.predict_set(probs_ood_cal)
@@ -280,7 +267,14 @@ def main() -> int:
         )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(results, indent=2))
+    write_json(
+        args.output,
+        {
+            "config": vars(args) | {"output": str(args.output)},
+            "provenance": provenance(),
+            "results": results,
+        },
+    )
     print(f"\n→ wrote results to {args.output}")
     return 0
 

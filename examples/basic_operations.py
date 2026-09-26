@@ -129,7 +129,8 @@ def demo_bundling():
     # Test capacity: bundle more vectors and observe degradation
     print("\nCapacity test (bundling varying numbers of vectors):")
     for n in [5, 10, 20, 50, 100]:
-        test_vectors = model.random(jax.random.split(key)[0], (n, 10000))
+        key, sample_key = jax.random.split(key)
+        test_vectors = model.random(sample_key, (n, 10000))
         test_bundled = model.bundle(test_vectors, axis=0)
         test_sim = jnp.mean(jax.vmap(lambda v: model.similarity(test_bundled, v))(test_vectors))
         print(f"  {n:3d} vectors: avg similarity = {test_sim:.4f}")
@@ -230,46 +231,49 @@ def demo_bsc_vs_map():
     # BSC model (binary)
     print("\nBSC (Binary Spatter Codes):")
     bsc = BSC.create(dimensions=10000)
-    x_bsc = bsc.random(key, (10000,))
-    y_bsc = bsc.random(jax.random.split(key)[0], (10000,))
+    kb_x, kb_y, km_x, km_y = jax.random.split(key, 4)
+    x_bsc = bsc.random(kb_x, (10000,))
+    y_bsc = bsc.random(kb_y, (10000,))
 
     print(f"  Vector dtype: {x_bsc.dtype}")
     print(f"  Memory per vector: {x_bsc.nbytes / 1024:.2f} KB")
     print("  Binding operation: XOR (reversible, lossless)")
 
-    # Benchmark binding
+    # Warm up, then synchronise each timed call (includes dispatch overhead).
+    bsc.bind(x_bsc, y_bsc).block_until_ready()
     start_time = time.perf_counter()
     for _ in range(num_ops):
-        _ = bsc.bind(x_bsc, y_bsc)
+        bsc.bind(x_bsc, y_bsc).block_until_ready()
     jax.block_until_ready(bsc.bind(x_bsc, y_bsc))
     bsc_time = (time.perf_counter() - start_time) * 1000 / num_ops
 
     bound_bsc = bsc.bind(x_bsc, y_bsc)
     sim_bsc = bsc.similarity(bound_bsc, x_bsc)
     print(f"  Similarity after binding: {sim_bsc:.4f}")
-    print(f"  Binding time (avg): {bsc_time:.4f}ms")
+    print(f"  Warm binding time including host dispatch (avg): {bsc_time:.4f}ms")
 
     # MAP model (real-valued)
     print("\nMAP (Multiply-Add-Permute):")
     map_model = MAP.create(dimensions=10000)
-    x_map = map_model.random(key, (10000,))
-    y_map = map_model.random(jax.random.split(key)[0], (10000,))
+    x_map = map_model.random(km_x, (10000,))
+    y_map = map_model.random(km_y, (10000,))
 
     print(f"  Vector dtype: {x_map.dtype}")
     print(f"  Memory per vector: {x_map.nbytes / 1024:.2f} KB")
     print("  Binding operation: Element-wise multiplication")
 
-    # Benchmark binding
+    # Warm up, then synchronise each timed call (includes dispatch overhead).
+    map_model.bind(x_map, y_map).block_until_ready()
     start_time = time.perf_counter()
     for _ in range(num_ops):
-        _ = map_model.bind(x_map, y_map)
+        map_model.bind(x_map, y_map).block_until_ready()
     jax.block_until_ready(map_model.bind(x_map, y_map))
     map_time = (time.perf_counter() - start_time) * 1000 / num_ops
 
     bound_map = map_model.bind(x_map, y_map)
     sim_map = map_model.similarity(bound_map, x_map)
     print(f"  Similarity after binding: {sim_map:.4f}")
-    print(f"  Binding time (avg): {map_time:.4f}ms")
+    print(f"  Warm binding time including host dispatch (avg): {map_time:.4f}ms")
 
     # Comparison
     print("\nComparison:")
@@ -279,7 +283,7 @@ def demo_bsc_vs_map():
         f"{max(bsc_time, map_time) / min(bsc_time, map_time):.1f}x faster"
     )
     print("\nTrade-offs:")
-    print("  BSC: Memory-efficient, discrete operations, XOR binding")
+    print("  BSC: Discrete operations, XOR binding; storage depends on actual dtype")
     print("  MAP: Gradient-friendly, smooth similarity, real-valued optimization")
 
 

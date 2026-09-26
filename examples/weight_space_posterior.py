@@ -1,49 +1,17 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 R.S.
 
-"""Weight-space as a PVSA posterior.
+"""Sampling a conjugate Gaussian posterior over class means.
 
-A short, self-contained demonstration that a classifier's "weights" are a
-first-class object in this library — and specifically that
-:class:`~bayes_hdc.BayesianCentroidClassifier` stores a distribution over
-weight-space rather than a point estimate.
+BayesianAdaptiveHDC performs one pass of conjugate updates for independent
+Gaussian observations with known noise variance and an isotropic prior.
+This example matches that likelihood with synthetic variance 0.08**2. It
+samples class-mean matrices and describes their decision disagreement on a
+constructed boundary query, not a held-out accuracy or calibrated uncertainty
+benchmark. Cyclic permutation of coordinates preserves this model's mean
+and variance; no claim about arbitrary neural-network weight symmetries follows.
 
-## What the weight-space research programme cares about
-
-The recent programme of treating a trained network's weights as *data* — see
-e.g. the literature on weight-space symmetries, equivariant neural
-functionals (NFNs), and meta-learning over parameter tensors — asks three
-things of a representation:
-
-1. the weights must be a well-typed, inspectable object;
-2. the symmetry group of weight-space (for us: the cyclic shift + channel
-   permutations) must be first-class;
-3. the representation should carry a distribution, not just a point.
-
-This library gives all three for free on the HDC substrate. A
-:class:`BayesianCentroidClassifier` is K class hypervectors
-:math:`\\{\\mathbf{w}_c\\}_{c=1}^{K}`, each one a :class:`GaussianHV` with an
-explicit posterior mean ``mu_c`` and per-dimension variance ``var_c``.
-
-## What this example does
-
-1. Draw 4 synthetic classes on the unit sphere.
-2. Fit a :class:`BayesianCentroidClassifier` — the posterior over class
-   centroids is :class:`GaussianHV`-valued.
-3. Read off the posterior mean and variance per class — these *are* the
-   weights and their uncertainty.
-4. Sample several weight configurations from the posterior. Each sample is
-   an entire alternate classifier.
-5. Predict with each sampled classifier on a held-out query. Disagreement
-   across samples is *epistemic uncertainty* — the query lies where the
-   weight posterior is broad.
-6. Verify that the whole pipeline respects the cyclic-shift symmetry of
-   weight-space: shifting every training hypervector by the same ``k`` and
-   refitting produces posterior centroids shifted by the same ``k``.
-
-Run::
-
-    python examples/weight_space_posterior.py
+Run: python examples/weight_space_posterior.py
 """
 
 from __future__ import annotations
@@ -53,7 +21,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from bayes_hdc import (
-    BayesianCentroidClassifier,
+    BayesianAdaptiveHDC,
     GaussianHV,
     cosine_similarity,
     shift,
@@ -69,7 +37,7 @@ SEED = 2026
 def _make_clusters(
     key: jax.Array,
 ) -> tuple[jax.Array, jax.Array]:
-    """Four well-separated unit-norm clusters on the sphere."""
+    """Gaussian observations with known noise variance around unit-norm means."""
     k_centres, k_noise = jax.random.split(key)
     centres = jax.random.normal(k_centres, (NUM_CLASSES, DIMS))
     centres = centres / jnp.linalg.norm(centres, axis=-1, keepdims=True)
@@ -87,11 +55,11 @@ def _make_clusters(
     return hvs, labels
 
 
-def _sample_weight_configuration(clf: BayesianCentroidClassifier, key: jax.Array) -> jax.Array:
+def _sample_weight_configuration(clf: BayesianAdaptiveHDC, key: jax.Array) -> jax.Array:
     """Draw one full weight matrix :math:`W \\in \\mathbb{R}^{K \\times d}`
     from the per-class Gaussian posteriors."""
     eps = jax.random.normal(key, clf.mu.shape)
-    return clf.mu + eps * jnp.sqrt(clf.var + 1e-8)
+    return clf.mu + eps * jnp.sqrt(clf.var)
 
 
 def main() -> None:
@@ -104,10 +72,11 @@ def main() -> None:
     k_data, k_samples = jax.random.split(key)
 
     hvs, labels = _make_clusters(k_data)
-    clf = BayesianCentroidClassifier.create(
+    clf = BayesianAdaptiveHDC.create(
         num_classes=NUM_CLASSES,
         dimensions=DIMS,
-    ).fit(hvs, labels, prior_strength=1.0)
+        obs_var=0.08**2,
+    ).fit(hvs, labels)
 
     # --------------------------------------------------------------- 1.
     print("[1] The classifier's posterior is a distribution over weights.")
@@ -138,7 +107,7 @@ def main() -> None:
         print(f"        draw {i}:  {_mean_cos(w_s):.3f}")
 
     # --------------------------------------------------------------- 3.
-    print("\n[3] Epistemic uncertainty on a query = disagreement across draws.")
+    print("\n[3] Model-dependent decision disagreement for a constructed boundary query.")
     # A single query vector that is ambiguously near the boundary of two classes.
     query = 0.5 * (clf.mu[0] + clf.mu[1])
     query = query / (jnp.linalg.norm(query) + 1e-8)
@@ -152,7 +121,7 @@ def main() -> None:
     _, counts = np.unique(np.asarray(preds), return_counts=True)
     entropy = -np.sum((counts / counts.sum()) * np.log(counts / counts.sum() + 1e-12))
     print(
-        f"      predictive entropy = {entropy:.3f}  "
+        f"      sampled decision-vote entropy = {entropy:.3f}  "
         "(0 = all draws agree; log(K) = maximum disagreement)"
     )
 
@@ -160,17 +129,21 @@ def main() -> None:
     print("\n[4] Symmetry check — the weight posterior is Z/d-equivariant.")
     k_shift = 17
     hvs_shifted = jax.vmap(lambda h: shift(h, k_shift))(hvs)
-    clf_shifted = BayesianCentroidClassifier.create(
+    clf_shifted = BayesianAdaptiveHDC.create(
         num_classes=NUM_CLASSES,
         dimensions=DIMS,
-    ).fit(hvs_shifted, labels, prior_strength=1.0)
+        obs_var=0.08**2,
+    ).fit(hvs_shifted, labels)
 
     # The shifted classifier's mu should be the unshifted mu, shifted by k.
     diff = jnp.linalg.norm(clf_shifted.mu - jax.vmap(lambda w: shift(w, k_shift))(clf.mu))
     print(
         f"      ||mu_shifted − T_k(mu)|| = {float(diff):.2e}  "
-        "(≈ 0 ⟹ the posterior commutes with the cyclic-shift action)"
+        "(mean-equivariance check for this synthetic example)"
     )
+
+    var_diff = jnp.linalg.norm(clf_shifted.var - jax.vmap(lambda w: shift(w, k_shift))(clf.var))
+    print(f"      ||var_shifted − T_k(var)|| = {float(var_diff):.2e}")
 
     # --------------------------------------------------------------- 5.
     print("\n[5] The posterior is a GaussianHV and composes like one.")

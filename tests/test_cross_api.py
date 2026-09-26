@@ -124,7 +124,7 @@ def real_dataset():
 def real_calset():
     """A second independent draw from the same distribution for calibration."""
     rng = np.random.default_rng(2)
-    centers = rng.normal(size=(N_CLASS, D)) * 3.0
+    centers = np.random.default_rng(0).normal(size=(N_CLASS, D)) * 3.0
     labels = rng.integers(low=0, high=N_CLASS, size=(N_SAMPLES,))
     X = centers[labels] + rng.normal(size=(N_SAMPLES, D)) * 0.1
     X = X / (np.linalg.norm(X, axis=-1, keepdims=True) + 1e-8)
@@ -479,12 +479,13 @@ class TestUncertaintyPipeline:
         cal_hvs, cal_labels = real_calset
         clf = CentroidClassifier.create(num_classes=N_CLASS, dimensions=D).fit(hvs, labels)
         cal_sims = jax.vmap(clf.similarity)(cal_hvs)
-        tc = TemperatureCalibrator.create().fit(cal_sims, cal_labels, max_iters=50)
+        tc = TemperatureCalibrator.create().fit(cal_sims[:10], cal_labels[:10], max_iters=50)
         cal_probs = tc.calibrate(cal_sims)
-        cc = ConformalClassifier.create(alpha=0.1).fit(cal_probs, cal_labels)
-        coverage = float(cc.coverage(cal_probs, cal_labels))
+        cc = ConformalClassifier.create(alpha=0.1).fit(cal_probs[10:20], cal_labels[10:20])
+        coverage = float(cc.coverage(cal_probs[20:], cal_labels[20:]))
         set_size = float(cc.set_size(cal_probs))
-        # Marginal coverage >= 1 - alpha (modulo finite-sample noise).
+        # Clean held-out data is covered in this seeded smoke test.
+        # Marginal coverage is evaluated separately across calibration draws.
         assert coverage >= 0.85
         # Sets are non-empty and bounded by the class count (allow tiny fp slack).
         assert 1.0 <= set_size <= float(N_CLASS) + 1e-3
@@ -494,10 +495,10 @@ class TestUncertaintyPipeline:
         cal_hvs, cal_labels = real_calset
         clf = BayesianCentroidClassifier.create(num_classes=N_CLASS, dimensions=D).fit(hvs, labels)
         cal_logits = clf.logits(cal_hvs)
-        tc = TemperatureCalibrator.create().fit(cal_logits, cal_labels, max_iters=50)
+        tc = TemperatureCalibrator.create().fit(cal_logits[:10], cal_labels[:10], max_iters=50)
         cal_probs = tc.calibrate(cal_logits)
-        cc = ConformalClassifier.create(alpha=0.1).fit(cal_probs, cal_labels)
-        coverage = float(cc.coverage(cal_probs, cal_labels))
+        cc = ConformalClassifier.create(alpha=0.1).fit(cal_probs[10:20], cal_labels[10:20])
+        coverage = float(cc.coverage(cal_probs[20:], cal_labels[20:]))
         assert 0.0 <= coverage <= 1.0
 
     def test_temperature_calibrator_is_accuracy_preserving(self, real_dataset, real_calset):
@@ -506,7 +507,7 @@ class TestUncertaintyPipeline:
         cal_hvs, cal_labels = real_calset
         clf = CentroidClassifier.create(num_classes=N_CLASS, dimensions=D).fit(hvs, labels)
         cal_sims = jax.vmap(clf.similarity)(cal_hvs)
-        tc = TemperatureCalibrator.create().fit(cal_sims, cal_labels, max_iters=50)
+        tc = TemperatureCalibrator.create().fit(cal_sims[:10], cal_labels[:10], max_iters=50)
         cal_probs = tc.calibrate(cal_sims)
         pred_before = jnp.argmax(cal_sims, axis=-1)
         pred_after = jnp.argmax(cal_probs, axis=-1)
@@ -841,7 +842,7 @@ class TestDiagnostics:
         cal_hvs, cal_labels = real_calset
         # Independent test draw.
         rng = np.random.default_rng(3)
-        centers = rng.normal(size=(N_CLASS, D)) * 3.0
+        centers = np.random.default_rng(0).normal(size=(N_CLASS, D)) * 3.0
         test_labels_np = rng.integers(0, N_CLASS, size=(N_SAMPLES,))
         X = centers[test_labels_np] + rng.normal(size=(N_SAMPLES, D)) * 0.1
         X = X / (np.linalg.norm(X, axis=-1, keepdims=True) + 1e-8)
