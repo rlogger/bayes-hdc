@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Rewrite the README with runnable calibration examples, explicit statistical assumptions, related work, and an honest status for historical benchmark results.
+
 ### Fixed
 
 - Preserve finite-sample conformal coverage for small calibration sets and aggregate scalar regression coverage correctly.
